@@ -6,6 +6,7 @@ import {
   ArrowLeft, Loader2, Send, MessageSquare,
   Trash2, Pencil, Plus, X, Check, ChevronDown, Upload, FileText,
   MoreVertical, ShieldOff, Shield,
+  Phone, PhoneIncoming, PhoneOutgoing, PhoneMissed, Play, Pause,
 } from 'lucide-react';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:5002/api';
@@ -155,6 +156,84 @@ function CustomFieldInput({ field, value, onChange }) {
   );
 }
 
+// ─── Call history subcomponents ──────────────────────────────────────────────
+
+function fmtPhone(p) {
+  if (!p) return '—';
+  const s = String(p);
+  if (s.length === 12) return `+${s.slice(0,3)} (${s.slice(3,5)}) ${s.slice(5,8)}-${s.slice(8,10)}-${s.slice(10)}`;
+  return `+${s}`;
+}
+
+function fmtDur(s) {
+  if (!s) return null;
+  const m = Math.floor(s / 60), sec = s % 60;
+  return m > 0 ? `${m}:${String(sec).padStart(2,'0')}` : `${sec}s`;
+}
+
+function fmtDT(d) {
+  if (!d) return '—';
+  const dt = new Date(d);
+  return `${String(dt.getDate()).padStart(2,'0')}.${String(dt.getMonth()+1).padStart(2,'0')}.${dt.getFullYear()} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
+}
+
+function MiniAudio({ url }) {
+  const [playing, setPlaying] = React.useState(false);
+  const ref = React.useRef(null);
+  if (!url) return null;
+  const toggle = () => {
+    if (!ref.current) return;
+    if (playing) { ref.current.pause(); setPlaying(false); }
+    else { ref.current.play(); setPlaying(true); }
+  };
+  return (
+    <div className="flex items-center gap-1.5 mt-1.5">
+      <audio ref={ref} src={url} onEnded={() => setPlaying(false)} />
+      <button
+        onClick={toggle}
+        className="w-6 h-6 rounded-full bg-primary-50 hover:bg-primary-100 flex items-center justify-center text-primary-600 transition-colors"
+      >
+        {playing ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
+      </button>
+      <span className="text-[11px] text-ink-tertiary">Audio yozuv</span>
+    </div>
+  );
+}
+
+const CALL_STATUS = {
+  ringing:   { label: 'Jiringlagan',        cls: 'bg-amber-50 text-amber-600' },
+  active:    { label: 'Faol',               cls: 'bg-emerald-50 text-emerald-600' },
+  completed: { label: 'Gaplashildi',        cls: 'bg-surface-100 text-ink-tertiary' },
+  missed:    { label: "O'tkazib yuborilgan", cls: 'bg-red-50 text-red-500' },
+  cancelled: { label: 'Bekor qilindi',      cls: 'bg-surface-100 text-ink-disabled' },
+};
+
+function CallItem({ call }) {
+  const isMissed = call.status === 'missed' || call.status === 'cancelled';
+  const isOut    = call.direction === 'out';
+  const Icon = isMissed ? PhoneMissed : isOut ? PhoneOutgoing : PhoneIncoming;
+  const iconCls = isMissed ? 'text-red-400' : isOut ? 'text-blue-400' : 'text-emerald-500';
+  const st = CALL_STATUS[call.status] || CALL_STATUS.completed;
+  return (
+    <div className="flex items-start gap-2.5 py-1 group/call">
+      <div className="w-7 h-7 rounded-full bg-surface-100 flex items-center justify-center shrink-0 mt-1">
+        <Icon className={`w-3.5 h-3.5 ${iconCls}`} />
+      </div>
+      <div className="flex-1 min-w-0 bg-white rounded-2xl rounded-tl-sm px-3.5 py-2.5 border border-surface-100">
+        <div className="flex items-center gap-2 flex-wrap mb-0.5">
+          <span className="text-xs font-semibold text-ink">
+            {isOut ? 'Chiquvchi' : 'Kiruvchi'} qo'ng'iroq
+          </span>
+          <span className={`text-[10px] font-medium px-1.5 py-px rounded-full ${st.cls}`}>{st.label}</span>
+          {call.duration ? <span className="text-[11px] text-ink-tertiary font-mono">{fmtDur(call.duration)}</span> : null}
+        </div>
+        <p className="text-[11px] text-ink-tertiary">{fmtDT(call.startedAt || call.createdAt)}{call.ext ? ` · Ext: ${call.ext}` : ''}</p>
+        <MiniAudio url={call.recordingUrl} />
+      </div>
+    </div>
+  );
+}
+
 // ─── Activity subcomponents ───────────────────────────────────────────────────
 
 function SystemEvent({ activity }) {
@@ -244,6 +323,7 @@ export default function ContactFormPage() {
   const [meId, setMeId]             = useState(null);
   const bottomRef   = useRef(null);
   const textareaRef = useRef(null);
+  const [contactCalls, setContactCalls] = useState([]);
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -301,6 +381,14 @@ export default function ContactFormPage() {
   }, [id, isEdit]);
 
   useEffect(() => { loadActivities(); }, [loadActivities]);
+
+  useEffect(() => {
+    setContactCalls([]);
+    if (!isEdit) return;
+    axios.get(`${API}/atc/calls`, { params: { contact: id, limit: 100 } })
+      .then(r => setContactCalls(r.data.calls || []))
+      .catch(() => {});
+  }, [id, isEdit]);
 
   useEffect(() => {
     axios.get(`${API}/auth/me`)
@@ -869,11 +957,11 @@ export default function ContactFormPage() {
           </div>
         </div>
 
-        {/* ── RIGHT: Activity feed ── */}
+        {/* ── RIGHT: Activity feed (notes + calls merged) ── */}
         <div className="flex-1 flex flex-col min-w-0 bg-surface-50">
           <div className="px-5 py-3 border-b border-surface-100 bg-white shrink-0">
             <p className="text-sm font-semibold text-ink">Faoliyat tarixi</p>
-            <p className="text-xs text-ink-tertiary mt-0.5">Izohlar, o'zgarishlar va yozuvlar</p>
+            <p className="text-xs text-ink-tertiary mt-0.5">Izohlar, qo'ng'iroqlar va o'zgarishlar</p>
           </div>
 
           <div className="flex-1 overflow-y-auto px-5 py-4">
@@ -891,7 +979,7 @@ export default function ContactFormPage() {
               <div className="flex items-center justify-center h-32">
                 <Loader2 className="w-5 h-5 animate-spin text-primary-600" />
               </div>
-            ) : activities.length === 0 ? (
+            ) : (activities.length === 0 && contactCalls.length === 0) ? (
               <div className="flex flex-col items-center justify-center h-full text-center">
                 <div className="w-14 h-14 bg-white border border-surface-100 rounded-2xl flex items-center justify-center mb-3">
                   <MessageSquare className="w-7 h-7 text-ink-disabled" />
@@ -899,16 +987,23 @@ export default function ContactFormPage() {
                 <p className="text-sm font-medium text-ink-secondary">Faoliyat yo'q</p>
                 <p className="text-xs text-ink-tertiary mt-1">Birinchi izohni yozing</p>
               </div>
-            ) : (
-              <div className="space-y-0.5">
-                {activities.map(a =>
-                  a.type === 'note'
-                    ? <NoteItem key={a._id} activity={a} onDelete={handleDeleteNote} currentUserId={meId} />
-                    : <SystemEvent key={a._id} activity={a} />
-                )}
-                <div ref={bottomRef} />
-              </div>
-            )}
+            ) : (() => {
+              const actItems = activities.map(a => ({ ...a, _feedType: 'activity', _ts: new Date(a.createdAt).getTime() }));
+              const callItems = contactCalls.map(c => ({ ...c, _feedType: 'call', _ts: new Date(c.createdAt).getTime() }));
+              const merged = [...actItems, ...callItems].sort((a, b) => a._ts - b._ts);
+              return (
+                <div className="space-y-0.5">
+                  {merged.map(item =>
+                    item._feedType === 'call'
+                      ? <CallItem key={`call-${item._id}`} call={item} />
+                      : item.type === 'note'
+                        ? <NoteItem key={item._id} activity={item} onDelete={handleDeleteNote} currentUserId={meId} />
+                        : <SystemEvent key={item._id} activity={item} />
+                  )}
+                  <div ref={bottomRef} />
+                </div>
+              );
+            })()}
           </div>
 
           {isEdit && (

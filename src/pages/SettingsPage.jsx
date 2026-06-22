@@ -31,6 +31,7 @@ const TABS = [
   { key: 'tasks',       icon: SlidersHorizontal,label: 'Vazifalar'        },
   { key: 'integrations',icon: Archive,          label: 'Integratsiyalar'  },
   { key: 'inbox',       icon: MessageSquare,    label: 'Inbox'            },
+  { key: 'atc',         icon: Phone,            label: 'Telefoniya (ATC)' },
   { key: 'users',       icon: Users,            label: 'Foydalanuvchilar' },
   { key: 'roles',       icon: ShieldCheck,      label: 'Rollar'           },
   { key: 'audit',       icon: History,          label: 'Audit jurnali'    },
@@ -4582,6 +4583,118 @@ function RolesTab() {
   );
 }
 
+/* ─── ATC (Telefoniya) tab ───────────────────────────────── */
+function AtcTab() {
+  const [form,    setForm]    = useState({ crmToken: '', apiToken: '', sipDomain: 'ibrat.sip.uz' });
+  const [loaded,  setLoaded]  = useState(false);
+  const [saving,  setSaving]  = useState(false);
+  const [connected, setConnected] = useState(false);
+
+  useEffect(() => {
+    axios.get(`${API_URL}/atc/settings`)
+      .then(r => {
+        const a = r.data.atc || {};
+        setForm({ crmToken: a.crmToken || '', apiToken: a.apiToken || '', sipDomain: a.sipDomain || 'ibrat.sip.uz' });
+        setConnected(!!a.connected);
+      })
+      .catch(() => {})
+      .finally(() => setLoaded(true));
+  }, []);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      const r = await axios.put(`${API_URL}/atc/settings`, form);
+      setConnected(!!r.data.atc?.connected);
+      toast.success('Saqlandi');
+    } catch (e) { toast.error(e.response?.data?.message || 'Xato'); }
+    finally { setSaving(false); }
+  };
+
+  if (!loaded) return <div className="flex justify-center py-20"><Loader2 className="w-5 h-5 animate-spin text-primary-400" /></div>;
+
+  const webhookUrl = `${(process.env.REACT_APP_API_URL || 'http://localhost:5002/api').replace('/api', '')}/api/atc/webhook/${form.crmToken || '<CRM_TOKEN>'}`;
+
+  return (
+    <div className="max-w-xl space-y-6">
+      <div>
+        <h2 className="text-base font-semibold text-ink mb-1">ATC / IP-ATS integratsiyasi</h2>
+        <p className="text-sm text-ink-tertiary">ibrat.sip.uz yoki boshqa SIP platforma webhook sozlamalari</p>
+      </div>
+
+      {/* Status */}
+      <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${connected ? 'bg-emerald-50 border-emerald-200' : 'bg-surface-50 border-surface-200'}`}>
+        <div className={`w-2.5 h-2.5 rounded-full ${connected ? 'bg-emerald-500' : 'bg-surface-300'}`} />
+        <span className={`text-sm font-medium ${connected ? 'text-emerald-700' : 'text-ink-tertiary'}`}>
+          {connected ? 'Ulangan' : 'Ulanmagan'}
+        </span>
+      </div>
+
+      {/* CRM Token */}
+      <div>
+        <label className="block text-xs font-semibold text-ink-secondary mb-1.5">CRM Token <span className="text-red-500">*</span></label>
+        <input
+          className="w-full px-3 py-2 text-sm border border-surface-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-300 font-mono"
+          placeholder="Maxfiy token kiriting..."
+          value={form.crmToken}
+          onChange={e => setForm(f => ({ ...f, crmToken: e.target.value }))}
+        />
+        <p className="mt-1 text-xs text-ink-tertiary">ATC webhook URL-ga qo'shiladi. Istalgan qiymat bo'lishi mumkin.</p>
+      </div>
+
+      {/* Webhook URL info */}
+      {form.crmToken && (
+        <div className="bg-surface-50 border border-surface-200 rounded-xl p-4">
+          <p className="text-xs font-semibold text-ink-secondary mb-2">ATC-ga qo'yiladigan Webhook URL:</p>
+          <code className="text-xs text-ink break-all font-mono select-all">{webhookUrl}</code>
+          <button
+            onClick={() => { navigator.clipboard.writeText(webhookUrl); toast.success('Nusxalandi!'); }}
+            className="mt-2 text-xs text-primary-600 hover:underline"
+          >
+            Nusxalash
+          </button>
+        </div>
+      )}
+
+      {/* API Token */}
+      <div>
+        <label className="block text-xs font-semibold text-ink-secondary mb-1.5">API Token (Click-to-call uchun)</label>
+        <input
+          type="password"
+          className="w-full px-3 py-2 text-sm border border-surface-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-300 font-mono"
+          placeholder="Bearer token..."
+          value={form.apiToken}
+          onChange={e => setForm(f => ({ ...f, apiToken: e.target.value }))}
+        />
+        <p className="mt-1 text-xs text-ink-tertiary">ibrat.sip.uz management API tokeni (originate qo'ng'iroq uchun)</p>
+      </div>
+
+      {/* SIP Domain */}
+      <div>
+        <label className="block text-xs font-semibold text-ink-secondary mb-1.5">SIP Domain</label>
+        <input
+          className="w-full px-3 py-2 text-sm border border-surface-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-300 font-mono"
+          placeholder="ibrat.sip.uz"
+          value={form.sipDomain}
+          onChange={e => setForm(f => ({ ...f, sipDomain: e.target.value }))}
+        />
+        <p className="mt-1 text-xs text-ink-tertiary">
+          Faqat domen nomi. Click-to-call uchun: <code className="font-mono bg-surface-100 px-1 rounded">https://{"<domain>"}/crmapi/v1/originate</code>
+        </p>
+      </div>
+
+      <button
+        onClick={save}
+        disabled={saving || !form.crmToken}
+        className="flex items-center gap-2 px-5 py-2.5 bg-primary-600 text-white rounded-xl text-sm font-medium hover:bg-primary-700 disabled:opacity-50 transition-colors"
+      >
+        {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+        Saqlash
+      </button>
+    </div>
+  );
+}
+
 /* ─── Inbox / Quick Replies tab ──────────────────────────── */
 function QuickReplyTab() {
   const [replies, setReplies] = useState([]);
@@ -4787,6 +4900,7 @@ export default function SettingsPage() {
         {tab === 'tasks'         && <TasksTab />}
         {tab === 'integrations'  && <IntegrationsTab />}
         {tab === 'inbox'         && <QuickReplyTab />}
+        {tab === 'atc'           && <AtcTab />}
         {tab === 'users'         && <UsersTab currentUser={user} />}
         {tab === 'roles'      && <RolesTab />}
         {tab === 'currencies' && <CurrenciesTab />}

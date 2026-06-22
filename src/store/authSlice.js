@@ -26,6 +26,11 @@ export const login = createAsyncThunk('auth/login', async (data, { rejectWithVal
     const { token, user } = response.data;
     localStorage.setItem('token', token);
     axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    const oid = user?.organization?.id || user?.organization?._id;
+    if (oid) {
+      const { connectSocket } = await import('../utils/socket');
+      connectSocket(oid);
+    }
     return user;
   } catch (error) {
     return rejectWithValue(error.response?.data?.message || 'Xato yuz berdi');
@@ -35,7 +40,14 @@ export const login = createAsyncThunk('auth/login', async (data, { rejectWithVal
 export const getMe = createAsyncThunk('auth/getMe', async (_, { rejectWithValue }) => {
   try {
     const response = await axios.get(`${API_URL}/auth/me`);
-    return response.data.user;
+    const user = response.data.user;
+    // Socket-ni eng erta — Redux re-render kutmasdan ulaymiz
+    const oid = user?.organization?.id || user?.organization?._id;
+    if (oid) {
+      const { connectSocket } = await import('../utils/socket');
+      connectSocket(oid);
+    }
+    return user;
   } catch (error) {
     localStorage.removeItem('token');
     delete axios.defaults.headers.common['Authorization'];

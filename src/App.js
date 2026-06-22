@@ -5,6 +5,7 @@ import { Toaster } from 'react-hot-toast';
 import store from './store';
 import { getMe, setInitialized } from './store/authSlice';
 import { applyTheme } from './utils/theme';
+import { connectSocket } from './utils/socket';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
@@ -52,6 +53,7 @@ function AppInit() {
   const dispatch = useDispatch();
   const brandColor = useSelector((s) => s.auth.user?.organization?.brandColor);
   const brandSolid = useSelector((s) => s.auth.user?.organization?.brandSolid);
+  const orgId      = useSelector((s) => s.auth.user?.organization?.id || s.auth.user?.organization?._id);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -66,6 +68,11 @@ function AppInit() {
     const normalized = brandColor ? (brandColor.startsWith('#') ? brandColor : '#' + brandColor) : null;
     applyTheme(normalized, brandSolid);
   }, [brandColor, brandSolid]);
+
+  // getMe() muvaffaqiyatli bo'lishi bilan darhol socket ulansin
+  useEffect(() => {
+    if (orgId) connectSocket(orgId);
+  }, [orgId]);
 
   return (
     <BrowserRouter>
@@ -84,6 +91,7 @@ function AppInit() {
         <Route path="/tasks"                   element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
         <Route path="/inbox"                   element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
         <Route path="/inbox/analytics"         element={<PrivateRoute><InboxAnalyticsPage /></PrivateRoute>} />
+        <Route path="/calls"                   element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
         <Route path="/funnel/:id"              element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
         <Route path="/funnel/:id/deal/new"     element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
         <Route path="/funnel/:id/deal/:dealId" element={<PrivateRoute><DashboardPage /></PrivateRoute>} />

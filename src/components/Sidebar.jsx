@@ -5,7 +5,7 @@ import { usePermissions } from '../utils/permissions';
 import { mediaUrl } from '../utils/media';
 import { fetchFunnels } from '../store/funnelSlice';
 import {
-  Building2, LayoutDashboard, Users, Kanban, CheckSquare2, MessageSquare,
+  Building2, LayoutDashboard, Users, Kanban, CheckSquare2, MessageSquare, Phone,
   X, ChevronRight, ChevronDown,
   PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react';
@@ -15,6 +15,7 @@ export const NAV_ITEMS = [
   { key: 'contacts',  icon: Users,           label: 'Kontaktlar'  },
   { key: 'tasks',     icon: CheckSquare2,    label: 'Vazifalar'   },
   { key: 'inbox',     icon: MessageSquare,   label: 'Inbox'       },
+  { key: 'calls',     icon: Phone,           label: "Qo'ng'iroqlar" },
 ];
 
 function NavList({ active, onNavigate, mobile = false, onCloseMobile, collapsed = false, onToggleCollapse }) {

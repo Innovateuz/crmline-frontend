@@ -1,0 +1,61 @@
+name: Deploy Frontend
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install doctl
+        uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+
+      - name: Log in to DigitalOcean Container Registry
+        run: doctl registry login --expiry-seconds 1200
+
+      - name: Create .env file for build
+        run: echo "${{ secrets.FRONTEND_ENV }}" > .env
+
+      - name: Build Docker image
+        run: docker build -t registry.digitalocean.com/crmline/crmline-frontend:latest .
+
+      - name: Push Docker image to DO Registry
+        run: docker push registry.digitalocean.com/crmline/crmline-frontend:latest
+
+      - name: Deploy to Droplet via SSH
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.DROPLET_IP }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            # Pull the latest image
+            docker pull registry.digitalocean.com/crmline/crmline-frontend:latest
+            
+            # Go to the directory where docker-compose is located
+            # NOTE: Update the path if your docker-compose.yml is in a specific folder
+            cd ~/crmline || mkdir -p ~/crmline && cd ~/crmline
+            
+            # Zero Downtime Deployment using scale
+            docker compose up -d --scale frontend=2 --no-recreate frontend
+            
+            # Wait a few seconds to let Traefik pick up the new healthy container
+            sleep 10
+            
+            # Remove the old container
+            # We find the oldest container of this service to remove
+            OLD_CONTAINER=$(docker ps --format "{{.ID}} {{.CreatedAt}}" --filter "name=frontend" | sort -k 2 | head -n 1 | awk '{print $1}')
+            if [ -n "$OLD_CONTAINER" ]; then
+              docker rm -f $OLD_CONTAINER
+            fi
+            
+            # Scale back to 1 instance so docker-compose remembers the state
+            docker compose up -d --scale frontend=1 --no-recreate frontend

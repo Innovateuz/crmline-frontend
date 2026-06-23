@@ -15,6 +15,7 @@ import TasksPage from './TasksPage';
 import InboxPage from './InboxPage';
 import CallsPage from './CallsPage';
 import IncomingCallModal from '../components/IncomingCallModal';
+import BottomNav from '../components/BottomNav';
 import { getSocket } from '../utils/socket';
 
 // Modul darajasida — navigatsiya/remount da reset bo'lmaydi
@@ -145,10 +146,11 @@ export default function DashboardPage() {
             </button>
           }
         />
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto lg:pb-0 pb-16">
           {getContent()}
         </main>
       </div>
+      <BottomNav />
       {incomingCall && (
         <IncomingCallModal
           call={incomingCall}

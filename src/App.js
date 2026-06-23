@@ -15,8 +15,10 @@ import SettingsPage from './pages/SettingsPage';
 import UserProfilePage from './pages/UserProfilePage';
 import AccountPage from './pages/AccountPage';
 import InboxAnalyticsPage from './pages/InboxAnalyticsPage';
+import ContactAnalyticsPage from './pages/ContactAnalyticsPage';
 import LockScreen from './components/LockScreen';
 import UpdatePrompt from './components/UpdatePrompt';
+import { subscribeToPush } from './utils/swRegister';
 
 function PrivateRoute({ children }) {
   const { isAuthenticated, initialized } = useSelector((s) => s.auth);
@@ -74,6 +76,23 @@ function AppInit() {
     if (orgId) connectSocket(orgId);
   }, [orgId]);
 
+  // Push notification subscription — faqat bir marta, ruxsat so'ragandan keyin
+  useEffect(() => {
+    if (!orgId) return;
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    if (!('Notification' in window) || !('serviceWorker' in navigator)) return;
+    if (Notification.permission === 'denied') return;
+    if (Notification.permission === 'granted') {
+      subscribeToPush(token).catch(() => {});
+      return;
+    }
+    // 'default' → so'rang
+    Notification.requestPermission().then(perm => {
+      if (perm === 'granted') subscribeToPush(token).catch(() => {});
+    });
+  }, [orgId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <BrowserRouter>
       <Routes>
@@ -82,9 +101,10 @@ function AppInit() {
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password"  element={<ResetPasswordPage />} />
         <Route path="/dashboard"       element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
-        <Route path="/contacts"        element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
-        <Route path="/contacts/new"    element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
-        <Route path="/contacts/:id"    element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
+        <Route path="/contacts"            element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
+        <Route path="/contacts/new"        element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
+        <Route path="/contacts/analytics"  element={<PrivateRoute><ContactAnalyticsPage /></PrivateRoute>} />
+        <Route path="/contacts/:id"        element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
         <Route path="/settings"        element={<AdminRoute><SettingsPage /></AdminRoute>} />
         <Route path="/settings/users/:id" element={<AdminRoute><UserProfilePage /></AdminRoute>} />
         <Route path="/account"         element={<PrivateRoute><DashboardPage /></PrivateRoute>} />

@@ -1,7 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useSelector } from 'react-redux';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
+import { fetchTasks, invalidateTasks, upsertTask, removeTask as removeTaskAction } from '../store/tasksSlice';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { useT } from '../utils/translate';
 import {
   DndContext, DragOverlay, PointerSensor, useSensor, useSensors,
   useDroppable, useDraggable,
@@ -9,14 +11,15 @@ import {
 import {
   Plus, X, Loader2, Check, ChevronDown,
   Calendar, CheckSquare2, Pencil, Trash2,
+  AlertCircle, User, Link2, Search, Filter,
 } from 'lucide-react';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5002/api';
 
 const PRIORITY_MAP = {
-  low:    { label: "Past",   color: '#94a3b8', bg: '#f1f5f9' },
-  normal: { label: "O'rta", color: '#3b82f6', bg: '#eff6ff' },
-  high:   { label: 'Yuqori', color: '#ef4444', bg: '#fef2f2' },
+  low:    { labelKey: 'tasks.prioLow',    color: '#94a3b8', bg: '#f1f5f9', ring: 'ring-slate-300'  },
+  normal: { labelKey: 'tasks.prioMedium', color: '#3b82f6', bg: '#eff6ff', ring: 'ring-blue-300'   },
+  high:   { labelKey: 'tasks.prioHigh',   color: '#ef4444', bg: '#fef2f2', ring: 'ring-red-300'    },
 };
 
 function fmtDate(d) {
@@ -25,59 +28,150 @@ function fmtDate(d) {
   return `${String(dt.getDate()).padStart(2,'0')}.${String(dt.getMonth()+1).padStart(2,'0')}.${dt.getFullYear()}`;
 }
 
+function isOverdue(dueDate) {
+  if (!dueDate) return false;
+  return new Date(dueDate) < new Date();
+}
+
 function initials(name) {
   if (!name) return '?';
-  const parts = name.trim().split(' ');
-  return parts.length >= 2
-    ? (parts[0][0] + parts[1][0]).toUpperCase()
-    : name[0].toUpperCase();
+  const p = name.trim().split(' ');
+  return p.length >= 2 ? (p[0][0] + p[1][0]).toUpperCase() : name[0].toUpperCase();
+}
+
+/* ─── Contact Search ──────────────────────────────────────── */
+function ContactSearch({ contactId, contactName, onChange }) {
+  const t = useT();
+  const [q,       setQ]       = useState(contactName || '');
+  const [results, setResults] = useState([]);
+  const [open,    setOpen]    = useState(false);
+  const timerRef = useRef(null);
+
+  const handleInput = (val) => {
+    setQ(val);
+    if (!val.trim()) { onChange(null, ''); setResults([]); setOpen(false); return; }
+    clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(async () => {
+      try {
+        const res = await axios.get(`${API_URL}/contacts`, { params: { search: val, limit: 8 } });
+        setResults(res.data.contacts || []);
+        setOpen(true);
+      } catch {}
+    }, 300);
+  };
+
+  const pick = (c) => {
+    onChange(c._id, c.name);
+    setQ(c.name);
+    setOpen(false);
+  };
+
+  const clear = () => {
+    onChange(null, '');
+    setQ('');
+    setResults([]);
+    setOpen(false);
+  };
+
+  return (
+    <div className="relative">
+      <div className="relative">
+        <input
+          className="input pr-8"
+          placeholder={t('tasks.contactSearch')}
+          value={q}
+          onChange={e => handleInput(e.target.value)}
+          onFocus={() => results.length > 0 && setOpen(true)}
+          onBlur={() => setTimeout(() => setOpen(false), 150)}
+        />
+        {(q || contactId) && (
+          <button type="button" onClick={clear}
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-disabled hover:text-ink">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
+      {open && results.length > 0 && (
+        <div className="absolute top-full left-0 right-0 z-50 bg-white border border-surface-200 rounded-xl shadow-xl mt-1 max-h-40 overflow-y-auto">
+          {results.map(c => (
+            <button key={c._id} type="button" onMouseDown={() => pick(c)}
+              className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-surface-50 transition-colors">
+              <div className="w-6 h-6 rounded-full bg-primary-100 flex items-center justify-center text-[10px] font-bold text-primary-700 shrink-0">
+                {initials(c.name)}
+              </div>
+              <span className="text-sm font-medium text-ink">{c.name}</span>
+              {c.phone && <span className="text-xs text-ink-tertiary ml-1">{c.phone}</span>}
+            </button>
+          ))}
+        </div>
+      )}
+      {contactId && !open && (
+        <p className="text-[11px] text-emerald-600 mt-1 flex items-center gap-1">
+          <Check className="w-3 h-3" /> {t('tasks.linked')}
+        </p>
+      )}
+    </div>
+  );
 }
 
 /* ─── Draggable Task Card ─────────────────────────────────── */
 function TaskCard({ task, onEdit, onDelete, overlay = false }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: task._id });
+  const overdue = isOverdue(task.dueDate);
+  const pri = PRIORITY_MAP[task.priority] || PRIORITY_MAP.normal;
+  const t = useT();
 
   const card = (
-    <div
-      className={`bg-white border border-surface-200 rounded-xl p-3 shadow-sm select-none transition-all ${
-        overlay ? 'rotate-1 shadow-lg cursor-grabbing' : 'cursor-grab active:cursor-grabbing hover:shadow-md hover:border-surface-300'
-      } ${isDragging && !overlay ? 'opacity-30' : ''}`}
-    >
-      <div className="flex items-start justify-between gap-2">
-        <p className="text-sm font-medium text-ink leading-snug flex-1">{task.title}</p>
+    <div className={`bg-white border rounded-xl p-3 shadow-sm select-none transition-all ${
+      overlay ? 'rotate-1 shadow-lg cursor-grabbing' : 'cursor-grab active:cursor-grabbing hover:shadow-md'
+    } ${isDragging && !overlay ? 'opacity-30' : ''} ${
+      overdue ? 'border-red-200 bg-red-50/30' : 'border-surface-200 hover:border-surface-300'
+    }`}>
+      {/* Priority bar */}
+      <div className="flex items-start justify-between gap-2 mb-2">
+        <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
+          style={{ backgroundColor: pri.bg, color: pri.color }}>
+          <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: pri.color }} />
+          {t(pri.labelKey)}
+        </span>
         <div className="flex items-center gap-0.5 shrink-0">
-          <button
-            onPointerDown={e => e.stopPropagation()}
+          <button onPointerDown={e => e.stopPropagation()}
             onClick={e => { e.stopPropagation(); onEdit(task); }}
-            className="p-1 rounded-md hover:bg-surface-100 text-ink-disabled hover:text-ink-tertiary transition-colors"
-          >
+            className="p-1 rounded-md hover:bg-surface-100 text-ink-disabled hover:text-ink-tertiary transition-colors">
             <Pencil className="w-3 h-3" />
           </button>
-          <button
-            onPointerDown={e => e.stopPropagation()}
+          <button onPointerDown={e => e.stopPropagation()}
             onClick={e => { e.stopPropagation(); onDelete(task._id); }}
-            className="p-1 rounded-md hover:bg-red-50 text-ink-disabled hover:text-red-500 transition-colors"
-          >
+            className="p-1 rounded-md hover:bg-red-50 text-ink-disabled hover:text-red-500 transition-colors">
             <Trash2 className="w-3 h-3" />
           </button>
         </div>
       </div>
 
+      <p className="text-sm font-medium text-ink leading-snug">{task.title}</p>
+
+      {task.description && (
+        <p className="text-[11px] text-ink-tertiary mt-1 line-clamp-2 leading-relaxed">{task.description}</p>
+      )}
+
+      {task.contact && (
+        <div className="flex items-center gap-1 mt-1.5">
+          <Link2 className="w-3 h-3 text-ink-disabled shrink-0" />
+          <span className="text-[11px] text-ink-tertiary truncate">{task.contact.name}</span>
+        </div>
+      )}
+
       <div className="flex items-center gap-2 mt-2 flex-wrap">
-        {/* Due date */}
         {task.dueDate && (
-          <span className="flex items-center gap-1 text-[10px] text-ink-tertiary">
+          <span className={`flex items-center gap-1 text-[10px] font-medium ${overdue ? 'text-red-500' : 'text-ink-tertiary'}`}>
+            {overdue && <AlertCircle className="w-3 h-3" />}
             <Calendar className="w-3 h-3" />
             {fmtDate(task.dueDate)}
           </span>
         )}
-
-        {/* Assignee */}
         {task.assignedTo && (
-          <span
-            className="w-5 h-5 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-[9px] font-bold shrink-0 ml-auto"
-            title={task.assignedTo.name}
-          >
+          <span className="w-5 h-5 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-[9px] font-bold shrink-0 ml-auto"
+            title={task.assignedTo.name}>
             {initials(task.assignedTo.name)}
           </span>
         )}
@@ -86,34 +180,34 @@ function TaskCard({ task, onEdit, onDelete, overlay = false }) {
   );
 
   if (overlay) return card;
-
-  return (
-    <div ref={setNodeRef} {...listeners} {...attributes}>
-      {card}
-    </div>
-  );
+  return <div ref={setNodeRef} {...listeners} {...attributes}>{card}</div>;
 }
 
 /* ─── Droppable Column ────────────────────────────────────── */
 function Column({ stage, tasks, onAdd, onEdit, onDelete }) {
   const { setNodeRef, isOver } = useDroppable({ id: String(stage._id || stage.name) });
+  const overdueCount = tasks.filter(t => isOverdue(t.dueDate)).length;
+  const t = useT();
 
   return (
-    <div className="flex flex-col w-80 shrink-0 h-full">
-      {/* Header */}
-      <div className="flex items-center justify-center gap-2 mb-3 px-1">
+    <div className="flex flex-col w-72 shrink-0 h-full">
+      <div className="flex items-center gap-2 mb-3 px-1">
         <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: stage.color }} />
         <span className="text-sm font-semibold text-ink">{stage.name}</span>
         <span className="text-xs text-ink-disabled bg-surface-100 rounded-full px-1.5 py-0.5">{tasks.length}</span>
+        {overdueCount > 0 && (
+          <span className="text-[10px] text-red-500 bg-red-50 rounded-full px-1.5 py-0.5 font-medium">
+            {overdueCount} {t('tasks.overdue')}
+          </span>
+        )}
+        <button onClick={() => onAdd(stage)} className="ml-auto p-1 rounded-lg hover:bg-surface-200 text-ink-disabled hover:text-ink transition-colors">
+          <Plus className="w-3.5 h-3.5" />
+        </button>
       </div>
-
-      {/* Cards */}
-      <div
-        ref={setNodeRef}
+      <div ref={setNodeRef}
         className={`flex-1 rounded-xl p-2 space-y-2 overflow-y-auto transition-colors ${
           isOver ? 'bg-primary-50 ring-2 ring-primary-300' : 'bg-surface-100'
-        }`}
-      >
+        }`}>
         {tasks.map(task => (
           <TaskCard key={task._id} task={task} onEdit={onEdit} onDelete={onDelete} />
         ))}
@@ -124,77 +218,122 @@ function Column({ stage, tasks, onAdd, onEdit, onDelete }) {
 
 /* ─── Task Modal ──────────────────────────────────────────── */
 function TaskModal({ initial, stages, users, onSave, onClose, saving }) {
-  const [title,      setTitle]      = useState(initial?.title      || '');
-  const [stageId,    setStageId]    = useState(initial?.stageId    ? String(initial.stageId) : (stages[0] ? String(stages[0]._id || stages[0].name) : ''));
-  const [assignedTo, setAssignedTo] = useState(initial?.assignedTo?._id || initial?.assignedTo || '');
-  const [dueDate,    setDueDate]    = useState(initial?.dueDate    ? initial.dueDate.slice(0, 10) : '');
+  const t = useT();
+  const [title,       setTitle]       = useState(initial?.title       || '');
+  const [description, setDescription] = useState(initial?.description || '');
+  const [stageId,     setStageId]     = useState(
+    initial?.stageId ? String(initial.stageId) : (stages[0] ? String(stages[0]._id || stages[0].name) : '')
+  );
+  const [assignedTo,  setAssignedTo]  = useState(initial?.assignedTo?._id || initial?.assignedTo || '');
+  const [dueDate,     setDueDate]     = useState(initial?.dueDate ? initial.dueDate.slice(0, 10) : '');
+  const [priority,    setPriority]    = useState(initial?.priority || 'normal');
+  const [contactId,   setContactId]   = useState(initial?.contact?._id || initial?.contact || null);
+  const [contactName, setContactName] = useState(initial?.contact?.name || '');
 
   const handleSave = () => {
-    if (!title.trim()) { toast.error('Sarlavha kiritilishi shart'); return; }
-    onSave({ title, stageId, assignedTo: assignedTo || null, dueDate: dueDate || null });
+    if (!title.trim()) { toast.error(t('tasks.titleRequired')); return; }
+    onSave({
+      title, description, stageId, priority,
+      assignedTo: assignedTo || null,
+      dueDate:    dueDate    || null,
+      contact:    contactId  || null,
+    });
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-modal w-full max-w-sm flex flex-col">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-surface-100">
-          <h2 className="font-semibold text-ink">{initial?._id ? 'Vazifani tahrirlash' : 'Yangi vazifa'}</h2>
+      <div className="relative bg-white rounded-2xl shadow-modal w-full max-w-md flex flex-col max-h-[90vh]">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-surface-100 shrink-0">
+          <h2 className="font-semibold text-ink">{initial?._id ? t('tasks.editTask') : t('tasks.newTask')}</h2>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-surface-100 text-ink-tertiary">
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        <div className="px-5 py-4 space-y-4">
+        <div className="px-5 py-4 space-y-4 overflow-y-auto">
           {/* Title */}
           <div>
-            <label className="block text-xs font-medium text-ink-tertiary mb-1">Sarlavha</label>
-            <input
-              className="input"
-              placeholder="Nima qilish kerak..."
-              value={title}
-              onChange={e => setTitle(e.target.value)}
-              autoFocus
-              onKeyDown={e => e.key === 'Enter' && handleSave()}
-            />
+            <label className="block text-xs font-medium text-ink-tertiary mb-1">{t('tasks.modalTitle')}</label>
+            <input className="input" placeholder={t('tasks.titlePlaceholder')}
+              value={title} onChange={e => setTitle(e.target.value)} autoFocus
+              onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSave()} />
           </div>
 
-          {/* Assignee */}
+          {/* Description */}
           <div>
-            <label className="block text-xs font-medium text-ink-tertiary mb-1">Ma'sul</label>
-            <div className="relative">
-              <select
-                className="input appearance-none pr-8"
-                value={assignedTo}
-                onChange={e => setAssignedTo(e.target.value)}
-              >
-                <option value="">Tanlanmagan</option>
-                {users.map(u => (
-                  <option key={u._id} value={u._id}>{u.name}</option>
+            <label className="block text-xs font-medium text-ink-tertiary mb-1">{t('tasks.description')}</label>
+            <textarea className="input resize-none" rows={3} placeholder={t('tasks.descPlaceholder')}
+              value={description} onChange={e => setDescription(e.target.value)} />
+          </div>
+
+          {/* Priority + Stage row */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-ink-tertiary mb-1">{t('tasks.priority')}</label>
+              <div className="flex gap-1">
+                {Object.entries(PRIORITY_MAP).map(([key, p]) => (
+                  <button key={key} type="button" onClick={() => setPriority(key)}
+                    className={`flex-1 py-1.5 rounded-lg text-[11px] font-semibold transition-all border ${
+                      priority === key
+                        ? `border-transparent text-white`
+                        : 'border-surface-200 text-ink-tertiary hover:border-surface-300'
+                    }`}
+                    style={priority === key ? { backgroundColor: p.color } : {}}>
+                    {t(p.labelKey)}
+                  </button>
                 ))}
-              </select>
-              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-disabled pointer-events-none" />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-ink-tertiary mb-1">{t('tasks.stage')}</label>
+              <div className="relative">
+                <select className="input appearance-none pr-8" value={stageId} onChange={e => setStageId(e.target.value)}>
+                  {stages.map(s => (
+                    <option key={String(s._id || s.name)} value={String(s._id || s.name)}>{s.name}</option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-disabled pointer-events-none" />
+              </div>
             </div>
           </div>
 
-          {/* Due date */}
+          {/* Assignee + Due date */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-ink-tertiary mb-1">{t('tasks.assignee')}</label>
+              <div className="relative">
+                <select className="input appearance-none pr-8" value={assignedTo} onChange={e => setAssignedTo(e.target.value)}>
+                  <option value="">{t('tasks.unassigned')}</option>
+                  {users.map(u => <option key={u._id} value={u._id}>{u.name}</option>)}
+                </select>
+                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-disabled pointer-events-none" />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-ink-tertiary mb-1">{t('tasks.dueDate')}</label>
+              <input type="date" className="input" value={dueDate} onChange={e => setDueDate(e.target.value)} />
+            </div>
+          </div>
+
+          {/* Contact link */}
           <div>
-            <label className="block text-xs font-medium text-ink-tertiary mb-1">Muddat</label>
-            <input
-              type="date"
-              className="input"
-              value={dueDate}
-              min={new Date().toISOString().slice(0, 10)}
-              onChange={e => setDueDate(e.target.value)}
+            <label className="block text-xs font-medium text-ink-tertiary mb-1 flex items-center gap-1">
+              <Link2 className="w-3 h-3" /> {t('tasks.contact')}
+            </label>
+            <ContactSearch
+              contactId={contactId}
+              contactName={contactName}
+              onChange={(id, name) => { setContactId(id); setContactName(name); }}
             />
           </div>
         </div>
 
-        <div className="flex justify-end gap-2 px-5 py-4 border-t border-surface-100">
-          <button onClick={onClose} className="btn-secondary btn-md">Bekor</button>
+        <div className="flex justify-end gap-2 px-5 py-4 border-t border-surface-100 shrink-0">
+          <button onClick={onClose} className="btn-secondary btn-md">{t('tasks.cancel')}</button>
           <button onClick={handleSave} disabled={saving} className="btn-primary btn-md flex items-center gap-2">
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-            {initial?._id ? 'Saqlash' : 'Yaratish'}
+            {initial?._id ? t('tasks.save') : t('tasks.create')}
           </button>
         </div>
       </div>
@@ -204,42 +343,42 @@ function TaskModal({ initial, stages, users, onSave, onClose, saving }) {
 
 /* ─── Main Page ───────────────────────────────────────────── */
 export default function TasksPage() {
-  const meId = useSelector(s => s.auth.user?._id);
+  const meId    = useSelector(s => s.auth.user?._id);
+  const dispatch = useDispatch();
+  const t = useT();
+  const { tasks, stages, users, loading, total: tasksTotal } = useSelector(s => s.tasks);
 
-  const [stages,   setStages]   = useState([]);
-  const [tasks,    setTasks]    = useState([]);
-  const [users,    setUsers]    = useState([]);
-  const [loading,  setLoading]  = useState(true);
   const [saving,   setSaving]   = useState(false);
-  const [modal,    setModal]    = useState(null); // null | { task } for edit, { stageId } for create
+  const [modal,    setModal]    = useState(null);
   const [activeId, setActiveId] = useState(null);
+
+  // Filters
+  const [filterSearch,   setFilterSearch]   = useState('');
+  const [filterPriority, setFilterPriority] = useState('');
+  const [filterAssignee, setFilterAssignee] = useState('');
+  const [showFilters,    setShowFilters]    = useState(false);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
   const load = useCallback(async () => {
-    setLoading(true);
     try {
-      const [stagesRes, tasksRes, usersRes] = await Promise.all([
-        axios.get(`${API_URL}/organization/task-stages`),
-        axios.get(`${API_URL}/tasks`),
-        axios.get(`${API_URL}/organization/users`),
-      ]);
-      setStages(stagesRes.data.stages || []);
-      setTasks(tasksRes.data.tasks   || []);
-      setUsers(usersRes.data.users   || []);
+      await dispatch(fetchTasks()).unwrap();
     } catch {
-      toast.error('Yuklanishda xato');
-    } finally {
-      setLoading(false);
+      toast.error(t('tasks.loadError'));
     }
-  }, []);
+  }, [dispatch]);
 
   useEffect(() => { load(); }, [load]);
 
   const stageKey = (s) => String(s._id || s.name);
 
   const tasksForStage = (stage) =>
-    tasks.filter(t => String(t.stageId) === stageKey(stage));
+    tasks
+      .filter(t => String(t.stageId) === stageKey(stage))
+      .filter(t => !filterSearch   || t.title.toLowerCase().includes(filterSearch.toLowerCase())
+                                   || t.description?.toLowerCase().includes(filterSearch.toLowerCase()))
+      .filter(t => !filterPriority || t.priority === filterPriority)
+      .filter(t => !filterAssignee || String(t.assignedTo?._id || t.assignedTo || '') === filterAssignee);
 
   const activeTask = activeId ? tasks.find(t => t._id === activeId) : null;
 
@@ -251,56 +390,60 @@ export default function TasksPage() {
     const targetStageId = over.id;
     const task = tasks.find(t => t._id === active.id);
     if (!task || String(task.stageId) === String(targetStageId)) return;
-
-    // Optimistic update
-    setTasks(prev => prev.map(t => t._id === active.id ? { ...t, stageId: targetStageId } : t));
+    dispatch(upsertTask({ ...task, stageId: targetStageId }));
     try {
-      await axios.put(`${API_URL}/tasks/${active.id}`, { stageId: targetStageId });
+      const res = await axios.put(`${API_URL}/tasks/${active.id}`, { stageId: targetStageId });
+      dispatch(upsertTask(res.data.task));
     } catch {
       toast.error('Xato');
+      dispatch(invalidateTasks());
       load();
     }
   };
 
   const openCreate = (stage) => setModal({ stageId: stageKey(stage) });
-  const openEdit   = (task)    => setModal({ task });
-  const closeModal = ()        => setModal(null);
+  const openEdit   = (task)  => setModal({ task });
+  const closeModal = ()      => setModal(null);
 
   const handleSave = async (data) => {
     setSaving(true);
     try {
       if (modal?.task?._id) {
         const res = await axios.put(`${API_URL}/tasks/${modal.task._id}`, data);
-        setTasks(prev => prev.map(t => t._id === modal.task._id ? res.data.task : t));
-        toast.success('Saqlandi');
+        dispatch(upsertTask(res.data.task));
+        toast.success(t('tasks.saved'));
       } else {
         const res = await axios.post(`${API_URL}/tasks`, {
           ...data,
-          stageId: modal?.stageId || (stages[0] ? stageKey(stages[0]) : ''),
+          stageId:    modal?.stageId || (stages[0] ? stageKey(stages[0]) : ''),
           assignedTo: data.assignedTo || meId || null,
         });
-        setTasks(prev => [...prev, res.data.task]);
-        toast.success('Yaratildi');
+        dispatch(upsertTask(res.data.task));
+        toast.success(t('tasks.created'));
       }
       closeModal();
     } catch (e) {
-      toast.error(e.response?.data?.message || 'Xato');
+      toast.error(e.response?.data?.message || t('tasks.error'));
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("O'chirishni tasdiqlaysizmi?")) return;
-    setTasks(prev => prev.filter(t => t._id !== id));
+    if (!window.confirm(t('tasks.deleteConfirm'))) return;
+    dispatch(removeTaskAction(id));
     try {
       await axios.delete(`${API_URL}/tasks/${id}`);
-      toast.success("O'chirildi");
+      toast.success(t('tasks.deleted'));
     } catch {
-      toast.error('Xato');
+      toast.error(t('tasks.error'));
+      dispatch(invalidateTasks());
       load();
     }
   };
+
+  const totalOverdue = tasks.filter(t => isOverdue(t.dueDate)).length;
+  const hasFilters = filterSearch || filterPriority || filterAssignee;
 
   if (loading) {
     return (
@@ -314,9 +457,9 @@ export default function TasksPage() {
     return (
       <div className="flex flex-col items-center justify-center h-full py-24 text-center px-4">
         <CheckSquare2 className="w-12 h-12 text-ink-disabled mb-4" />
-        <h2 className="text-lg font-semibold text-ink">Vazifalar bo'limi</h2>
+        <h2 className="text-lg font-semibold text-ink">{t('tasks.noStagesTitle')}</h2>
         <p className="text-sm text-ink-tertiary mt-2 max-w-xs">
-          Hali bosqichlar sozlanmagan. Sozlamalar → Vazifalar bo'limida bosqichlar qo'shing.
+          {t('tasks.noStages')}
         </p>
       </div>
     );
@@ -325,18 +468,103 @@ export default function TasksPage() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="shrink-0 px-6 py-4 border-b border-surface-200 bg-white flex items-center justify-center relative">
-        <div className="flex items-center gap-2">
-          <CheckSquare2 className="w-5 h-5 text-primary-600" />
-          <h1 className="text-lg font-bold text-ink">Vazifalar</h1>
-          <span className="text-sm text-ink-disabled bg-surface-100 rounded-full px-2 py-0.5">{tasks.length}</span>
+      <div className="shrink-0 px-6 py-3 border-b border-surface-200 bg-white">
+        <div className="flex items-center gap-3 flex-wrap">
+          <CheckSquare2 className="w-5 h-5 text-primary-600 shrink-0" />
+          <h1 className="font-bold text-ink">{t('tasks.title')}</h1>
+          <span className="text-xs text-ink-disabled bg-surface-100 rounded-full px-2 py-0.5">{tasks.length}</span>
+          {totalOverdue > 0 && (
+            <span className="flex items-center gap-1 text-xs text-red-500 bg-red-50 rounded-full px-2 py-0.5 font-medium">
+              <AlertCircle className="w-3 h-3" />
+              {totalOverdue} {t('tasks.overdue')}
+            </span>
+          )}
+          {tasksTotal > tasks.length && (
+            <span className="flex items-center gap-1 text-xs text-amber-600 bg-amber-50 rounded-full px-2 py-0.5 font-medium">
+              <AlertCircle className="w-3 h-3" />
+              {t('tasks.totalNote').replace('{total}', tasksTotal).replace('{shown}', tasks.length)}
+            </span>
+          )}
+
+          <div className="ml-auto flex items-center gap-2">
+            {/* Search */}
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-ink-disabled" />
+              <input
+                className="pl-8 pr-3 py-1.5 text-sm bg-surface-50 border border-surface-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-300 w-44"
+                placeholder={t('tasks.search')}
+                value={filterSearch}
+                onChange={e => setFilterSearch(e.target.value)}
+              />
+              {filterSearch && (
+                <button onClick={() => setFilterSearch('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-disabled hover:text-ink">
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+
+            {/* Filter toggle */}
+            <button onClick={() => setShowFilters(v => !v)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium border transition-colors ${
+                showFilters || (filterPriority || filterAssignee)
+                  ? 'bg-primary-50 border-primary-300 text-primary-700'
+                  : 'bg-surface-50 border-surface-200 text-ink-secondary hover:bg-surface-100'
+              }`}>
+              <Filter className="w-3.5 h-3.5" />
+              {t('tasks.filter')}
+              {(filterPriority || filterAssignee) && (
+                <span className="w-4 h-4 rounded-full bg-primary-600 text-white text-[9px] font-bold flex items-center justify-center">
+                  {(filterPriority ? 1 : 0) + (filterAssignee ? 1 : 0)}
+                </span>
+              )}
+            </button>
+
+            <button onClick={() => openCreate(stages[0])} className="btn-primary btn-md flex items-center gap-2">
+              <Plus className="w-4 h-4" /> {t('tasks.newTask')}
+            </button>
+          </div>
         </div>
-        <button
-          onClick={() => openCreate(stages[0])}
-          className="btn-primary btn-md flex items-center gap-2 absolute right-6"
-        >
-          <Plus className="w-4 h-4" /> Yangi vazifa
-        </button>
+
+        {/* Filter bar */}
+        {showFilters && (
+          <div className="flex items-center gap-3 mt-3 pt-3 border-t border-surface-100 flex-wrap">
+            {/* Priority filter */}
+            <div className="flex items-center gap-1 bg-surface-50 border border-surface-200 rounded-xl p-1">
+              <button onClick={() => setFilterPriority('')}
+                className={`px-2.5 py-1 text-xs rounded-lg font-medium transition-colors ${!filterPriority ? 'bg-white text-ink shadow-sm' : 'text-ink-tertiary hover:text-ink'}`}>
+                {t('tasks.allPriorities')}
+              </button>
+              {Object.entries(PRIORITY_MAP).map(([key, p]) => (
+                <button key={key} onClick={() => setFilterPriority(filterPriority === key ? '' : key)}
+                  className={`px-2.5 py-1 text-xs rounded-lg font-medium transition-colors ${
+                    filterPriority === key ? 'text-white shadow-sm' : 'text-ink-tertiary hover:text-ink'
+                  }`}
+                  style={filterPriority === key ? { backgroundColor: p.color } : {}}>
+                  {t(p.labelKey)}
+                </button>
+              ))}
+            </div>
+
+            {/* Assignee filter */}
+            <div className="relative">
+              <User className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-ink-disabled" />
+              <select className="pl-8 pr-8 py-1.5 text-sm bg-surface-50 border border-surface-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-300 appearance-none"
+                value={filterAssignee} onChange={e => setFilterAssignee(e.target.value)}>
+                <option value="">{t('tasks.allAssignees')}</option>
+                {users.map(u => <option key={u._id} value={u._id}>{u.name}</option>)}
+              </select>
+              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-ink-disabled pointer-events-none" />
+            </div>
+
+            {hasFilters && (
+              <button onClick={() => { setFilterSearch(''); setFilterPriority(''); setFilterAssignee(''); }}
+                className="text-xs text-ink-tertiary hover:text-red-500 flex items-center gap-1 transition-colors">
+                <X className="w-3 h-3" /> {t('tasks.clearFilters')}
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Kanban board */}
@@ -344,26 +572,16 @@ export default function TasksPage() {
         <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
           <div className="flex gap-4 h-full px-6 py-5 items-stretch">
             {stages.map(stage => (
-              <Column
-                key={stageKey(stage)}
-                stage={stage}
-                tasks={tasksForStage(stage)}
-                onAdd={openCreate}
-                onEdit={openEdit}
-                onDelete={handleDelete}
-              />
+              <Column key={stageKey(stage)} stage={stage} tasks={tasksForStage(stage)}
+                onAdd={openCreate} onEdit={openEdit} onDelete={handleDelete} />
             ))}
           </div>
-
           <DragOverlay>
-            {activeTask && (
-              <TaskCard task={activeTask} onEdit={() => {}} onDelete={() => {}} overlay />
-            )}
+            {activeTask && <TaskCard task={activeTask} onEdit={() => {}} onDelete={() => {}} overlay />}
           </DragOverlay>
         </DndContext>
       </div>
 
-      {/* Modal */}
       {modal && (
         <TaskModal
           initial={modal.task || { stageId: modal.stageId }}

@@ -17,8 +17,9 @@ import {
   Phone, Lock, ChevronDown, Loader2, Search,
   Pencil, Trash2, KeyRound, ShieldCheck, SlidersHorizontal, History,
   Palette, Upload, Check, Building2, Building, RotateCcw, AlertTriangle, Eye, EyeOff,
-  GripVertical, Archive, Kanban, ChevronUp, GripHorizontal, MessageSquare,
+  GripVertical, Archive, Kanban, ChevronUp, GripHorizontal, MessageSquare, Mail, Bell, BellOff,
 } from 'lucide-react';
+import { subscribeToPush, unsubscribeFromPush } from '../utils/swRegister';
 import { addFunnel, updateFunnel as updateFunnelStore, removeFunnel, fetchFunnels } from '../store/funnelSlice';
 import DateTimePicker from '../components/DateTimePicker';
 import { mediaUrl } from '../utils/media';
@@ -648,15 +649,66 @@ function IntegrationsTab() {
   const [igConnecting, setIgConnecting] = useState(false);
   const [igDisconnecting, setIgDisconnecting] = useState(false);
 
+  // Push notifications state
+  const [pushSupported, setPushSupported] = useState(false);
+  const [pushStatus,    setPushStatus]    = useState('unknown'); // 'unknown' | 'subscribed' | 'denied' | 'default'
+  const [pushBusy,      setPushBusy]      = useState(false);
+
+  useEffect(() => {
+    if ('Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window) {
+      setPushSupported(true);
+      setPushStatus(Notification.permission === 'denied' ? 'denied' : Notification.permission === 'granted' ? 'subscribed' : 'default');
+    }
+  }, []);
+
+  const handlePushSubscribe = async () => {
+    setPushBusy(true);
+    try {
+      const token = localStorage.getItem('token');
+      const ok = await subscribeToPush(token);
+      if (ok) { setPushStatus('subscribed'); toast.success('Push bildirishnomalar yoqildi!'); }
+      else { toast.error("Ruxsat berilmadi yoki brauzer qo'llab-quvvatlamaydi"); }
+    } catch { toast.error('Xatolik yuz berdi'); }
+    finally { setPushBusy(false); }
+  };
+
+  const handlePushUnsubscribe = async () => {
+    setPushBusy(true);
+    try {
+      const token = localStorage.getItem('token');
+      await unsubscribeFromPush(token);
+      setPushStatus('default');
+      toast.success("Push bildirishnomalar o'chirildi");
+    } catch { toast.error('Xatolik yuz berdi'); }
+    finally { setPushBusy(false); }
+  };
+
+  // Email integration state
+  const [emailCfg,      setEmailCfg]      = useState({ enabled: false, imap: { host: '', port: 993, user: '', pass: '', tls: true }, smtp: { host: '', port: 587, user: '', pass: '', secure: false, from: '' } });
+  const [emailSaving,   setEmailSaving]   = useState(false);
+  const [emailTesting,  setEmailTesting]  = useState(false);
+  const [emailTestRes,  setEmailTestRes]  = useState(null);
+  const [showImapPass,  setShowImapPass]  = useState(false);
+  const [showSmtpPass,  setShowSmtpPass]  = useState(false);
+
   useEffect(() => {
     Promise.all([
       axios.get(`${API_URL}/organization/telegram-bot`),
       axios.get(`${API_URL}/organization/sticker-packs`),
       axios.get(`${API_URL}/instagram/status`),
-    ]).then(([tgRes, spRes, igRes]) => {
+      axios.get(`${API_URL}/email/config`),
+    ]).then(([tgRes, spRes, igRes, emailRes]) => {
       setBotInfo(tgRes.data);
       setPacks(spRes.data.stickerPacks || []);
       setIgInfo(igRes.data);
+      if (emailRes.data?.config) {
+        const c = emailRes.data.config;
+        setEmailCfg({
+          enabled: c.enabled || false,
+          imap: { host: c.imap?.host || '', port: c.imap?.port || 993, user: c.imap?.user || '', pass: '', tls: c.imap?.tls !== false },
+          smtp: { host: c.smtp?.host || '', port: c.smtp?.port || 587, user: c.smtp?.user || '', pass: '', secure: c.smtp?.secure || false, from: c.smtp?.from || '' },
+        });
+      }
     }).catch(() => toast.error('Yuklanishda xato'))
       .finally(() => setLoading(false));
   }, []);
@@ -752,6 +804,35 @@ function IntegrationsTab() {
       setSaving(false);
     }
   };
+
+  const saveEmailConfig = async () => {
+    setEmailSaving(true);
+    try {
+      await axios.put(`${API_URL}/email/config`, emailCfg);
+      toast.success('Email sozlamalari saqlandi');
+      setEmailTestRes(null);
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Xato');
+    } finally {
+      setEmailSaving(false);
+    }
+  };
+
+  const testEmailConnection = async () => {
+    setEmailTesting(true);
+    setEmailTestRes(null);
+    try {
+      const res = await axios.post(`${API_URL}/email/test`, emailCfg);
+      setEmailTestRes(res.data.results || {});
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Test muvaffaqiyatsiz');
+    } finally {
+      setEmailTesting(false);
+    }
+  };
+
+  const setImap = (field, val) => setEmailCfg(p => ({ ...p, imap: { ...p.imap, [field]: val } }));
+  const setSmtp = (field, val) => setEmailCfg(p => ({ ...p, smtp: { ...p.smtp, [field]: val } }));
 
   if (loading) return <div className="py-10 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto text-primary-400" /></div>;
 
@@ -940,6 +1021,178 @@ function IntegrationsTab() {
             </>
           )}
         </div>
+      </div>
+
+      {/* Email / IMAP+SMTP */}
+      <div className="bg-white border border-surface-200 rounded-2xl overflow-hidden">
+        <div className="flex items-center gap-3 px-5 py-4 border-b border-surface-100">
+          <div className="w-9 h-9 rounded-xl bg-[#eef2ff] flex items-center justify-center shrink-0">
+            <Mail className="w-5 h-5 text-[#6366F1]" />
+          </div>
+          <div className="flex-1">
+            <p className="font-semibold text-ink text-sm">Email (IMAP/SMTP)</p>
+            <p className="text-xs text-ink-tertiary">Inbox'ga email xabarlarini qabul qiling va javob bering</p>
+          </div>
+          <button
+            onClick={() => setEmailCfg(p => ({ ...p, enabled: !p.enabled }))}
+            className={`relative shrink-0 w-10 h-6 rounded-full transition-colors ${emailCfg.enabled ? 'bg-primary-600' : 'bg-surface-300'}`}
+          >
+            <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${emailCfg.enabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
+          </button>
+        </div>
+
+        <div className="px-5 py-4 space-y-5">
+          {/* IMAP */}
+          <div>
+            <p className="text-xs font-semibold text-ink-tertiary uppercase tracking-wide mb-3">IMAP — kiruvchi xabarlar</p>
+            <div className="space-y-2.5">
+              <div className="grid grid-cols-3 gap-2">
+                <div className="col-span-2">
+                  <label className="block text-xs text-ink-tertiary mb-1">Host</label>
+                  <input className="input text-sm" placeholder="imap.gmail.com" value={emailCfg.imap.host} onChange={e => setImap('host', e.target.value)} />
+                </div>
+                <div>
+                  <label className="block text-xs text-ink-tertiary mb-1">Port</label>
+                  <input className="input text-sm" type="number" placeholder="993" value={emailCfg.imap.port} onChange={e => setImap('port', Number(e.target.value))} />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs text-ink-tertiary mb-1">Email</label>
+                <input className="input text-sm" type="email" placeholder="you@example.com" value={emailCfg.imap.user} onChange={e => setImap('user', e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-xs text-ink-tertiary mb-1">Parol / App password</label>
+                <div className="relative">
+                  <input className="input text-sm pr-10" type={showImapPass ? 'text' : 'password'} placeholder="••••••••" value={emailCfg.imap.pass} onChange={e => setImap('pass', e.target.value)} />
+                  <button type="button" onClick={() => setShowImapPass(v => !v)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-disabled hover:text-ink">
+                    {showImapPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" className="rounded" checked={emailCfg.imap.tls} onChange={e => setImap('tls', e.target.checked)} />
+                <span className="text-xs text-ink-tertiary">TLS/SSL ishlatish (port 993)</span>
+              </label>
+            </div>
+          </div>
+
+          {/* SMTP */}
+          <div>
+            <p className="text-xs font-semibold text-ink-tertiary uppercase tracking-wide mb-3">SMTP — chiquvchi xabarlar</p>
+            <div className="space-y-2.5">
+              <div className="grid grid-cols-3 gap-2">
+                <div className="col-span-2">
+                  <label className="block text-xs text-ink-tertiary mb-1">Host</label>
+                  <input className="input text-sm" placeholder="smtp.gmail.com" value={emailCfg.smtp.host} onChange={e => setSmtp('host', e.target.value)} />
+                </div>
+                <div>
+                  <label className="block text-xs text-ink-tertiary mb-1">Port</label>
+                  <input className="input text-sm" type="number" placeholder="587" value={emailCfg.smtp.port} onChange={e => setSmtp('port', Number(e.target.value))} />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs text-ink-tertiary mb-1">Email</label>
+                <input className="input text-sm" type="email" placeholder="you@example.com" value={emailCfg.smtp.user} onChange={e => setSmtp('user', e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-xs text-ink-tertiary mb-1">Parol / App password</label>
+                <div className="relative">
+                  <input className="input text-sm pr-10" type={showSmtpPass ? 'text' : 'password'} placeholder="••••••••" value={emailCfg.smtp.pass} onChange={e => setSmtp('pass', e.target.value)} />
+                  <button type="button" onClick={() => setShowSmtpPass(v => !v)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-disabled hover:text-ink">
+                    {showSmtpPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs text-ink-tertiary mb-1">Jo'natuvchi ismi/email (From)</label>
+                <input className="input text-sm" placeholder="Support <support@company.com>" value={emailCfg.smtp.from} onChange={e => setSmtp('from', e.target.value)} />
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" className="rounded" checked={emailCfg.smtp.secure} onChange={e => setSmtp('secure', e.target.checked)} />
+                <span className="text-xs text-ink-tertiary">SSL ishlatish (port 465)</span>
+              </label>
+            </div>
+          </div>
+
+          {/* Test results */}
+          {emailTestRes && (
+            <div className="space-y-2">
+              {emailTestRes.imap !== undefined && (
+                <div className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium ${emailTestRes.imap.ok ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
+                  {emailTestRes.imap.ok ? <Check className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
+                  IMAP: {emailTestRes.imap.ok ? 'Muvaffaqiyatli' : emailTestRes.imap.error}
+                </div>
+              )}
+              {emailTestRes.smtp !== undefined && (
+                <div className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium ${emailTestRes.smtp.ok ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
+                  {emailTestRes.smtp.ok ? <Check className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
+                  SMTP: {emailTestRes.smtp.ok ? 'Muvaffaqiyatli' : emailTestRes.smtp.error}
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="flex gap-2 pt-1">
+            <button onClick={testEmailConnection} disabled={emailTesting}
+              className="flex-1 py-2 rounded-lg border border-surface-300 text-sm font-medium text-ink-secondary hover:bg-surface-50 transition-colors flex items-center justify-center gap-2">
+              {emailTesting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+              Test
+            </button>
+            <button onClick={saveEmailConfig} disabled={emailSaving}
+              className="flex-1 btn-primary btn-md flex items-center justify-center gap-2">
+              {emailSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+              Saqlash
+            </button>
+          </div>
+          <p className="text-xs text-ink-disabled leading-relaxed">
+            Gmail uchun "App passwords" yoqing. IMAP ilovasi yangi xabarlarni avtomatik oladi va Inbox'ga qo'shadi.
+          </p>
+        </div>
+      </div>
+
+      {/* Push Notifications card */}
+      <div className="bg-white border border-surface-200 rounded-2xl px-5 py-4">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-violet-50">
+            <Bell className="w-5 h-5 text-violet-600" />
+          </div>
+          <div>
+            <p className="font-semibold text-ink text-sm">Push Bildirishnomalar</p>
+            <p className="text-xs text-ink-tertiary">Yangi xabar kelganda qurilmangizga bildirishnoma yuboriladi</p>
+          </div>
+        </div>
+        {!pushSupported ? (
+          <p className="text-xs text-ink-disabled bg-surface-50 rounded-lg px-3 py-2">Brauzeringiz push bildirishnomalarni qo'llab-quvvatlamaydi</p>
+        ) : pushStatus === 'denied' ? (
+          <p className="text-xs text-red-500 bg-red-50 rounded-lg px-3 py-2">
+            Brauzer ruxsati rad etilgan. Brauzer sozlamalaridan bildirishnomaga ruxsat bering.
+          </p>
+        ) : (
+          <div className="flex items-center gap-3">
+            <div className={`flex-1 text-xs rounded-lg px-3 py-2 ${pushStatus === 'subscribed' ? 'bg-green-50 text-green-700' : 'bg-surface-50 text-ink-tertiary'}`}>
+              {pushStatus === 'subscribed' ? '✓ Bildirishnomalar yoqilgan' : 'Bildirishnomalar o\'chirilgan'}
+            </div>
+            {pushStatus === 'subscribed' ? (
+              <button
+                onClick={handlePushUnsubscribe}
+                disabled={pushBusy}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors disabled:opacity-50"
+              >
+                <BellOff className="w-3.5 h-3.5" />
+                O'chirish
+              </button>
+            ) : (
+              <button
+                onClick={handlePushSubscribe}
+                disabled={pushBusy}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-violet-700 bg-violet-50 hover:bg-violet-100 rounded-lg transition-colors disabled:opacity-50"
+              >
+                <Bell className="w-3.5 h-3.5" />
+                Yoqish
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Coming soon channels */}

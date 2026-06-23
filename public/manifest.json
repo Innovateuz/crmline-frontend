@@ -1,20 +1,22 @@
 {
   "short_name": "CRM Line",
-  "name": "CRM Line",
-  "icons": [
-    {
-      "src": "icon-192.png",
-      "type": "image/png",
-      "sizes": "192x192"
-    },
-    {
-      "src": "icon-512.png",
-      "type": "image/png",
-      "sizes": "512x512"
-    }
-  ],
-  "start_url": ".",
+  "name": "CRM Line — Mijozlar tizimi",
+  "description": "Kontaktlar, bitimlar, vazifalar va Inbox — bir joyda",
+  "start_url": "/dashboard",
+  "scope": "/",
   "display": "standalone",
-  "theme_color": "#047857",
-  "background_color": "#ffffff"
+  "orientation": "portrait-primary",
+  "theme_color": "#b9183b",
+  "background_color": "#ffffff",
+  "categories": ["business", "productivity"],
+  "lang": "uz",
+  "icons": [
+    { "src": "icon-192.png", "type": "image/png", "sizes": "192x192", "purpose": "any" },
+    { "src": "icon-512.png", "type": "image/png", "sizes": "512x512", "purpose": "any maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Inbox",      "url": "/inbox",    "description": "Kiruvchi xabarlar" },
+    { "name": "Kontaktlar", "url": "/contacts", "description": "Kontaktlar ro'yxati" },
+    { "name": "Vazifalar",  "url": "/tasks",    "description": "Vazifalar" }
+  ]
 }

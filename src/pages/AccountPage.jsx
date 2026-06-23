@@ -4,6 +4,7 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import { updateProfile } from '../store/authSlice';
 import { Loader2, KeyRound, Eye, EyeOff } from 'lucide-react';
+import { useT } from '../utils/translate';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:5002/api';
 
@@ -16,6 +17,7 @@ const ROLE_LABELS = {
 export default function AccountPage() {
   const dispatch  = useDispatch();
   const user      = useSelector(s => s.auth.user);
+  const t = useT();
 
   // Name form
   const [name,      setName]      = useState(user?.name || '');
@@ -46,12 +48,12 @@ export default function AccountPage() {
 
   const handleChangePassword = async (e) => {
     e.preventDefault();
-    if (newPw.length < 4) { toast.error("Parol kamida 4 ta belgi bo'lishi kerak"); return; }
+    if (newPw.length < 4) { toast.error(t('account.passwordTooShort')); return; }
     setPwSaving(true);
     try {
       const res = await axios.put(`${API}/auth/change-password`, { currentPassword: oldPw, newPassword: newPw });
       if (res.data.token) localStorage.setItem('token', res.data.token);
-      toast.success('Parol o\'zgartirildi');
+      toast.success(t('account.passwordChanged'));
       setOldPw('');
       setNewPw('');
       setShowPw(false);
@@ -66,7 +68,7 @@ export default function AccountPage() {
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="px-6 py-4 border-b border-surface-100 bg-white shrink-0">
-        <h1 className="text-xl font-bold text-ink">Akkaunt sozlamalari</h1>
+        <h1 className="text-xl font-bold text-ink">{t('account.title')}</h1>
       </div>
 
       <div className="flex-1 overflow-y-auto">
@@ -75,24 +77,24 @@ export default function AccountPage() {
         {/* Profile info card */}
         <div className="bg-white rounded-xl border border-surface-100 overflow-hidden">
           <div className="px-4 py-3 border-b border-surface-100">
-            <p className="text-xs font-semibold text-ink-tertiary uppercase tracking-wider">Profil</p>
+            <p className="text-xs font-semibold text-ink-tertiary uppercase tracking-wider">{t('account.personalInfo')}</p>
           </div>
 
           <form onSubmit={handleSaveName}>
             {/* Name — editable */}
             <div className="flex items-center gap-4 px-4 py-3 border-b border-surface-100">
-              <span className="w-28 text-sm text-ink shrink-0">Ism</span>
+              <span className="w-28 text-sm text-ink shrink-0">{t('account.name')}</span>
               <input
                 className="flex-1 text-sm text-ink bg-transparent border-0 outline-none focus:outline-none focus:ring-0 placeholder:text-ink-disabled"
                 value={name}
                 onChange={e => setName(e.target.value)}
-                placeholder="Ism familiya"
+                placeholder={t('account.namePlaceholder')}
               />
             </div>
 
             {/* Phone — read only */}
             <div className="flex items-center gap-4 px-4 py-3 border-b border-surface-100">
-              <span className="w-28 text-sm text-ink shrink-0">Telefon</span>
+              <span className="w-28 text-sm text-ink shrink-0">{t('contactForm.phone')}</span>
               <span className="flex-1 text-sm text-ink-secondary">{user?.phone || '—'}</span>
             </div>
 
@@ -104,7 +106,7 @@ export default function AccountPage() {
 
             {/* Role — read only */}
             <div className="flex items-center gap-4 px-4 py-3 border-b border-surface-100">
-              <span className="w-28 text-sm text-ink shrink-0">Rol</span>
+              <span className="w-28 text-sm text-ink shrink-0">{t('account.role')}</span>
               <span className="flex-1 text-sm text-ink-secondary">
                 {ROLE_LABELS[user?.role] || user?.role || '—'}
               </span>
@@ -117,7 +119,7 @@ export default function AccountPage() {
                 disabled={nameSaving || !name.trim() || name.trim() === user?.name}
                 className="btn-md btn-primary"
               >
-                {nameSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Saqlash'}
+                {nameSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : t('contactForm.save')}
               </button>
             </div>
           </form>
@@ -132,15 +134,15 @@ export default function AccountPage() {
           >
             <div className="flex items-center gap-3">
               <KeyRound className="w-4 h-4 text-ink-tertiary" />
-              <span className="text-sm font-medium text-ink">Parolni o'zgartirish</span>
+              <span className="text-sm font-medium text-ink">{t('account.changePassword')}</span>
             </div>
-            <span className="text-xs text-ink-tertiary">{showPw ? 'Yopish' : 'Ochish'}</span>
+            <span className="text-xs text-ink-tertiary">{showPw ? t('account.hide') : t('account.show')}</span>
           </button>
 
           {showPw && (
             <form onSubmit={handleChangePassword} className="border-t border-surface-100">
               <div className="flex items-center gap-4 px-4 py-3 border-b border-surface-100">
-                <span className="w-28 text-sm text-ink shrink-0">Eski parol</span>
+                <span className="w-28 text-sm text-ink shrink-0">{t('account.currentPassword')}</span>
                 <div className="flex-1 flex items-center gap-2">
                   <input
                     type={showOld ? 'text' : 'password'}
@@ -157,7 +159,7 @@ export default function AccountPage() {
               </div>
 
               <div className="flex items-center gap-4 px-4 py-3 border-b border-surface-100">
-                <span className="w-28 text-sm text-ink shrink-0">Yangi parol</span>
+                <span className="w-28 text-sm text-ink shrink-0">{t('account.newPassword')}</span>
                 <div className="flex-1 flex items-center gap-2">
                   <input
                     type={showNew ? 'text' : 'password'}
@@ -176,7 +178,7 @@ export default function AccountPage() {
 
               <div className="px-4 py-3 flex justify-end">
                 <button type="submit" disabled={pwSaving} className="btn-md btn-primary">
-                  {pwSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : "O'zgartirish"}
+                  {pwSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : t('account.changePasswordBtn')}
                 </button>
               </div>
             </form>

@@ -6,6 +6,9 @@ import App from './App';
 import store from './store';
 import { logout } from './store/authSlice';
 import reportWebVitals from './reportWebVitals';
+import { registerSW } from './utils/swRegister';
+
+registerSW();
 
 axios.interceptors.response.use(
   (res) => res,

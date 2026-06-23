@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
+import { useT } from '../utils/translate';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import {
@@ -158,7 +159,7 @@ function DealCard({ deal, isLead, onEdit, onDelete, currency, overlay = false })
 }
 
 /* ── Stage column (droppable) ── */
-function StageColumn({ stage, deals, onOpen, onDelete, currency, isFirst }) {
+function StageColumn({ stage, deals, onOpen, onDelete, onQuickAdd, currency, isFirst }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage._id });
   const total = deals.reduce((s, d) => s + (d.value || 0), 0);
 
@@ -169,6 +170,13 @@ function StageColumn({ stage, deals, onOpen, onDelete, currency, isFirst }) {
         <div className="flex items-center justify-center gap-2 mb-1">
           <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: stage.color }} />
           <span className="font-bold text-sm text-ink truncate">{stage.name}</span>
+          <button
+            onClick={() => onQuickAdd(stage._id)}
+            className="p-0.5 rounded hover:bg-surface-200 text-ink-disabled hover:text-primary-500 transition-colors"
+            title="Tez qo'shish"
+          >
+            <Plus className="w-3.5 h-3.5" />
+          </button>
         </div>
         {isFirst ? (
           <span className="text-xs text-ink-tertiary">
@@ -200,6 +208,7 @@ function StageColumn({ stage, deals, onOpen, onDelete, currency, isFirst }) {
 
 /* ── Deal form modal ── */
 function DealModal({ stageId, stages, contacts, users, deal, isLead, currency, onSave, onClose }) {
+  const t = useT();
   const [title,      setTitle]      = useState(deal?.title || '');
   const [stage,      setStage]      = useState(stageId || deal?.stageId || stages[0]?._id || '');
   const [value,      setValue]      = useState(deal?.value ?? '');
@@ -214,7 +223,7 @@ function DealModal({ stageId, stages, contacts, users, deal, isLead, currency, o
   ).slice(0, 30);
 
   const submit = async () => {
-    if (!title.trim()) { toast.error('Sarlavha kiritilishi shart'); return; }
+    if (!title.trim()) { toast.error(t('funnel.titleRequired')); return; }
     setSaving(true);
     try {
       await onSave({ title: title.trim(), stageId: stage, value: Number(value) || 0, notes, assignedTo: assignedTo || null, contact: contact || null });
@@ -230,7 +239,7 @@ function DealModal({ stageId, stages, contacts, users, deal, isLead, currency, o
       <div className="relative bg-white rounded-2xl shadow-modal w-full max-w-md flex flex-col max-h-[90vh]">
         <div className="flex items-center justify-between px-5 py-4 border-b border-surface-100">
           <h2 className="font-semibold text-ink">
-            {deal ? 'Tahrirlash' : (isLeadStage ? 'Yangi zayavka' : 'Yangi sdelka')}
+            {deal ? t('funnel.edit') : (isLeadStage ? t('funnel.newLead') : t('funnel.newDeal'))}
           </h2>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-surface-100 text-ink-tertiary"><X className="w-4 h-4" /></button>
         </div>
@@ -238,30 +247,30 @@ function DealModal({ stageId, stages, contacts, users, deal, isLead, currency, o
           {/* Title */}
           <div>
             <label className="block text-xs font-medium text-ink mb-1">
-              {isLeadStage ? 'Mijoz ismi *' : 'Sarlavha *'}
+              {isLeadStage ? t('funnel.leadNameLabel') : t('deals.titleLabel')}
             </label>
-            <input className="input" placeholder={isLeadStage ? 'Ism familiya...' : 'Sdelka nomi...'} value={title} onChange={e => setTitle(e.target.value)} autoFocus />
+            <input className="input" placeholder={isLeadStage ? t('funnel.leadNameLabel') : t('deals.titlePlaceholder')} value={title} onChange={e => setTitle(e.target.value)} autoFocus />
           </div>
           {/* Stage */}
           <div>
-            <label className="block text-xs font-medium text-ink mb-1">Bosqich</label>
+            <label className="block text-xs font-medium text-ink mb-1">{t('deals.stage')}</label>
             <select className="input" value={stage} onChange={e => setStage(e.target.value)}>
               {stages.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
             </select>
           </div>
           {/* Value */}
           <div>
-            <label className="block text-xs font-medium text-ink mb-1">Summa ({currency})</label>
+            <label className="block text-xs font-medium text-ink mb-1">{t('deals.value')} ({currency})</label>
             <input className="input" type="number" min="0" placeholder="0" value={value} onChange={e => setValue(e.target.value)} />
           </div>
           {/* Contact */}
           <div>
-            <label className="block text-xs font-medium text-ink mb-1">Kontakt (ixtiyoriy)</label>
-            <input className="input mb-1.5 text-sm" placeholder="Qidirish..." value={cSearch} onChange={e => setCSearch(e.target.value)} />
+            <label className="block text-xs font-medium text-ink mb-1">{t('funnel.contactOpt')}</label>
+            <input className="input mb-1.5 text-sm" placeholder={t('funnel.searchPlaceholder')} value={cSearch} onChange={e => setCSearch(e.target.value)} />
             <div className="border border-surface-200 rounded-lg max-h-32 overflow-y-auto">
               <button type="button" onClick={() => setContact('')}
                 className={`w-full text-left px-3 py-2 text-xs transition-colors ${!contact ? 'bg-primary-50 text-primary-700 font-medium' : 'text-ink-tertiary hover:bg-surface-50'}`}>
-                — Kontaktsiz
+                {t('funnel.noContact')}
               </button>
               {filteredC.map(c => (
                 <button key={c._id} type="button" onClick={() => setContact(c._id)}
@@ -274,23 +283,23 @@ function DealModal({ stageId, stages, contacts, users, deal, isLead, currency, o
           </div>
           {/* Assigned to */}
           <div>
-            <label className="block text-xs font-medium text-ink mb-1">Mas'ul xodim</label>
+            <label className="block text-xs font-medium text-ink mb-1">{t('funnel.responsibleLabel')}</label>
             <select className="input" value={assignedTo} onChange={e => setAssignedTo(e.target.value)}>
-              <option value="">— Tanlanmagan</option>
+              <option value="">{t('funnel.unassigned')}</option>
               {users.map(u => <option key={u._id} value={u._id}>{u.name}</option>)}
             </select>
           </div>
           {/* Notes */}
           <div>
-            <label className="block text-xs font-medium text-ink mb-1">Izoh</label>
-            <textarea className="input resize-none text-sm" rows={2} placeholder="Qo'shimcha ma'lumot..." value={notes} onChange={e => setNotes(e.target.value)} />
+            <label className="block text-xs font-medium text-ink mb-1">{t('deals.notes')}</label>
+            <textarea className="input resize-none text-sm" rows={2} placeholder={t('funnel.notesPlaceholder')} value={notes} onChange={e => setNotes(e.target.value)} />
           </div>
         </div>
         <div className="flex justify-end gap-2 px-5 py-4 border-t border-surface-100">
-          <button onClick={onClose} className="btn-secondary btn-md">Bekor</button>
+          <button onClick={onClose} className="btn-secondary btn-md">{t('deals.cancel')}</button>
           <button onClick={submit} disabled={saving} className="btn-primary btn-md flex items-center gap-2">
             {saving && <Loader2 className="w-4 h-4 animate-spin" />}
-            {deal ? 'Saqlash' : "Qo'shish"}
+            {deal ? t('deals.save') : t('funnel.addBtn')}
           </button>
         </div>
       </div>
@@ -301,14 +310,20 @@ function DealModal({ stageId, stages, contacts, users, deal, isLead, currency, o
 /* ── Main FunnelPage ── */
 export default function FunnelPage({ funnelId }) {
   const navigate  = useNavigate();
+  const t = useT();
   const currency  = useSelector(s => s.auth.user?.organization?.currency || 'UZS');
   const [funnel,      setFunnel]      = useState(null);
   const [deals,       setDeals]       = useState([]);
   const [loading,     setLoading]     = useState(true);
   const [activeId,    setActiveId]    = useState(null);
   const [search,      setSearch]      = useState('');
-  const [pendingMove, setPendingMove] = useState(null); // { deal, targetStageId }
+  const [pendingMove, setPendingMove] = useState(null);
   const [moveValue,   setMoveValue]   = useState('');
+
+  // F-13: quick-add modal
+  const [contacts,      setContacts]      = useState([]);
+  const [users,         setUsers]         = useState([]);
+  const [quickStageId,  setQuickStageId]  = useState(null); // null = closed
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -316,11 +331,17 @@ export default function FunnelPage({ funnelId }) {
     if (!funnelId) return;
     setLoading(true);
     try {
-      const fRes = await axios.get(`${API}/funnels/${funnelId}/deals`);
+      const [fRes, cRes, uRes] = await Promise.all([
+        axios.get(`${API}/funnels/${funnelId}/deals`),
+        axios.get(`${API}/contacts?limit=200`),
+        axios.get(`${API}/organization/users`),
+      ]);
       setFunnel(fRes.data.funnel);
       setDeals(fRes.data.deals);
+      setContacts(cRes.data.contacts || []);
+      setUsers(uRes.data.users || []);
     } catch {
-      toast.error('Yuklanmadi');
+      toast.error(t('funnel.loadError'));
     } finally {
       setLoading(false);
     }
@@ -421,6 +442,16 @@ export default function FunnelPage({ funnelId }) {
     }
   };
 
+  // F-13: quick create deal from column header
+  const handleQuickCreate = async ({ title, stageId, value, notes, assignedTo, contact }) => {
+    const res = await axios.post(`${API}/funnels/${funnelId}/deals`, {
+      title, stageId, value: Number(value) || 0, notes,
+      assignedTo: assignedTo || null, contact: contact || null,
+    });
+    setDeals(prev => [...prev, res.data.deal]);
+    toast.success(t('funnel.deleted'));
+  };
+
   if (loading) return (
     <div className="flex items-center justify-center h-full">
       <Loader2 className="w-6 h-6 animate-spin text-ink-tertiary" />
@@ -429,7 +460,7 @@ export default function FunnelPage({ funnelId }) {
 
   if (!funnel) return (
     <div className="flex items-center justify-center h-full text-ink-tertiary text-sm">
-      Varonka topilmadi
+      {t('funnel.noFunnel')}
     </div>
   );
 
@@ -445,7 +476,7 @@ export default function FunnelPage({ funnelId }) {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-tertiary pointer-events-none" />
           <input
             className="input pl-9 text-sm h-9 w-full"
-            placeholder="Sdelka, kontakt ismi yoki raqam..."
+            placeholder={t('funnel.dealSearch')}
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
@@ -467,7 +498,7 @@ export default function FunnelPage({ funnelId }) {
             onClick={() => navigate(`/funnel/${funnelId}/deal/new`)}
             className="btn-primary btn-md flex items-center gap-2 shrink-0"
           >
-            <Plus className="w-4 h-4" /> Yangi zayavka
+            <Plus className="w-4 h-4" /> {t('funnel.newLead')}
           </button>
         )}
       </div>
@@ -491,6 +522,7 @@ export default function FunnelPage({ funnelId }) {
                   isFirst={idx === 0}
                   onOpen={(dealId) => navigate(`/funnel/${funnelId}/deal/${dealId}`)}
                   onDelete={handleDeleteDeal}
+                  onQuickAdd={setQuickStageId}
                 />
               ))}
             </div>
@@ -508,14 +540,29 @@ export default function FunnelPage({ funnelId }) {
         </DndContext>
       )}
 
+      {/* F-13: Quick-add deal modal */}
+      {quickStageId && funnel && (
+        <DealModal
+          stageId={quickStageId}
+          stages={funnel.stages}
+          contacts={contacts}
+          users={users}
+          deal={null}
+          isLead={funnel.stages[0] && String(quickStageId) === String(funnel.stages[0]._id)}
+          currency={currency}
+          onSave={handleQuickCreate}
+          onClose={() => setQuickStageId(null)}
+        />
+      )}
+
       {/* Value modal — shown when dragging lead → sdelka */}
       {pendingMove && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/40" onClick={cancelMove} />
           <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
-            <h3 className="text-base font-bold text-ink mb-1">Sdelka summasi</h3>
+            <h3 className="text-base font-bold text-ink mb-1">{t('funnel.moveTitle')}</h3>
             <p className="text-sm text-ink-tertiary mb-5">
-              <span className="font-medium text-ink">{pendingMove.deal.title}</span> sdelkaga o'tkazilmoqda
+              <span className="font-medium text-ink">{pendingMove.deal.title}</span>
             </p>
             <div className="relative mb-5">
               <input
@@ -533,8 +580,8 @@ export default function FunnelPage({ funnelId }) {
               </span>
             </div>
             <div className="flex gap-2">
-              <button onClick={cancelMove} className="btn-secondary btn-md flex-1">Bekor</button>
-              <button onClick={confirmMove} className="btn-primary btn-md flex-1">O'tkazish</button>
+              <button onClick={cancelMove} className="btn-secondary btn-md flex-1">{t('funnel.moveCancel')}</button>
+              <button onClick={confirmMove} className="btn-primary btn-md flex-1">{t('funnel.moveSave')}</button>
             </div>
           </div>
         </div>

@@ -2,12 +2,13 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useSelector } from 'react-redux';
+import { useT } from '../utils/translate';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import {
   ArrowLeft, Loader2, Send, MessageSquare, Trash2, Pencil,
   Plus, X, Check, ChevronDown, Upload, FileText, MoreVertical,
-  User, DollarSign, Kanban, Phone,
+  User, DollarSign, Kanban, Phone, Trophy, XCircle, RotateCcw,
 } from 'lucide-react';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:5002/api';
@@ -129,11 +130,21 @@ function CustomFieldInput({ field, value, onChange }) {
 }
 
 function SystemEvent({ activity }) {
-  let text = activity.type === 'created' ? 'Yaratildi' : activity.text || '';
+  const colorMap = {
+    created:       'text-ink-tertiary',
+    stage_changed: 'text-primary-600',
+    won:           'text-emerald-600',
+    lost:          'text-red-500',
+  };
+  const labelMap = { created: 'Yaratildi' };
+  const text = labelMap[activity.type] || activity.text || '';
+  const color = colorMap[activity.type] || 'text-ink-tertiary';
   return (
     <div className="flex items-center gap-3 py-2">
       <div className="flex-1 h-px bg-surface-100" />
-      <span className="text-[11px] text-ink-tertiary whitespace-nowrap px-1">{text} · {formatTime(activity.createdAt)}</span>
+      <span className={`text-[11px] font-medium whitespace-nowrap px-1 ${color}`}>
+        {text} · {formatTime(activity.createdAt)}
+      </span>
       <div className="flex-1 h-px bg-surface-100" />
     </div>
   );
@@ -172,6 +183,7 @@ function NoteItem({ activity, onDelete, currentUserId }) {
 
 export default function DealDetailPage({ funnelId, dealId }) {
   const navigate  = useNavigate();
+  const t = useT();
   const currency  = useSelector(s => s.auth.user?.organization?.currency || 'UZS');
   const meId      = useSelector(s => s.auth.user?._id || s.auth.user?.id);
   const isNew     = dealId === 'new';
@@ -224,6 +236,12 @@ export default function DealDetailPage({ funnelId, dealId }) {
 
   // Deal calls (statistika uchun)
   const [dealCalls,    setDealCalls]   = useState([]);
+
+  // F-12: won/lost status
+  const [dealStatus,   setDealStatus]  = useState('active');
+  const [closeReason,  setCloseReason] = useState('');
+  const [showWonLost,  setShowWonLost] = useState(false); // 'won'|'lost'|false
+  const [wlReason,     setWlReason]    = useState('');
   const bottomRef        = useRef(null);
   const textareaRef      = useRef(null);
   const contactAnchorRef = useRef(null);
@@ -281,6 +299,8 @@ export default function DealDetailPage({ funnelId, dealId }) {
           setContact(d.contact?._id || d.contact || '');
           setNotes(d.notes || '');
           setFiles(d.files || []);
+          setDealStatus(d.status || 'active');
+          setCloseReason(d.closeReason || '');
           const vals = d.customFieldValues || {};
           setCustomFieldValues(vals);
           setCustomFieldValues(vals);
@@ -322,18 +342,25 @@ export default function DealDetailPage({ funnelId, dealId }) {
   useEffect(() => { loadActivities(); }, [loadActivities]);
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [activities]);
 
-  // Statistika tab ochilganda va kontakt bog'liq bo'lganda qo'ng'iroqlarni yuklash
+  // Statistika tab: qo'ng'iroqlarni deal va/yoki kontakt bo'yicha yuklash
   useEffect(() => {
-    if (tab !== 'stats' || !contact || isNew) return;
-    axios.get(`${API}/atc/calls`, { params: { contact, limit: 500 } })
-      .then(r => setDealCalls(r.data.calls || []))
-      .catch(() => {});
-  }, [tab, contact, isNew]);
+    if (tab !== 'stats' || isNew) return;
+    const promises = [];
+    if (dealId) promises.push(axios.get(`${API}/atc/calls`, { params: { deal: dealId, limit: 200 } }).then(r => r.data.calls || []));
+    if (contact) promises.push(axios.get(`${API}/atc/calls`, { params: { contact, limit: 200 } }).then(r => r.data.calls || []));
+    if (promises.length === 0) { setDealCalls([]); return; }
+    Promise.all(promises).then(results => {
+      const merged = Object.values(
+        results.flat().reduce((acc, c) => { acc[c._id] = c; return acc; }, {})
+      );
+      setDealCalls(merged);
+    }).catch(() => {});
+  }, [tab, contact, dealId, isNew]);
 
   // ── Save ─────────────────────────────────────────────────────────────────
   const handleSave = async () => {
     if (!title.trim()) { toast.error('Sarlavha kiritilishi shart'); return; }
-    if (!stageId) { toast.error('Bosqich tanlanishi shart'); return; }
+    if (!stageId) { toast.error(t('deals.stage') + '!'); return; }
     setSaving(true);
     try {
       const orgChanged = JSON.stringify(orgSections) !== JSON.stringify(origOrgSections);
@@ -350,7 +377,7 @@ export default function DealDetailPage({ funnelId, dealId }) {
 
       if (isNew) {
         const res = await axios.post(`${API}/funnels/${funnelId}/deals`, payload);
-        toast.success("Yaratildi");
+        toast.success(t('deals.created'));
         navigate(`/funnel/${funnelId}/deal/${res.data.deal._id}`, { replace: true });
       } else {
         await axios.put(`${API}/funnels/${funnelId}/deals/${dealId}`, payload);
@@ -364,9 +391,24 @@ export default function DealDetailPage({ funnelId, dealId }) {
         loadActivities();
       }
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Xato yuz berdi');
+      toast.error(err.response?.data?.message || t('deals.loadError'));
     } finally {
       setSaving(false);
+    }
+  };
+
+  // F-12: Won / Lost
+  const handleSetStatus = async (status, reason) => {
+    try {
+      await axios.put(`${API}/funnels/${funnelId}/deals/${dealId}`, { status, closeReason: reason });
+      setDealStatus(status);
+      setCloseReason(reason);
+      setShowWonLost(false);
+      setWlReason('');
+      toast.success(status === 'won' ? 'Bitim yutildi!' : status === 'lost' ? "Bitim yo'qotildi" : 'Holat yangilandi');
+      loadActivities();
+    } catch {
+      toast.error(t('deals.loadError'));
     }
   };
 
@@ -377,7 +419,7 @@ export default function DealDetailPage({ funnelId, dealId }) {
       toast.success("O'chirildi");
       navigate(`/funnel/${funnelId}`);
     } catch {
-      toast.error("O'chirishda xato");
+      toast.error(t('deals.loadError'));
     }
   };
 
@@ -407,7 +449,7 @@ export default function DealDetailPage({ funnelId, dealId }) {
       const res = await axios.delete(`${API}/funnels/${funnelId}/deals/${dealId}/files/${fileId}`);
       setFiles(res.data.files);
     } catch {
-      toast.error("O'chirishda xato");
+      toast.error(t('deals.loadError'));
     }
   };
 
@@ -422,7 +464,7 @@ export default function DealDetailPage({ funnelId, dealId }) {
       if (textareaRef.current) textareaRef.current.style.height = 'auto';
       textareaRef.current?.focus();
     } catch {
-      toast.error('Xato yuz berdi');
+      toast.error(t('deals.loadError'));
     } finally {
       setNoteSending(false);
     }
@@ -432,7 +474,7 @@ export default function DealDetailPage({ funnelId, dealId }) {
     try {
       await axios.delete(`${API}/funnels/${funnelId}/deals/${dealId}/activities/${actId}`);
       setActivities(prev => prev.filter(a => a._id !== actId));
-    } catch { toast.error("O'chirishda xato"); }
+    } catch { toast.error(t('deals.loadError')); }
   };
 
   // ── Org sections ─────────────────────────────────────────────────────────
@@ -505,10 +547,42 @@ export default function DealDetailPage({ funnelId, dealId }) {
           )}
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          {/* F-12: won/lost status badge + buttons */}
+          {!isNew && dealStatus === 'won' && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-xl">
+              <Trophy className="w-3.5 h-3.5 text-emerald-600" />
+              <span className="text-xs font-semibold text-emerald-700">Yutildi</span>
+              <button onClick={() => handleSetStatus('active', '')} title="Faolga qaytarish" className="ml-1 text-emerald-400 hover:text-emerald-700 transition-colors">
+                <RotateCcw className="w-3 h-3" />
+              </button>
+            </div>
+          )}
+          {!isNew && dealStatus === 'lost' && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 border border-red-200 rounded-xl">
+              <XCircle className="w-3.5 h-3.5 text-red-500" />
+              <span className="text-xs font-semibold text-red-600">Yo'qotildi</span>
+              {closeReason && <span className="text-[10px] text-red-400 truncate max-w-[100px]">{closeReason}</span>}
+              <button onClick={() => handleSetStatus('active', '')} title="Faolga qaytarish" className="ml-1 text-red-400 hover:text-red-600 transition-colors">
+                <RotateCcw className="w-3 h-3" />
+              </button>
+            </div>
+          )}
+          {!isNew && dealStatus === 'active' && (
+            <>
+              <button onClick={() => { setShowWonLost('won'); setWlReason(''); }}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl text-xs font-medium text-emerald-700 transition-colors">
+                <Trophy className="w-3.5 h-3.5" /> Yutildi
+              </button>
+              <button onClick={() => { setShowWonLost('lost'); setWlReason(''); }}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 hover:bg-red-100 border border-red-200 rounded-xl text-xs font-medium text-red-600 transition-colors">
+                <XCircle className="w-3.5 h-3.5" /> Yo'qotildi
+              </button>
+            </>
+          )}
           {isDirty && (
             <button onClick={handleSave} disabled={saving} className="btn-md btn-primary flex items-center gap-2">
               {saving && <Loader2 className="w-4 h-4 animate-spin" />}
-              Saqlash
+              {t('deals.save')}
             </button>
           )}
           {!isNew && (
@@ -523,7 +597,7 @@ export default function DealDetailPage({ funnelId, dealId }) {
                   <div className="absolute right-0 top-full mt-1 z-20 bg-white border border-surface-100 rounded-xl shadow-lg py-1 min-w-[160px]">
                     <button onClick={() => { setShowMenu(false); setConfirmDelete(true); }}
                       className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors">
-                      <Trash2 className="w-4 h-4" /> O'chirish
+                      <Trash2 className="w-4 h-4" /> {t('deals.delete')}
                     </button>
                   </div>
                 </>
@@ -533,17 +607,53 @@ export default function DealDetailPage({ funnelId, dealId }) {
         </div>
       </div>
 
+      {/* ── Won/Lost modal ── */}
+      {showWonLost && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40" onClick={() => { setShowWonLost(false); setWlReason(''); }} />
+          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4 ${showWonLost === 'won' ? 'bg-emerald-100' : 'bg-red-100'}`}>
+              {showWonLost === 'won'
+                ? <Trophy className="w-6 h-6 text-emerald-600" />
+                : <XCircle className="w-6 h-6 text-red-500" />}
+            </div>
+            <h3 className="text-base font-bold text-ink text-center mb-1">
+              {showWonLost === 'won' ? t('deals.wonTitle') : t('deals.lostTitle')}
+            </h3>
+            <p className="text-sm text-ink-tertiary text-center mb-5">
+              {showWonLost === 'won' ? t('deals.wonReason') : t('deals.lostReason')}
+            </p>
+            <textarea
+              autoFocus
+              className="input w-full resize-none text-sm"
+              rows={2}
+              placeholder={t('deals.reasonPlaceholder')}
+              value={wlReason}
+              onChange={e => setWlReason(e.target.value)}
+            />
+            <div className="flex gap-2 mt-4">
+              <button onClick={() => { setShowWonLost(false); setWlReason(''); }} className="btn-secondary btn-md flex-1">{t('deals.cancel')}</button>
+              <button
+                onClick={() => handleSetStatus(showWonLost, wlReason)}
+                className={`btn-md flex-1 font-medium rounded-xl transition-colors text-white ${showWonLost === 'won' ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-red-500 hover:bg-red-600'}`}>
+                {t('deals.confirm')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Delete confirm ── */}
       {confirmDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
           <div className="bg-white rounded-2xl shadow-xl p-6 w-[340px]">
-            <p className="text-base font-semibold text-ink mb-1">O'chirishni tasdiqlang</p>
+            <p className="text-base font-semibold text-ink mb-1">{t('deals.deleteConfirm')}</p>
             <p className="text-sm text-ink-tertiary mb-5">
-              <span className="font-medium text-ink">{title}</span> o'chiriladi. Bu amalni bekor qilib bo'lmaydi.
+              <span className="font-medium text-ink">{title}</span>
             </p>
             <div className="flex gap-2">
-              <button onClick={() => setConfirmDelete(false)} className="btn-md btn-secondary flex-1">Bekor</button>
-              <button onClick={handleDelete} className="btn-md flex-1 bg-red-500 hover:bg-red-600 text-white rounded-xl font-medium transition-colors">O'chirish</button>
+              <button onClick={() => setConfirmDelete(false)} className="btn-md btn-secondary flex-1">{t('deals.cancel')}</button>
+              <button onClick={handleDelete} className="btn-md flex-1 bg-red-500 hover:bg-red-600 text-white rounded-xl font-medium transition-colors">{t('deals.delete')}</button>
             </div>
           </div>
         </div>
@@ -595,7 +705,7 @@ export default function DealDetailPage({ funnelId, dealId }) {
                   <div className="flex items-center gap-4 px-4 py-2.5">
                     <div className="flex items-center gap-2 w-32 shrink-0">
                       <Kanban className="w-3.5 h-3.5 text-ink-tertiary" />
-                      <span className="text-sm text-ink">Bosqich</span>
+                      <span className="text-sm text-ink">{t('deals.stage')}</span>
                     </div>
                     <div className="relative flex-1 min-w-0">
                       <select className="w-full text-sm text-ink bg-transparent border-0 outline-none focus:outline-none focus:ring-0 appearance-none pr-5 cursor-pointer"
@@ -613,7 +723,7 @@ export default function DealDetailPage({ funnelId, dealId }) {
                   <div className="flex items-center gap-4 px-4 py-2.5">
                     <div className="flex items-center gap-2 w-32 shrink-0">
                       <DollarSign className="w-3.5 h-3.5 text-ink-tertiary" />
-                      <span className="text-sm text-ink">Summa</span>
+                      <span className="text-sm text-ink">{t('deals.value')}</span>
                     </div>
                     <input type="number" min="0"
                       className="flex-1 min-w-0 text-sm text-ink bg-transparent border-0 outline-none focus:outline-none focus:ring-0 placeholder:text-ink-disabled"
@@ -626,7 +736,7 @@ export default function DealDetailPage({ funnelId, dealId }) {
                   <div className="flex items-center gap-4 px-4 py-2.5">
                     <div className="flex items-center gap-2 w-32 shrink-0">
                       <Phone className="w-3.5 h-3.5 text-ink-tertiary" />
-                      <span className="text-sm text-ink">Kontakt</span>
+                      <span className="text-sm text-ink">{t('deals.contact')}</span>
                     </div>
                     <button
                       ref={contactAnchorRef}
@@ -651,7 +761,7 @@ export default function DealDetailPage({ funnelId, dealId }) {
                         <input
                           autoFocus
                           className="input text-sm w-full h-8"
-                          placeholder="Qidirish..."
+                          placeholder={t('funnel.searchPlaceholder')}
                           value={contactSearch}
                           onChange={e => setContactSearch(e.target.value)}
                         />
@@ -660,7 +770,7 @@ export default function DealDetailPage({ funnelId, dealId }) {
                         <button type="button"
                           onClick={() => { setContact(''); setShowContactPicker(false); setContactSearch(''); }}
                           className={`w-full text-left px-3 py-2.5 text-xs transition-colors ${!contact ? 'bg-primary-50 text-primary-700 font-medium' : 'text-ink-tertiary hover:bg-surface-50'}`}>
-                          — Kontaktsiz
+                          {t('funnel.noContact')}
                         </button>
                         {filteredContacts.map(c => (
                           <button key={c._id} type="button"
@@ -684,7 +794,7 @@ export default function DealDetailPage({ funnelId, dealId }) {
                   <div className="flex items-center gap-4 px-4 py-2.5">
                     <div className="flex items-center gap-2 w-32 shrink-0">
                       <User className="w-3.5 h-3.5 text-ink-tertiary" />
-                      <span className="text-sm text-ink">Mas'ul</span>
+                      <span className="text-sm text-ink">{t('deals.assignee')}</span>
                     </div>
                     <button
                       ref={assignedAnchorRef}
@@ -754,42 +864,107 @@ export default function DealDetailPage({ funnelId, dealId }) {
             {/* ─── Statistika tab ─── */}
             {tab === 'stats' && (() => {
               const createdAt  = deal?.createdAt ? new Date(deal.createdAt) : null;
+              const closedAt   = deal?.closedAt  ? new Date(deal.closedAt)  : null;
               const daysActive = createdAt ? Math.floor((Date.now() - createdAt) / 86400000) : 0;
-              const createdFmt = createdAt
-                ? `${String(createdAt.getDate()).padStart(2,'0')}.${String(createdAt.getMonth()+1).padStart(2,'0')}.${createdAt.getFullYear()}`
-                : '—';
+              const fmt2 = d => d ? `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}.${d.getFullYear()}` : '—';
               const noteCount  = activities.filter(a => a.type === 'note').length;
+              const allCalls   = dealCalls.length;
               const inCount    = dealCalls.filter(c => c.direction === 'in').length;
               const outCount   = dealCalls.filter(c => c.direction === 'out').length;
+              const missedCount = dealCalls.filter(c => c.status === 'missed').length;
+
+              // Last 14 days activity chart
+              const today = new Date(); today.setHours(0,0,0,0);
+              const days14 = Array.from({ length: 14 }, (_, i) => {
+                const d = new Date(today); d.setDate(d.getDate() - 13 + i);
+                return d;
+              });
+              const actByDay = days14.map(day => {
+                const nextDay = new Date(day); nextDay.setDate(nextDay.getDate() + 1);
+                const count = activities.filter(a => {
+                  const t = new Date(a.createdAt);
+                  return t >= day && t < nextDay;
+                }).length;
+                return { day, count };
+              });
+              const maxAct = Math.max(...actByDay.map(d => d.count), 1);
+              const BAR_H = 40;
 
               return (
                 <div className="space-y-3">
-                  {/* Yaratilgan sana */}
-                  <div className="border border-surface-100 rounded-xl px-4 py-3 flex items-center justify-between">
-                    <span className="text-sm text-ink-tertiary">Yaratilgan sana</span>
-                    <span className="text-sm font-semibold text-ink">{createdFmt}</span>
-                  </div>
+                  {/* Status banner */}
+                  {dealStatus !== 'active' && (
+                    <div className={`rounded-xl px-4 py-3 flex items-center gap-3 ${dealStatus === 'won' ? 'bg-emerald-50 border border-emerald-200' : 'bg-red-50 border border-red-200'}`}>
+                      {dealStatus === 'won' ? <Trophy className="w-5 h-5 text-emerald-600 shrink-0" /> : <XCircle className="w-5 h-5 text-red-500 shrink-0" />}
+                      <div className="min-w-0">
+                        <p className={`text-sm font-semibold ${dealStatus === 'won' ? 'text-emerald-700' : 'text-red-600'}`}>
+                          {dealStatus === 'won' ? 'Bitim yutildi' : "Bitim yo'qotildi"}
+                        </p>
+                        {closeReason && <p className="text-xs text-ink-tertiary truncate">{closeReason}</p>}
+                        {closedAt && <p className="text-xs text-ink-tertiary">{fmt2(closedAt)}</p>}
+                      </div>
+                    </div>
+                  )}
 
-                  {/* Kunlar */}
-                  <div className="border border-surface-100 rounded-xl px-4 py-5 flex flex-col items-center">
-                    <span className="text-5xl font-black text-ink leading-none">{daysActive}</span>
-                    <span className="text-xs text-ink-tertiary mt-2">kun ishlanyapti</span>
-                  </div>
-
-                  {/* 2-column: Qo'ng'iroqlar + Izohlar */}
+                  {/* Dates row */}
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="border border-surface-100 rounded-xl px-4 py-4 flex flex-col items-center gap-1">
-                      <span className="text-2xl font-bold text-ink">{inCount} / {outCount}</span>
-                      <span className="text-[11px] text-ink-tertiary text-center leading-tight">
-                        Qo'ng'iroqlar<br />kir. / chiq.
-                      </span>
+                    <div className="border border-surface-100 rounded-xl px-3 py-2.5">
+                      <p className="text-[10px] text-ink-tertiary mb-0.5">Yaratilgan</p>
+                      <p className="text-sm font-semibold text-ink">{fmt2(createdAt)}</p>
                     </div>
-                    <div className="border border-surface-100 rounded-xl px-4 py-4 flex flex-col items-center gap-1">
-                      <span className="text-2xl font-bold text-ink">{noteCount}</span>
-                      <span className="text-[11px] text-ink-tertiary text-center leading-tight">
-                        Izohlar
-                      </span>
+                    <div className="border border-surface-100 rounded-xl px-3 py-2.5 flex flex-col items-center justify-center">
+                      <span className="text-3xl font-black text-ink leading-none">{daysActive}</span>
+                      <span className="text-[10px] text-ink-tertiary mt-0.5">kun davomida</span>
                     </div>
+                  </div>
+
+                  {/* 3-column KPIs */}
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="border border-surface-100 rounded-xl px-3 py-3 flex flex-col items-center gap-0.5">
+                      <span className="text-xl font-bold text-ink">{allCalls}</span>
+                      <span className="text-[10px] text-ink-tertiary text-center">Qo'ng'iroq</span>
+                    </div>
+                    <div className="border border-surface-100 rounded-xl px-3 py-3 flex flex-col items-center gap-0.5">
+                      <span className="text-xl font-bold text-ink">{inCount}/{outCount}</span>
+                      <span className="text-[10px] text-ink-tertiary text-center">Kir/Chiq</span>
+                    </div>
+                    <div className="border border-surface-100 rounded-xl px-3 py-3 flex flex-col items-center gap-0.5">
+                      <span className="text-xl font-bold text-ink">{noteCount}</span>
+                      <span className="text-[10px] text-ink-tertiary text-center">Izoh</span>
+                    </div>
+                  </div>
+
+                  {missedCount > 0 && (
+                    <div className="border border-amber-200 bg-amber-50 rounded-xl px-4 py-2.5 flex items-center justify-between">
+                      <span className="text-xs text-amber-700">O'tkazib yuborilgan qo'ng'iroqlar</span>
+                      <span className="text-sm font-bold text-amber-700">{missedCount}</span>
+                    </div>
+                  )}
+
+                  {/* Activity bar chart (last 14 days) */}
+                  <div className="border border-surface-100 rounded-xl px-4 py-3">
+                    <p className="text-[10px] font-semibold text-ink-tertiary uppercase tracking-wider mb-3">Oxirgi 14 kun faolligi</p>
+                    <svg width="100%" viewBox={`0 0 ${14 * 18} ${BAR_H + 16}`} className="overflow-visible">
+                      {actByDay.map(({ day, count }, i) => {
+                        const barH = count > 0 ? Math.max(4, Math.round((count / maxAct) * BAR_H)) : 3;
+                        const x = i * 18 + 2;
+                        const isToday = day.toDateString() === new Date().toDateString();
+                        return (
+                          <g key={i}>
+                            <rect
+                              x={x} y={BAR_H - barH} width={14} height={barH}
+                              rx={3}
+                              fill={count === 0 ? '#e2e8f0' : isToday ? '#6366f1' : '#a5b4fc'}
+                            />
+                            {(isToday || i % 4 === 0) && (
+                              <text x={x + 7} y={BAR_H + 12} textAnchor="middle" fontSize={8} fill="#94a3b8">
+                                {String(day.getDate()).padStart(2,'0')}/{String(day.getMonth()+1).padStart(2,'0')}
+                              </text>
+                            )}
+                          </g>
+                        );
+                      })}
+                    </svg>
                   </div>
                 </div>
               );
@@ -965,8 +1140,8 @@ export default function DealDetailPage({ funnelId, dealId }) {
         {/* ── RIGHT: Activity feed ── */}
         <div className="flex-1 flex flex-col min-w-0 bg-surface-50">
           <div className="px-5 py-3 border-b border-surface-100 bg-white shrink-0">
-            <p className="text-sm font-semibold text-ink">Faoliyat tarixi</p>
-            <p className="text-xs text-ink-tertiary mt-0.5">Izohlar va o'zgarishlar</p>
+            <p className="text-sm font-semibold text-ink">{t('contactForm.tabActivity')}</p>
+            <p className="text-xs text-ink-tertiary mt-0.5">{t('deals.activitySub')}</p>
           </div>
           <div className="flex-1 overflow-y-auto px-5 py-4">
             {isNew ? (
@@ -974,8 +1149,8 @@ export default function DealDetailPage({ funnelId, dealId }) {
                 <div className="w-14 h-14 bg-white border border-surface-100 rounded-2xl flex items-center justify-center mb-3">
                   <MessageSquare className="w-7 h-7 text-ink-disabled" />
                 </div>
-                <p className="text-sm font-medium text-ink-secondary">Faoliyat</p>
-                <p className="text-xs text-ink-tertiary mt-1 max-w-[200px]">Saqlanganidan keyin izoh yozishingiz mumkin</p>
+                <p className="text-sm font-medium text-ink-secondary">{t('deals.activityEmpty')}</p>
+                <p className="text-xs text-ink-tertiary mt-1 max-w-[200px]">{t('deals.activityHint')}</p>
               </div>
             ) : actLoading ? (
               <div className="flex items-center justify-center h-32">
@@ -986,8 +1161,8 @@ export default function DealDetailPage({ funnelId, dealId }) {
                 <div className="w-14 h-14 bg-white border border-surface-100 rounded-2xl flex items-center justify-center mb-3">
                   <MessageSquare className="w-7 h-7 text-ink-disabled" />
                 </div>
-                <p className="text-sm font-medium text-ink-secondary">Faoliyat yo'q</p>
-                <p className="text-xs text-ink-tertiary mt-1">Birinchi izohni yozing</p>
+                <p className="text-sm font-medium text-ink-secondary">{t('deals.activityEmpty')}</p>
+                <p className="text-xs text-ink-tertiary mt-1">{t('deals.activityHint')}</p>
               </div>
             ) : (
               <div className="space-y-0.5">
@@ -1005,7 +1180,7 @@ export default function DealDetailPage({ funnelId, dealId }) {
               <div className="flex items-end bg-surface-50 rounded-xl border border-surface-200 focus-within:border-primary-300 focus-within:bg-white focus-within:shadow-sm transition-all duration-200">
                 <textarea ref={textareaRef}
                   className="flex-1 min-w-0 bg-transparent text-sm text-ink placeholder:text-ink-tertiary resize-none border-0 outline-none focus:outline-none focus:ring-0 leading-relaxed px-4 py-3"
-                  placeholder="Izoh yozing..." rows={3} value={noteText}
+                  placeholder={t('deals.notePlaceholder')} rows={3} value={noteText}
                   onChange={e => { setNoteText(e.target.value); e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px'; }}
                   onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendNote(); } }} />
                 <div className="shrink-0 p-2 transition-all duration-150"

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useSelector } from 'react-redux';
+import { useT } from '../utils/translate';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import {
@@ -309,6 +310,7 @@ export default function ContactFormPage() {
   const navigate = useNavigate();
   const { id }   = useParams();
   const isEdit   = Boolean(id);
+  const t = useT();
 
   // Contact form
   const [form, setForm]                 = useState(EMPTY);
@@ -347,6 +349,8 @@ export default function ContactFormPage() {
   const textareaRef = useRef(null);
   const [contactCalls, setContactCalls] = useState([]);
   const [pendingFileUploads, setPendingFileUploads] = useState({});
+  const [contactFiles,  setContactFiles]  = useState([]);
+  const [uploadingFile, setUploadingFile] = useState(false);
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -380,6 +384,7 @@ export default function ContactFormPage() {
           setOriginalForm(loaded);
           setContactNumber(c.contactNumber || null);
           setBlocked(!!c.blocked);
+          setContactFiles(c.files || []);
           const vals = (c.customFieldValues && typeof c.customFieldValues === 'object') ? c.customFieldValues : {};
           setCustomFieldValues(vals);
           setOriginalCustomFieldValues(JSON.parse(JSON.stringify(vals)));
@@ -492,6 +497,38 @@ export default function ContactFormPage() {
       toast.error(err.response?.data?.message || err.message || 'Xato yuz berdi');
     } finally {
       setSaving(false);
+    }
+  };
+
+  // ── Contact file upload / delete ────────────────────────────────────────────
+  const handleFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingFile(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const uploadRes = await axios.post(`${API}/upload/file`, fd);
+      const { url, name: fileName, size, type } = uploadRes.data;
+      const res = await axios.post(`${API}/contacts/${id}/files`, { name: fileName, url, size, type });
+      setContactFiles(res.data.files);
+      toast.success('Fayl yuklandi');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Yuklashda xato');
+    } finally {
+      setUploadingFile(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleFileDelete = async (fileId) => {
+    if (!window.confirm("Faylni o'chirishni tasdiqlaysizmi?")) return;
+    try {
+      const res = await axios.delete(`${API}/contacts/${id}/files/${fileId}`);
+      setContactFiles(res.data.files);
+      toast.success("Fayl o'chirildi");
+    } catch {
+      toast.error("O'chirishda xato");
     }
   };
 
@@ -626,11 +663,11 @@ export default function ContactFormPage() {
             <ArrowLeft className="w-5 h-5" />
           </button>
           <h1 className="text-lg font-bold text-ink truncate">
-            {isEdit ? "Ma'lumotlarni o'zgartirish" : 'Yangi kontakt'}
+            {isEdit ? t('contactForm.editTitle') : t('contactForm.newTitle')}
           </h1>
           {blocked && (
             <span className="text-xs font-medium bg-red-50 text-red-500 border border-red-200 px-2 py-0.5 rounded-full shrink-0">
-              Bloklangan
+              {t('contactForm.blocked')}
             </span>
           )}
         </div>
@@ -638,7 +675,7 @@ export default function ContactFormPage() {
           {isDirty && (
             <button onClick={handleSave} disabled={saving} className="btn-md btn-primary">
               {saving && <Loader2 className="w-4 h-4 animate-spin" />}
-              Saqlash
+              {t('contactForm.save')}
             </button>
           )}
           {isEdit && (
@@ -658,7 +695,7 @@ export default function ContactFormPage() {
                       className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-ink hover:bg-surface-50 transition-colors"
                     >
                       {blocked ? <Shield className="w-4 h-4 text-green-500" /> : <ShieldOff className="w-4 h-4 text-orange-400" />}
-                      {blocked ? 'Blokdan chiqarish' : 'Bloklash'}
+                      {blocked ? t('contactForm.unblock') : t('contactForm.block')}
                     </button>
                     <div className="my-1 border-t border-surface-100" />
                     <button
@@ -666,7 +703,7 @@ export default function ContactFormPage() {
                       className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors"
                     >
                       <Trash2 className="w-4 h-4" />
-                      O'chirish
+                      {t('contactForm.delete')}
                     </button>
                   </div>
                 </>
@@ -680,13 +717,13 @@ export default function ContactFormPage() {
       {confirmDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
           <div className="bg-white rounded-2xl shadow-xl p-6 w-[340px]">
-            <p className="text-base font-semibold text-ink mb-1">Kontaktni o'chirish</p>
+            <p className="text-base font-semibold text-ink mb-1">{t('contactForm.deleteConfirm')}</p>
             <p className="text-sm text-ink-tertiary mb-5">
-              <span className="font-medium text-ink">{form.name}</span> o'chiriladi. Bu amalni bekor qilib bo'lmaydi.
+              <span className="font-medium text-ink">{form.name}</span>
             </p>
             <div className="flex gap-2">
-              <button onClick={() => setConfirmDelete(false)} className="btn-md btn-secondary flex-1">Bekor</button>
-              <button onClick={handleDelete} className="btn-md flex-1 bg-red-500 hover:bg-red-600 text-white rounded-xl font-medium transition-colors">O'chirish</button>
+              <button onClick={() => setConfirmDelete(false)} className="btn-md btn-secondary flex-1">{t('contactForm.cancel')}</button>
+              <button onClick={handleDelete} className="btn-md flex-1 bg-red-500 hover:bg-red-600 text-white rounded-xl font-medium transition-colors">{t('contactForm.delete')}</button>
             </div>
           </div>
         </div>
@@ -708,7 +745,7 @@ export default function ContactFormPage() {
                 <input
                   ref={nameRef}
                   className="w-full text-lg font-bold text-ink bg-transparent hover:bg-surface-50 focus:bg-transparent rounded-lg border-b-2 border-transparent focus:border-primary-300 outline-none focus:outline-none focus:ring-0 pr-6 py-0.5 transition-all placeholder:text-ink-disabled cursor-default focus:cursor-text"
-                  placeholder="To'liq ism..."
+                  placeholder={t('contactForm.namePlaceholder')}
                   value={form.name}
                   onChange={e => set('name', e.target.value)}
                 />
@@ -720,7 +757,7 @@ export default function ContactFormPage() {
           {/* Tabs */}
           <div className="px-4 py-3 border-b border-surface-100 shrink-0">
             <div className="flex bg-surface-100 rounded-xl p-1 gap-1">
-              {[['main', 'Asosiy'], ['settings', 'Sozlama']].map(([key, label]) => (
+              {[['main', t('contactForm.tabGeneral')], ['files', t('contactForm.tabFiles')], ['settings', t('contactForm.tabSettings')]].map(([key, label]) => (
                 <button
                   key={key}
                   onClick={() => setTab(key)}
@@ -743,14 +780,17 @@ export default function ContactFormPage() {
                 {/* Default fields */}
                 <div className="border border-surface-100 rounded-xl overflow-hidden">
                   <div className="divide-y divide-surface-100">
-                    <div className="flex items-center gap-4 px-4 py-2.5">
-                      <span className="w-28 text-sm text-ink shrink-0">Telefon</span>
-                      <input
-                        className="flex-1 text-sm text-ink bg-transparent border-0 outline-none focus:outline-none focus:ring-0 placeholder:text-ink-disabled"
-                        placeholder="+998..."
-                        value={form.phone}
-                        onChange={e => set('phone', e.target.value)}
-                      />
+                    <div className="flex items-start gap-4 px-4 py-2.5">
+                      <span className="w-28 text-sm text-ink shrink-0 pt-0.5">Telefon</span>
+                      <div className="flex-1 min-w-0">
+                        <input
+                          className="w-full text-sm text-ink bg-transparent border-0 outline-none focus:outline-none focus:ring-0 placeholder:text-ink-disabled"
+                          placeholder="+998901234567"
+                          value={form.phone}
+                          onChange={e => set('phone', e.target.value)}
+                        />
+                        <p className="text-[10px] text-ink-disabled mt-0.5">Format: +998XXXXXXXXX</p>
+                      </div>
                     </div>
                     <div className="flex items-center gap-4 px-4 py-2.5">
                       <span className="w-28 text-sm text-ink shrink-0">Email</span>
@@ -792,6 +832,52 @@ export default function ContactFormPage() {
             )}
 
             {/* ─── Sozlama tab: faqat schema editor ─── */}
+            {/* ─── Fayllar tab ─── */}
+            {tab === 'files' && (
+              <div className="space-y-3">
+                {isEdit ? (
+                  <label className={`w-full flex items-center justify-center gap-2.5 py-3 border-2 border-dashed border-surface-200 rounded-xl text-sm transition-colors cursor-pointer ${uploadingFile ? 'opacity-50 pointer-events-none' : 'hover:border-primary-300 hover:text-primary-600 text-ink-tertiary'}`}>
+                    {uploadingFile ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                    {uploadingFile ? 'Yuklanmoqda...' : '+ Fayl yuklash'}
+                    <input type="file" className="hidden" onChange={handleFileUpload} disabled={uploadingFile} />
+                  </label>
+                ) : (
+                  <p className="text-xs text-ink-tertiary text-center py-4">Fayl yuklash uchun avval kontaktni saqlang</p>
+                )}
+                {contactFiles.length === 0 && isEdit && (
+                  <div className="flex flex-col items-center justify-center py-8 text-center">
+                    <FileText className="w-8 h-8 text-ink-disabled mb-2" />
+                    <p className="text-sm text-ink-tertiary">Hali fayl yo'q</p>
+                  </div>
+                )}
+                {contactFiles.map(f => {
+                  const BASE = API.replace('/api', '');
+                  const href = f.url.startsWith('http') ? f.url : `${BASE}${f.url}`;
+                  const fmtSize = (b) => b < 1024 ? `${b} B` : b < 1024*1024 ? `${(b/1024).toFixed(1)} KB` : `${(b/1024/1024).toFixed(1)} MB`;
+                  return (
+                    <div key={f._id} className="flex items-center gap-3 p-3 border border-surface-100 rounded-xl group hover:bg-surface-50 transition-colors">
+                      <FileText className="w-8 h-8 text-primary-400 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-ink truncate">{f.name}</p>
+                        {f.size > 0 && <p className="text-xs text-ink-tertiary">{fmtSize(f.size)}</p>}
+                      </div>
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                        <a href={`${href}?dl=1`} target="_blank" rel="noreferrer"
+                          className="p-1.5 rounded hover:bg-primary-50 text-ink-tertiary hover:text-primary-600 transition-colors"
+                          title="Yuklab olish">
+                          <Upload className="w-3.5 h-3.5 rotate-180" />
+                        </a>
+                        <button onClick={() => handleFileDelete(f._id)}
+                          className="p-1.5 rounded hover:bg-red-50 text-ink-tertiary hover:text-red-500 transition-colors">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
             {tab === 'settings' && (
               <div className="space-y-5">
 
@@ -1008,8 +1094,8 @@ export default function ContactFormPage() {
         {/* ── RIGHT: Activity feed (notes + calls merged) ── */}
         <div className="flex-1 flex flex-col min-w-0 bg-surface-50">
           <div className="px-5 py-3 border-b border-surface-100 bg-white shrink-0">
-            <p className="text-sm font-semibold text-ink">Faoliyat tarixi</p>
-            <p className="text-xs text-ink-tertiary mt-0.5">Izohlar, qo'ng'iroqlar va o'zgarishlar</p>
+            <p className="text-sm font-semibold text-ink">{t('contactForm.tabActivity')}</p>
+            <p className="text-xs text-ink-tertiary mt-0.5">{t('contactForm.activitySub')}</p>
           </div>
 
           <div className="flex-1 overflow-y-auto px-5 py-4">
@@ -1018,9 +1104,9 @@ export default function ContactFormPage() {
                 <div className="w-14 h-14 bg-white border border-surface-100 rounded-2xl flex items-center justify-center mb-3">
                   <MessageSquare className="w-7 h-7 text-ink-disabled" />
                 </div>
-                <p className="text-sm font-medium text-ink-secondary">Faoliyat</p>
+                <p className="text-sm font-medium text-ink-secondary">{t('contactForm.tabActivity')}</p>
                 <p className="text-xs text-ink-tertiary mt-1 max-w-[200px]">
-                  Kontakt saqlanganidan keyin izoh va yozuvlar qo'sha olasiz
+                  {t('contactForm.activityHint')}
                 </p>
               </div>
             ) : actLoading ? (
@@ -1032,8 +1118,8 @@ export default function ContactFormPage() {
                 <div className="w-14 h-14 bg-white border border-surface-100 rounded-2xl flex items-center justify-center mb-3">
                   <MessageSquare className="w-7 h-7 text-ink-disabled" />
                 </div>
-                <p className="text-sm font-medium text-ink-secondary">Faoliyat yo'q</p>
-                <p className="text-xs text-ink-tertiary mt-1">Birinchi izohni yozing</p>
+                <p className="text-sm font-medium text-ink-secondary">{t('contactForm.activityEmpty')}</p>
+                <p className="text-xs text-ink-tertiary mt-1">{t('contactForm.activityEmptyHint')}</p>
               </div>
             ) : (() => {
               const actItems = activities.map(a => ({ ...a, _feedType: 'activity', _ts: new Date(a.createdAt).getTime() }));
@@ -1060,7 +1146,7 @@ export default function ContactFormPage() {
                 <textarea
                   ref={textareaRef}
                   className="flex-1 min-w-0 bg-transparent text-sm text-ink placeholder:text-ink-tertiary resize-none border-0 outline-none focus:outline-none focus:ring-0 leading-relaxed px-4 py-3"
-                  placeholder="Izoh yozing..."
+                  placeholder={t('contactForm.notesPlaceholder')}
                   rows={3}
                   value={noteText}
                   onChange={e => { setNoteText(e.target.value); autoResize(e); }}

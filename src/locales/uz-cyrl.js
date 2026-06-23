@@ -419,7 +419,7 @@ export default {
     passwordPlaceholder: "••••••",
     submitting: "Кирилмоқда...",
     forgotPassword: "Паролни унутдингизми?",
-    rights: "© 2025 ERP Line. Барча ҳуқуқлар ҳимояланган.",
+    rights: "© 2025 CRM Line. Барча ҳуқуқлар ҳимояланган.",
   },
 
   // Sales module

@@ -128,11 +128,10 @@ function TaskModal({ initial, stages, users, onSave, onClose, saving }) {
   const [stageId,    setStageId]    = useState(initial?.stageId    ? String(initial.stageId) : (stages[0] ? String(stages[0]._id || stages[0].name) : ''));
   const [assignedTo, setAssignedTo] = useState(initial?.assignedTo?._id || initial?.assignedTo || '');
   const [dueDate,    setDueDate]    = useState(initial?.dueDate    ? initial.dueDate.slice(0, 10) : '');
-  const [priority,   setPriority]   = useState(initial?.priority   || 'normal');
 
   const handleSave = () => {
     if (!title.trim()) { toast.error('Sarlavha kiritilishi shart'); return; }
-    onSave({ title, stageId, assignedTo: assignedTo || null, dueDate: dueDate || null, priority });
+    onSave({ title, stageId, assignedTo: assignedTo || null, dueDate: dueDate || null });
   };
 
   return (

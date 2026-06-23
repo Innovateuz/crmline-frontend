@@ -60,6 +60,7 @@ export default function DashboardPage() {
         if (!call) return;
         // Faqat hozir jiringlayotgan callni ko'rsat
         if (call.status !== 'ringing') return;
+        if (_dismissedCalls.has(call.callId)) return;
         setIncomingCall(prev => {
           if (prev?.callId === call.callId) return prev;
           return { callId: call.callId, phone: call.phone, ext: call.ext,
@@ -72,7 +73,11 @@ export default function DashboardPage() {
     // Socket events — real-time trigger for poll
     const socket = getSocket();
     const onIncoming = () => poll();
-    const onEnded    = () => poll();
+    const onEnded = ({ callId } = {}) => {
+      // Tugagan callni dismissed deb belgilaymiz — poll() race condition oldini olamiz
+      if (callId) _dismissedCalls.add(callId);
+      setIncomingCall(prev => (prev?.callId === callId ? null : prev));
+    };
     socket.on('atc:incoming', onIncoming);
     socket.on('atc:ended',    onEnded);
 

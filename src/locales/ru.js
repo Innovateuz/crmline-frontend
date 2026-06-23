@@ -403,7 +403,7 @@ export default {
     phonePlaceholder: "90 123 45 67",
     passwordPlaceholder: "••••••",
     submitting: "Вход...",
-    rights: "© 2025 ERP Line. Все права защищены.",
+    rights: "© 2025 CRM Line. Все права защищены.",
   },
 
   // Sales module

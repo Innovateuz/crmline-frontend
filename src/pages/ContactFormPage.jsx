@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import {
@@ -51,7 +52,7 @@ function formatTime(iso) {
 
 // ─── Custom field input ───────────────────────────────────────────────────────
 
-function CustomFieldInput({ field, value, onChange }) {
+function CustomFieldInput({ field, value, pendingFile, onChange }) {
   if (field.type === 'boolean') {
     return (
       <button
@@ -122,13 +123,34 @@ function CustomFieldInput({ field, value, onChange }) {
   }
 
   if (field.type === 'file') {
+    const API_BASE = (process.env.REACT_APP_API_URL || 'http://localhost:5002/api').replace(/\/api$/, '');
+    const uploaded = value && typeof value === 'object' && value.url;
+    const hasFile = pendingFile || uploaded;
+    const displayName = pendingFile?.name || (uploaded ? value.name : null);
     return (
       <div className="flex items-center gap-2 flex-1 min-w-0">
-        {value ? (
+        {hasFile ? (
           <>
             <FileText className="w-3.5 h-3.5 text-ink-tertiary shrink-0" />
-            <span className="text-sm text-ink truncate flex-1">{value}</span>
-            <button onClick={() => onChange('')} className="shrink-0 text-ink-tertiary hover:text-red-500 transition-colors">
+            {uploaded && !pendingFile ? (
+              <a
+                href={`${API_BASE}${value.url}?dl=1`}
+                className="text-sm text-primary-600 hover:underline truncate flex-1"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {displayName}
+              </a>
+            ) : (
+              <span className="text-sm text-ink truncate flex-1">{displayName}</span>
+            )}
+            {pendingFile && (
+              <span className="text-[10px] text-amber-500 shrink-0">Saqlanmagan</span>
+            )}
+            <button
+              onClick={() => onChange(null)}
+              className="shrink-0 text-ink-tertiary hover:text-red-500 transition-colors"
+            >
               <X className="w-3.5 h-3.5" />
             </button>
           </>
@@ -137,7 +159,7 @@ function CustomFieldInput({ field, value, onChange }) {
             <Upload className="w-3.5 h-3.5" />
             <span>Fayl tanlash</span>
             <input type="file" className="hidden" onChange={e => {
-              if (e.target.files?.[0]) onChange(e.target.files[0].name);
+              if (e.target.files?.[0]) onChange(e.target.files[0]);
             }} />
           </label>
         )}
@@ -320,10 +342,11 @@ export default function ContactFormPage() {
   const [actLoading, setActLoading] = useState(false);
   const [noteText, setNoteText]     = useState('');
   const [noteSending, setNoteSending] = useState(false);
-  const [meId, setMeId]             = useState(null);
+  const meId = useSelector(s => s.auth.user?._id || s.auth.user?.id);
   const bottomRef   = useRef(null);
   const textareaRef = useRef(null);
   const [contactCalls, setContactCalls] = useState([]);
+  const [pendingFileUploads, setPendingFileUploads] = useState({});
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -331,7 +354,8 @@ export default function ContactFormPage() {
     !isEdit ||
     JSON.stringify(form)               !== JSON.stringify(originalForm) ||
     JSON.stringify(customFieldValues)  !== JSON.stringify(originalCustomFieldValues) ||
-    JSON.stringify(orgSections)        !== JSON.stringify(originalOrgSections);
+    JSON.stringify(orgSections)        !== JSON.stringify(originalOrgSections) ||
+    Object.keys(pendingFileUploads).length > 0;
 
   // ── Load org config + contact ───────────────────────────────────────────────
   useEffect(() => {
@@ -390,11 +414,6 @@ export default function ContactFormPage() {
       .catch(() => {});
   }, [id, isEdit]);
 
-  useEffect(() => {
-    axios.get(`${API}/auth/me`)
-      .then(r => setMeId(r.data.user?.id || r.data.user?._id))
-      .catch(() => {});
-  }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -409,11 +428,32 @@ export default function ContactFormPage() {
     }
     setSaving(true);
     try {
+      // Avval kutilayotgan fayllarni yuklaymiz
+      let finalCustomValues = { ...customFieldValues };
+      const pendingEntries = Object.entries(pendingFileUploads);
+      if (pendingEntries.length > 0) {
+        const results = await Promise.all(
+          pendingEntries.map(async ([fieldId, file]) => {
+            const fd = new FormData();
+            fd.append('file', file);
+            const r = await axios.post(`${API}/upload/file`, fd);
+            if (!r.data.success) throw new Error(`Fayl yuklanmadi: ${file.name}`);
+            return [fieldId, { url: r.data.url, name: r.data.name }];
+          })
+        );
+        for (const [fieldId, fileObj] of results) {
+          finalCustomValues[fieldId] = fileObj;
+        }
+        setCustomFieldValues(finalCustomValues);
+        setPendingFileUploads({});
+      }
+
       const orgChanged = JSON.stringify(orgSections) !== JSON.stringify(originalOrgSections);
       const contactChanged =
         !isEdit ||
         JSON.stringify(form) !== JSON.stringify(originalForm) ||
-        JSON.stringify(customFieldValues) !== JSON.stringify(originalCustomFieldValues);
+        JSON.stringify(customFieldValues) !== JSON.stringify(originalCustomFieldValues) ||
+        pendingEntries.length > 0;
 
       const promises = [];
 
@@ -425,13 +465,13 @@ export default function ContactFormPage() {
       }
 
       if (contactChanged || !isEdit) {
-        const payload = { ...form, customFieldValues };
+        const payload = { ...form, customFieldValues: finalCustomValues };
         if (isEdit) {
           promises.push(
             axios.put(`${API}/contacts/${id}`, payload)
               .then(() => {
                 setOriginalForm(form);
-                setOriginalCustomFieldValues(JSON.parse(JSON.stringify(customFieldValues)));
+                setOriginalCustomFieldValues(JSON.parse(JSON.stringify(finalCustomValues)));
                 loadActivities();
               })
           );
@@ -449,7 +489,7 @@ export default function ContactFormPage() {
       await Promise.all(promises);
       if (isEdit) toast.success('Saqlandi');
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Xato yuz berdi');
+      toast.error(err.response?.data?.message || err.message || 'Xato yuz berdi');
     } finally {
       setSaving(false);
     }
@@ -495,7 +535,14 @@ export default function ContactFormPage() {
   };
 
   const updateFieldValue = (fieldId, value) => {
-    setCustomFieldValues(prev => ({ ...prev, [fieldId]: value }));
+    if (value instanceof File) {
+      setPendingFileUploads(prev => ({ ...prev, [fieldId]: value }));
+    } else if (value === null) {
+      setPendingFileUploads(prev => { const n = { ...prev }; delete n[fieldId]; return n; });
+      setCustomFieldValues(prev => ({ ...prev, [fieldId]: null }));
+    } else {
+      setCustomFieldValues(prev => ({ ...prev, [fieldId]: value }));
+    }
   };
 
   // ── Activity handlers ───────────────────────────────────────────────────────
@@ -732,6 +779,7 @@ export default function ContactFormPage() {
                             <CustomFieldInput
                               field={field}
                               value={customFieldValues[field.id]}
+                              pendingFile={pendingFileUploads[field.id] || null}
                               onChange={val => updateFieldValue(field.id, val)}
                             />
                           </div>

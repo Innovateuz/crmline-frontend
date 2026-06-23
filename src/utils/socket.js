@@ -14,8 +14,12 @@ function onReconnect() {
 
 export function getSocket() {
   if (!socket) {
-    socket = io(SOCKET_URL, { autoConnect: false, transports: ['websocket', 'polling'] });
-    // Har ulanishda (va qayta ulanishda) avtomatik join-org
+    socket = io(SOCKET_URL, {
+      autoConnect: false,
+      transports: ['websocket', 'polling'],
+      // Har ulanish/qayta-ulanishda fresh token yuboriladi
+      auth: (cb) => cb({ token: localStorage.getItem('token') }),
+    });
     socket.on('connect', onReconnect);
   }
   return socket;

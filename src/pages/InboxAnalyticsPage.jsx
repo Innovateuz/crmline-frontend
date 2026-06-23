@@ -6,10 +6,10 @@ import { ArrowLeft, Loader2, MessageSquare, CheckCircle2, Clock, Users, Tag, Tre
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5002/api';
 
 const CHANNEL_COLOR = {
-  telegram:  { bg: 'bg-[#e8f4fb]', text: 'text-[#229ED9]', label: 'Telegram'  },
-  whatsapp:  { bg: 'bg-[#e8faf0]', text: 'text-[#25D366]', label: 'WhatsApp'  },
-  instagram: { bg: 'bg-[#fce8ef]', text: 'text-[#E1306C]', label: 'Instagram' },
-  facebook:  { bg: 'bg-[#e7f0fd]', text: 'text-[#1877F2]', label: 'Facebook'  },
+  telegram:  { bg: 'bg-[#e8f4fb]', text: 'text-[#229ED9]', label: 'Telegram',  accent: '#229ED9' },
+  whatsapp:  { bg: 'bg-[#e8faf0]', text: 'text-[#25D366]', label: 'WhatsApp',  accent: '#25D366' },
+  instagram: { bg: 'bg-[#fce8ef]', text: 'text-[#E1306C]', label: 'Instagram', accent: '#E1306C' },
+  facebook:  { bg: 'bg-[#e7f0fd]', text: 'text-[#1877F2]', label: 'Facebook',  accent: '#1877F2' },
 };
 
 function StatCard({ icon: Icon, label, value, sub, color = 'text-primary-600', bg = 'bg-primary-50' }) {
@@ -157,8 +157,8 @@ export default function InboxAnalyticsPage() {
                           </span>
                           <div className="flex items-center gap-2">
                             <div className="w-24 h-1.5 bg-surface-100 rounded-full overflow-hidden">
-                              <div className={`h-full rounded-full ${c.bg}`}
-                                style={{ width: `${total ? (count/total)*100 : 0}%`, backgroundColor: 'currentColor' }} />
+                              <div className="h-full rounded-full"
+                                style={{ width: `${total ? (count/total)*100 : 0}%`, backgroundColor: c.accent || '#94a3b8' }} />
                             </div>
                             <span className="text-sm font-semibold text-ink w-6 text-right">{count}</span>
                           </div>

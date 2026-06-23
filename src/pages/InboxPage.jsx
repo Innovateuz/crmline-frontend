@@ -463,7 +463,7 @@ export default function InboxPage() {
     setText('');
     setShowQR(false);
     try {
-      const body = isNoteMode ? { text: draft, isNote: 'true' } : { text: draft };
+      const body = isNoteMode ? { text: draft, isNote: true } : { text: draft };
       const res = await axios.post(`${API_URL}/inbox/${activeConvId}/send`, body);
       setMessages(prev => prev.some(m => String(m._id) === String(res.data.message._id)) ? prev : [...prev, res.data.message]);
       if (!isNoteMode) {

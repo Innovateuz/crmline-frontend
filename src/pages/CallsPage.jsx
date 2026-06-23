@@ -106,14 +106,22 @@ export default function CallsPage() {
   const [total,     setTotal]     = useState(0);
   const [selected,  setSelected]  = useState(new Set());
   const [deleting,  setDeleting]  = useState(false);
+  const [callModal, setCallModal] = useState(null); // phone string | null
+  const [extInput,  setExtInput]  = useState('');
+  const [extCalling, setExtCalling] = useState(false);
   const LIMIT = 30;
+
+  // Ref ensures load() always reads the latest search value without
+  // triggering auto-fetch on every keystroke (search is Enter-key driven)
+  const searchRef = useRef(search);
+  searchRef.current = search;
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const params = { page, limit: LIMIT };
-      if (dirFilter)   params.direction = dirFilter;
-      if (search)      params.phone     = search;
+      if (dirFilter)          params.direction = dirFilter;
+      if (searchRef.current)  params.phone     = searchRef.current;
       const range = getDateRange(dateFilter);
       if (range.from)  params.from = range.from;
       if (range.to)    params.to   = range.to;
@@ -143,14 +151,23 @@ export default function CallsPage() {
     if (e.key === 'Enter') { setPage(1); load(); }
   };
 
-  const handleClickToCall = async (phone) => {
-    const ext = prompt("Qaysi kengaytmadan qo'ng'iroq qilasiz? (masalan: 701)");
-    if (!ext) return;
+  const handleClickToCall = (phone) => {
+    setExtInput('');
+    setCallModal(phone);
+  };
+
+  const handleExtSubmit = async (e) => {
+    e.preventDefault();
+    if (!extInput.trim()) return;
+    setExtCalling(true);
     try {
-      await axios.post(`${API_URL}/atc/call`, { phone, ext });
+      await axios.post(`${API_URL}/atc/call`, { phone: callModal, ext: extInput.trim() });
       toast.success("Qo'ng'iroq boshlanmoqda...");
-    } catch (e) {
-      toast.error(e.response?.data?.message || 'Xato');
+      setCallModal(null);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Xato');
+    } finally {
+      setExtCalling(false);
     }
   };
 
@@ -414,6 +431,44 @@ export default function CallsPage() {
       </div>
 
       {/* Pagination */}
+      {/* Click-to-call kengaytma modali */}
+      {callModal && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setCallModal(null)} />
+          <div className="relative bg-white rounded-2xl shadow-modal w-full max-w-xs p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-ink text-sm">Qo'ng'iroq qilish</h3>
+              <button onClick={() => setCallModal(null)} className="p-1.5 rounded-lg text-ink-tertiary hover:bg-surface-100">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-xs text-ink-tertiary mb-3">
+              Raqam: <span className="font-mono font-semibold text-ink">{fmtPhone(callModal)}</span>
+            </p>
+            <form onSubmit={handleExtSubmit} className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-ink-secondary mb-1">Kengaytma (ext)</label>
+                <input
+                  className="input"
+                  placeholder="Masalan: 701"
+                  value={extInput}
+                  onChange={e => setExtInput(e.target.value)}
+                  autoFocus
+                  required
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <button type="button" onClick={() => setCallModal(null)} className="btn-secondary btn-md">Bekor</button>
+                <button type="submit" disabled={extCalling} className="btn-primary btn-md flex items-center gap-2">
+                  {extCalling ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Phone className="w-3.5 h-3.5" />}
+                  Qo'ng'iroq
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {total > LIMIT && (
         <div className="shrink-0 px-6 py-3 border-t border-surface-200 bg-white flex items-center justify-between">
           <span className="text-xs text-ink-tertiary">{(page-1)*LIMIT+1}–{Math.min(page*LIMIT, total)} / {total}</span>

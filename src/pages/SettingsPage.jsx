@@ -4894,7 +4894,6 @@ export default function SettingsPage() {
 
       {/* Content — mobil: p-4, desktop: p-6 (o'zgarmadi) */}
       <main className="flex-1 p-4 lg:p-6 max-w-5xl w-full safe-bottom [--safe-pad:1rem] lg:[--safe-pad:1.5rem]">
-        {tab === 'general'    && <GeneralTab />}
         {tab === 'branding'   && <BrandingTab />}
         {tab === 'funnels'    && <FunnelsTab />}
         {tab === 'tasks'         && <TasksTab />}

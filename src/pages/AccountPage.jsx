@@ -49,7 +49,8 @@ export default function AccountPage() {
     if (newPw.length < 4) { toast.error("Parol kamida 4 ta belgi bo'lishi kerak"); return; }
     setPwSaving(true);
     try {
-      await axios.put(`${API}/auth/change-password`, { currentPassword: oldPw, newPassword: newPw });
+      const res = await axios.put(`${API}/auth/change-password`, { currentPassword: oldPw, newPassword: newPw });
+      if (res.data.token) localStorage.setItem('token', res.data.token);
       toast.success('Parol o\'zgartirildi');
       setOldPw('');
       setNewPw('');

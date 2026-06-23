@@ -5,7 +5,7 @@ import toast from 'react-hot-toast';
 import { Lock, Loader2, LogOut, Eye, EyeOff } from 'lucide-react';
 import { unlockScreen, logout, logoutUser } from '../store/authSlice';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5002/api';
 
 // Ekran qulflanganida butun ekran ustida chiqadigan overlay.
 // Foydalanuvchi parolini kiritsa — tasdiqlanadi va ochiladi.

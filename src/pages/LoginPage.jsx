@@ -11,7 +11,7 @@ import { Building2, Server, Phone, Lock, Loader2, Eye, EyeOff, ChevronDown } fro
 import toast from 'react-hot-toast';
 import { mediaUrl } from '../utils/media';
 
-const API = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
+const API = process.env.REACT_APP_API_URL || 'http://localhost:5002/api';
 
 const LANGS = [
   { code: 'uz',      label: "O'zbek", flag: '🇺🇿' },

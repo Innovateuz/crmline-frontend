@@ -434,7 +434,7 @@ export default {
     passwordPlaceholder: "••••••",
     submitting: "Signing in...",
     forgotPassword: "Forgot password?",
-    rights: "© 2025 ERP Line. All rights reserved.",
+    rights: "© 2025 CRM Line. All rights reserved.",
   },
 
   // Sales module

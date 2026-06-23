@@ -1,8 +1,8 @@
 // Yuklangan media (rasm/fayl) URL'ini joriy API origin'iga moslaydi.
 // Backend nisbiy "/api/upload/raw/<key>" qaytaradi — bu yerda to'liq URL quriladi.
-// Eski, host muzlatilgan absolyut URL'lar (masalan localhost:5001/api/upload/raw/...)
+// Eski, host muzlatilgan absolyut URL'lar (masalan localhost:5002/api/upload/raw/...)
 // ham joriy origin'ga qayta moslanadi — shunda boshqa qurilma/portda ham ochiladi.
-const API = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
+const API = process.env.REACT_APP_API_URL || 'http://localhost:5002/api';
 const ORIGIN = API.replace(/\/api\/?$/, '');   // masalan: http://localhost:5001
 
 export function mediaUrl(u) {

@@ -221,6 +221,9 @@ export default function DealDetailPage({ funnelId, dealId }) {
   const [actLoading,   setActLoading]  = useState(false);
   const [noteText,     setNoteText]    = useState('');
   const [noteSending,  setNoteSending] = useState(false);
+
+  // Deal calls (statistika uchun)
+  const [dealCalls,    setDealCalls]   = useState([]);
   const bottomRef        = useRef(null);
   const textareaRef      = useRef(null);
   const contactAnchorRef = useRef(null);
@@ -318,6 +321,14 @@ export default function DealDetailPage({ funnelId, dealId }) {
 
   useEffect(() => { loadActivities(); }, [loadActivities]);
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [activities]);
+
+  // Statistika tab ochilganda va kontakt bog'liq bo'lganda qo'ng'iroqlarni yuklash
+  useEffect(() => {
+    if (tab !== 'stats' || !contact || isNew) return;
+    axios.get(`${API}/atc/calls`, { params: { contact, limit: 500 } })
+      .then(r => setDealCalls(r.data.calls || []))
+      .catch(() => {});
+  }, [tab, contact, isNew]);
 
   // ── Save ─────────────────────────────────────────────────────────────────
   const handleSave = async () => {
@@ -748,6 +759,8 @@ export default function DealDetailPage({ funnelId, dealId }) {
                 ? `${String(createdAt.getDate()).padStart(2,'0')}.${String(createdAt.getMonth()+1).padStart(2,'0')}.${createdAt.getFullYear()}`
                 : '—';
               const noteCount  = activities.filter(a => a.type === 'note').length;
+              const inCount    = dealCalls.filter(c => c.direction === 'in').length;
+              const outCount   = dealCalls.filter(c => c.direction === 'out').length;
 
               return (
                 <div className="space-y-3">
@@ -763,18 +776,18 @@ export default function DealDetailPage({ funnelId, dealId }) {
                     <span className="text-xs text-ink-tertiary mt-2">kun ishlanyapti</span>
                   </div>
 
-                  {/* 2-column: Zvonki + Izohlar */}
+                  {/* 2-column: Qo'ng'iroqlar + Izohlar */}
                   <div className="grid grid-cols-2 gap-3">
                     <div className="border border-surface-100 rounded-xl px-4 py-4 flex flex-col items-center gap-1">
-                      <span className="text-2xl font-bold text-ink">0 / 0</span>
+                      <span className="text-2xl font-bold text-ink">{inCount} / {outCount}</span>
                       <span className="text-[11px] text-ink-tertiary text-center leading-tight">
-                        Zvonki<br />vход. / исход.
+                        Qo'ng'iroqlar<br />kir. / chiq.
                       </span>
                     </div>
                     <div className="border border-surface-100 rounded-xl px-4 py-4 flex flex-col items-center gap-1">
                       <span className="text-2xl font-bold text-ink">{noteCount}</span>
                       <span className="text-[11px] text-ink-tertiary text-center leading-tight">
-                        Izohlar<br />(примечаний)
+                        Izohlar
                       </span>
                     </div>
                   </div>

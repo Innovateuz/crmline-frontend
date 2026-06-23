@@ -4,15 +4,15 @@ import { useSelector } from 'react-redux';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import {
-  ArrowLeft, User, Phone, Mail, MapPin, Calendar, FileText,
+  ArrowLeft, User, Phone, FileText,
   Plus, Trash2, Loader2, Save, Upload, X, Eye, KeyRound,
-  Camera, File as FileIcon,
+  Camera, File as FileIcon, MapPin,
 } from 'lucide-react';
 import DateTimePicker from '../components/DateTimePicker';
 import Dropdown from '../components/Dropdown';
 import { mediaUrl } from '../utils/media';
 
-const API = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
+const API = process.env.REACT_APP_API_URL || 'http://localhost:5002/api';
 
 // "DD/MM/YYYY" → ISO "YYYY-MM-DD" | null
 function maskToIso(v) {
@@ -32,28 +32,9 @@ function isoToMask(iso) {
   return `${dd}/${mm}/${yyyy}`;
 }
 
-function lavozimOf(f) {
-  if (f.isSnabjenist) return 'snab';
-  if (f.isProcessWorker) return 'process';
-  if (f.isProjectManager) return 'pm';
-  if (f.isCashier) return 'cashier';
-  if (f.role === 'admin') return 'admin';
-  return 'user';
-}
-function lavozimPatch(v) {
-  return {
-    role: v === 'admin' ? 'admin' : 'user',
-    isSnabjenist:     v === 'snab',
-    isProcessWorker:  v === 'process',
-    isProjectManager: v === 'pm',
-    isCashier:        v === 'cashier',
-  };
-}
-function lavozimHasRbac(v) { return ['user', 'snab', 'process', 'pm', 'cashier'].includes(v); }
-
 const TABS = [
-  { key: 'info',  label: "Ma'lumotlar" },
-  { key: 'docs',  label: 'Hujjatlar'   },
+  { key: 'info', label: "Ma'lumotlar" },
+  { key: 'docs', label: 'Hujjatlar'  },
 ];
 
 export default function UserProfilePage() {
@@ -67,38 +48,33 @@ export default function UserProfilePage() {
   const [saving,  setSaving]  = useState(false);
 
   // Ref data
-  const [departments,   setDepartments]   = useState([]);
-  const [cashboxes,     setCashboxes]     = useState([]);
-  const [cpFolders,     setCpFolders]     = useState([]);
-  const [roles,         setRoles]         = useState([]);
-  const [products,      setProducts]      = useState([]);
-  const [productCats,   setProductCats]   = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [roles,       setRoles]       = useState([]);
 
   // User fields
-  const [name,         setName]         = useState('');
-  const [phone,        setPhone]        = useState('');
-  const [email,        setEmail]        = useState('');
-  const [isActive,     setIsActive]     = useState(true);
-  const [avatarUrl,    setAvatarUrl]    = useState('');
+  const [name,            setName]            = useState('');
+  const [phone,           setPhone]           = useState('');
+  const [email,           setEmail]           = useState('');
+  const [isActive,        setIsActive]        = useState(true);
+  const [avatarUrl,       setAvatarUrl]       = useState('');
   const [avatarUploading, setAvatarUploading] = useState(false);
 
   // Personal
-  const [birthDate,    setBirthDate]    = useState(''); // "DD/MM/YYYY"
-  const [address,      setAddress]      = useState('');
-  const [extraPhones,  setExtraPhones]  = useState([]); // [{label,number}]
+  const [birthDate,   setBirthDate]   = useState(''); // "DD/MM/YYYY"
+  const [address,     setAddress]     = useState('');
+  const [extraPhones, setExtraPhones] = useState([]); // [{label,number}]
 
   // Role
   const [roleForm, setRoleForm] = useState({
-    role: 'user', isSnabjenist: false, isProcessWorker: false,
-    isProjectManager: false, isCashier: false, customRole: '',
-    department: '', departments: [], cashboxes: [], counterpartyFolders: [],
-    canConsumeJobOrderMaterials: false, allowedJobOrderMaterials: [],
+    role:       'user',
+    customRole: '',
+    department: '',
   });
 
   // Passport files
-  const [passportFiles, setPassportFiles]   = useState([]);
-  const [docUploading,  setDocUploading]    = useState(false);
-  const [lightbox,      setLightbox]        = useState(null); // url string
+  const [passportFiles, setPassportFiles] = useState([]);
+  const [docUploading,  setDocUploading]  = useState(false);
+  const [lightbox,      setLightbox]      = useState(null);
   const passportRef = useRef();
 
   // Password modal
@@ -110,12 +86,8 @@ export default function UserProfilePage() {
     Promise.all([
       axios.get(`${API}/organization/users/${id}`),
       axios.get(`${API}/departments`).catch(() => ({ data: {} })),
-      axios.get(`${API}/cashbox`).catch(() => ({ data: {} })),
-      axios.get(`${API}/counterparty/folders`).catch(() => ({ data: {} })),
       axios.get(`${API}/organization/roles`).catch(() => ({ data: {} })),
-      axios.get(`${API}/inventory`).catch(() => ({ data: {} })),
-      axios.get(`${API}/inventory/categories`).catch(() => ({ data: {} })),
-    ]).then(([uRes, dRes, cbRes, fRes, rRes, pRes, cRes]) => {
+    ]).then(([uRes, dRes, rRes]) => {
       const u = uRes.data.user;
       setName(u.name || '');
       setPhone(u.phone || '');
@@ -127,31 +99,12 @@ export default function UserProfilePage() {
       setExtraPhones(u.extraPhones || []);
       setPassportFiles(u.passportFiles || []);
       setRoleForm({
-        role: u.role || 'user',
-        isSnabjenist:     !!u.isSnabjenist,
-        isProcessWorker:  !!u.isProcessWorker,
-        isProjectManager: !!u.isProjectManager,
-        isCashier:        !!u.isCashier,
+        role:       u.role === 'owner' ? 'owner' : (u.role === 'admin' ? 'admin' : 'user'),
         customRole: u.customRole?._id || u.customRole || '',
         department: u.department?._id || u.department || '',
-        departments: (u.departments || []).length
-          ? (u.departments || []).map(d => d?._id || d)
-          : (u.isProcessWorker && u.department ? [u.department?._id || u.department] : []),
-        cashboxes: (u.cashboxes || []).map(c => c?._id || c),
-        counterpartyFolders: (u.counterpartyFolders || []).map(f => f?._id || f),
-        canConsumeJobOrderMaterials: !!u.canConsumeJobOrderMaterials,
-        allowedJobOrderMaterials: (u.allowedJobOrderMaterials || []).map(p => {
-          const pid = p._id || p;
-          const uomVal = typeof p.uom === 'object' ? (p.uom?.shortName || '') : (p.uom || '');
-          return { _id: pid, name: p.name || '', uom: uomVal };
-        }).filter(p => p._id && typeof p._id === 'string'),
       });
       setDepartments(dRes.data.departments || []);
-      setCashboxes(cbRes.data.cashboxes || []);
-      setCpFolders(fRes.data.folders || []);
       setRoles(rRes.data.roles || []);
-      setProducts(pRes.data.products || []);
-      setProductCats(cRes.data.categories || []);
     }).catch(() => toast.error("Foydalanuvchi topilmadi"))
       .finally(() => setLoading(false));
   }, [id]);
@@ -161,20 +114,18 @@ export default function UserProfilePage() {
     setSaving(true);
     try {
       await axios.put(`${API}/organization/users/${id}`, {
-        name: name.trim(), phone, email: email.trim(),
+        name:        name.trim(),
+        phone,
+        email:       email.trim(),
         isActive,
-        avatar: avatarUrl || undefined,
-        birthDate: maskToIso(birthDate),
+        avatar:      avatarUrl || undefined,
+        birthDate:   maskToIso(birthDate),
         address,
         extraPhones: extraPhones.filter(p => p.number?.trim()),
         passportFiles,
-        ...roleForm,
-        departments: roleForm.departments.filter(Boolean),
-        cashboxes: roleForm.cashboxes.filter(Boolean),
-        counterpartyFolders: roleForm.counterpartyFolders.filter(Boolean),
-        allowedJobOrderMaterials: roleForm.allowedJobOrderMaterials.map(p => p._id),
-        customRole: roleForm.customRole || null,
-        department: roleForm.department || null,
+        role:        roleForm.role,
+        customRole:  roleForm.customRole || null,
+        department:  roleForm.department || null,
       });
       toast.success("Saqlandi");
     } catch (err) {
@@ -230,32 +181,13 @@ export default function UserProfilePage() {
     setPwSaving(true);
     try {
       await axios.put(`${API}/organization/users/${id}/password`, { newPassword: newPw });
-      toast.success('Parol o\'zgartirildi');
+      toast.success("Parol o'zgartirildi");
       setPwModal(false);
     } catch (err) { toast.error(err.response?.data?.message || 'Xato'); }
     finally { setPwSaving(false); }
   };
 
-  const lav = lavozimOf(roleForm);
   const isMe = currentUser?.id === id;
-
-  // ── helpers ────────────────────────────────────────────────────
-  const renderDeptMulti = () => (
-    departments.length === 0
-      ? <p className="text-sm text-ink-tertiary">Bo'limlar yo'q</p>
-      : <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          {departments.map(d => {
-            const checked = roleForm.departments.includes(d._id);
-            return (
-              <label key={d._id} className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer ${checked ? 'border-primary-400 bg-primary-50' : 'border-surface-200 hover:bg-surface-50'}`}>
-                <input type="checkbox" checked={checked} className="accent-primary-600 w-3.5 h-3.5"
-                  onChange={() => setRoleForm(f => ({ ...f, departments: checked ? f.departments.filter(x => x !== d._id) : [...f.departments, d._id] }))} />
-                <span className="text-sm text-ink">{d.name}{d.branch?.name ? ` (${d.branch.name})` : ''}</span>
-              </label>
-            );
-          })}
-        </div>
-  );
 
   if (loading) {
     return (
@@ -418,88 +350,33 @@ export default function UserProfilePage() {
                 <p className="text-sm font-semibold text-ink">Lavozim va ruxsatlar</p>
                 <div>
                   <label className="block text-xs font-medium text-ink-secondary mb-1">Lavozim</label>
-                  <Dropdown value={lav}
+                  <Dropdown
+                    value={roleForm.role}
                     disabled={roleForm.role === 'owner'}
                     options={roleForm.role === 'owner'
                       ? [{ value: 'owner', label: 'Tashkilot egasi' }]
                       : [
-                          { value: 'admin',   label: 'Administrator' },
-                          { value: 'user',    label: 'Xodim' },
-                          { value: 'snab',    label: 'Snabjenist' },
-                          { value: 'process', label: 'Jarayon xodimi' },
-                          { value: 'pm',      label: 'Loyiha menejeri' },
-                          { value: 'cashier', label: 'Kassir' },
+                          { value: 'admin', label: 'Administrator' },
+                          { value: 'user',  label: 'Xodim'         },
                         ]}
-                    onChange={v => setRoleForm(f => ({ ...f, ...lavozimPatch(v) }))} />
+                    onChange={v => setRoleForm(f => ({ ...f, role: v }))}
+                  />
                 </div>
 
-                {lav === 'process' ? (
-                  <div>
-                    <label className="block text-xs font-medium text-ink-secondary mb-1.5">Bo'limlar</label>
-                    {renderDeptMulti()}
-                  </div>
-                ) : (
-                  <div>
-                    <label className="block text-xs font-medium text-ink-secondary mb-1">Bo'lim</label>
-                    <Dropdown value={roleForm.department} placeholder="Bo'limsiz" searchable
-                      options={[{ value: '', label: "Bo'limsiz" }, ...departments.map(d => ({ value: d._id, label: `${d.name}${d.branch?.name ? ` (${d.branch.name})` : ''}` }))]}
-                      onChange={v => setRoleForm(f => ({ ...f, department: v }))} />
-                  </div>
-                )}
+                <div>
+                  <label className="block text-xs font-medium text-ink-secondary mb-1">Bo'lim</label>
+                  <Dropdown value={roleForm.department} placeholder="Bo'limsiz" searchable
+                    options={[{ value: '', label: "Bo'limsiz" }, ...departments.map(d => ({ value: d._id, label: `${d.name}${d.branch?.name ? ` (${d.branch.name})` : ''}` }))]}
+                    onChange={v => setRoleForm(f => ({ ...f, department: v }))} />
+                </div>
 
-                {lavozimHasRbac(lav) && (
+                {roleForm.role !== 'owner' && (
                   <div>
                     <label className="block text-xs font-medium text-ink-secondary mb-1">Custom rol</label>
                     <Dropdown value={roleForm.customRole} placeholder="Rol yo'q (standart)"
                       options={[{ value: '', label: "Rol yo'q (standart)" }, ...roles.map(r => ({ value: r._id, label: r.name }))]}
                       onChange={v => setRoleForm(f => ({ ...f, customRole: v }))} />
                   </div>
-                )}
-
-                {roleForm.isSnabjenist && cashboxes.length > 0 && (
-                  <div>
-                    <label className="block text-xs font-medium text-ink-secondary mb-1.5">Kassalar</label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {cashboxes.map(cb => {
-                        const checked = roleForm.cashboxes.includes(cb._id);
-                        return (
-                          <label key={cb._id} className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer ${checked ? 'border-primary-400 bg-primary-50' : 'border-surface-200 hover:bg-surface-50'}`}>
-                            <input type="checkbox" checked={checked} className="accent-primary-600 w-3.5 h-3.5"
-                              onChange={() => setRoleForm(f => ({ ...f, cashboxes: checked ? f.cashboxes.filter(x => x !== cb._id) : [...f.cashboxes, cb._id] }))} />
-                            <span className="text-xs font-medium text-ink">{cb.name} <span className="text-ink-tertiary">({cb.currency})</span></span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {roleForm.isSnabjenist && cpFolders.length > 0 && (
-                  <div>
-                    <label className="block text-xs font-medium text-ink-secondary mb-1.5">Ta'minotchi papkalar</label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {cpFolders.map(f => {
-                        const checked = roleForm.counterpartyFolders.includes(f._id);
-                        return (
-                          <label key={f._id} className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer ${checked ? 'border-primary-400 bg-primary-50' : 'border-surface-200 hover:bg-surface-50'}`}>
-                            <input type="checkbox" checked={checked} className="accent-primary-600 w-3.5 h-3.5"
-                              onChange={() => setRoleForm(f2 => ({ ...f2, counterpartyFolders: checked ? f2.counterpartyFolders.filter(x => x !== f._id) : [...f2.counterpartyFolders, f._id] }))} />
-                            <span className="flex items-center gap-1.5 text-sm text-ink">
-                              {f.color && <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: f.color }} />}{f.name}
-                            </span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {roleForm.isProcessWorker && (
-                  <label className="flex items-center gap-3 px-4 py-3 rounded-xl border border-surface-200 cursor-pointer hover:bg-surface-50">
-                    <input type="checkbox" checked={roleForm.canConsumeJobOrderMaterials} className="accent-primary-600 w-4 h-4"
-                      onChange={e => setRoleForm(f => ({ ...f, canConsumeJobOrderMaterials: e.target.checked }))} />
-                    <span className="text-sm text-ink">Xomashyo rasxod qilish huquqi</span>
-                  </label>
                 )}
               </div>
             </>
@@ -532,7 +409,6 @@ export default function UserProfilePage() {
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     {passportFiles.map((f, i) => {
                       const isImg = /\.(jpe?g|png|webp|gif)$/i.test(f.url) || /^image\//.test(f.name);
-                      const isPdf = /\.pdf$/i.test(f.url) || /\.pdf$/i.test(f.name);
                       return (
                         <div key={i} className="relative group rounded-xl border border-surface-200 overflow-hidden bg-white">
                           {isImg ? (

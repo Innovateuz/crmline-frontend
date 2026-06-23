@@ -434,7 +434,7 @@ export default {
     passwordPlaceholder: "••••••",
     submitting: "Kirilmoqda...",
     forgotPassword: "Parolni unutdingizmi?",
-    rights: "© 2025 ERP Line. Barcha huquqlar himoyalangan.",
+    rights: "© 2025 CRM Line. Barcha huquqlar himoyalangan.",
   },
 
   // Sales module (list pages: orders / invoices / returns)

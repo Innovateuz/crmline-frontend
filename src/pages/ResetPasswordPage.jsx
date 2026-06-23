@@ -4,7 +4,7 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import { Building2, Lock, Loader2, Eye, EyeOff } from 'lucide-react';
 
-const API = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
+const API = process.env.REACT_APP_API_URL || 'http://localhost:5002/api';
 
 export default function ResetPasswordPage() {
   const navigate = useNavigate();
@@ -35,7 +35,7 @@ export default function ResetPasswordPage() {
       <div className="flex items-center justify-center px-6 py-5">
         <div className="flex items-center gap-2.5">
           <div className="w-9 h-9 bg-white/15 rounded-xl flex items-center justify-center"><Building2 className="w-5 h-5 text-white" /></div>
-          <span className="font-bold text-white text-lg tracking-tight">ERP Line</span>
+          <span className="font-bold text-white text-lg tracking-tight">CRM Line</span>
         </div>
       </div>
 

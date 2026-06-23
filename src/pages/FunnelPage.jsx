@@ -374,15 +374,16 @@ export default function FunnelPage({ funnelId }) {
 
     if (String(srcDeal.stageId) === String(targetStageId)) {
       // Same stage reorder
-      setDeals(prev => {
-        const stageDeals = prev.filter(d => String(d.stageId) === String(targetStageId));
-        const oldIdx = stageDeals.findIndex(d => d._id === srcDeal._id);
-        const newIdx = stageDeals.findIndex(d => d._id === overDeal?._id);
-        if (oldIdx === -1 || newIdx === -1) return prev;
-        const reordered = arrayMove(stageDeals, oldIdx, newIdx).map((d, i) => ({ ...d, order: i }));
-        return prev.map(d => reordered.find(r => r._id === d._id) || d);
+      const stageDeals = deals.filter(d => String(d.stageId) === String(targetStageId));
+      const oldIdx = stageDeals.findIndex(d => d._id === srcDeal._id);
+      const newIdx = stageDeals.findIndex(d => d._id === overDeal?._id);
+      if (oldIdx === -1 || newIdx === -1) return;
+      const reordered = arrayMove(stageDeals, oldIdx, newIdx).map((d, i) => ({ ...d, order: i }));
+      setDeals(prev => prev.map(d => reordered.find(r => r._id === d._id) || d));
+      // Har bir deal uchun yangi tartibni serverga saqlaymiz
+      reordered.forEach(d => {
+        axios.put(`${API}/funnels/${funnelId}/deals/${d._id}`, { order: d.order }).catch(() => load());
       });
-      axios.put(`${API}/funnels/${funnelId}/deals/${srcDeal._id}`, { stageId: targetStageId }).catch(() => load());
       return;
     }
 

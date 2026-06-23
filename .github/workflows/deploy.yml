@@ -32,11 +32,17 @@ jobs:
 
       - name: Deploy to Droplet via SSH
         uses: appleboy/ssh-action@master
+        env:
+          DO_TOKEN: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
         with:
           host: ${{ secrets.DROPLET_IP }}
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          envs: DO_TOKEN
           script: |
+            # Log in to registry on the droplet
+            docker login registry.digitalocean.com -u do -p $DO_TOKEN
+            
             # Pull the latest image
             docker pull registry.digitalocean.com/crmline/crmline-frontend:latest
             

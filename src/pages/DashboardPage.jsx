@@ -1,9 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import axios from 'axios';
-import { Menu } from 'lucide-react';
-import Sidebar from '../components/Sidebar';
 import TopBar from '../components/TopBar';
 import DashboardHome from './DashboardHome';
 import ContactsPage from './ContactsPage';
@@ -46,7 +44,6 @@ function pathToNavKey(pathname) {
 export default function DashboardPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [mobileOpen, setMobileOpen] = useState(false);
   const [incomingCall, setIncomingCall] = useState(null);
   const orgId = useSelector(s => s.auth.user?.organization?.id || s.auth.user?.organization?._id);
 
@@ -126,30 +123,15 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="flex h-screen-safe bg-surface-50 overflow-hidden">
-      <Sidebar
+    <div className="flex flex-col h-screen-safe bg-surface-50 overflow-hidden">
+      <TopBar
         active={activeKey}
         onNavigate={handleNavigate}
-        mobileOpen={mobileOpen}
-        onCloseMobile={() => setMobileOpen(false)}
+        onAccountSettings={handleAccountSettings}
       />
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <TopBar
-          onAccountSettings={handleAccountSettings}
-          left={
-            <button
-              type="button"
-              onClick={() => setMobileOpen(true)}
-              className="lg:hidden text-white/80 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors"
-            >
-              <Menu className="w-5 h-5" />
-            </button>
-          }
-        />
-        <main className="flex-1 overflow-y-auto lg:pb-0 pb-16">
-          {getContent()}
-        </main>
-      </div>
+      <main className="flex-1 overflow-y-auto lg:pb-0 pb-16">
+        {getContent()}
+      </main>
       <BottomNav />
       {incomingCall && (
         <IncomingCallModal

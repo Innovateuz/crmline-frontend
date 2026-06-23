@@ -3,8 +3,87 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { logout, logoutUser, lockScreen } from '../store/authSlice';
 import { setLanguage } from '../store/langSlice';
-import { t } from '../utils/translate';
-import { Settings, LogOut, UserCircle, ChevronDown, Lock, Maximize, Minimize, RotateCcw } from 'lucide-react';
+import { fetchFunnels } from '../store/funnelSlice';
+import { t, useT } from '../utils/translate';
+import { mediaUrl } from '../utils/media';
+import { usePermissions } from '../utils/permissions';
+import { NAV_ITEMS } from './Sidebar';
+import {
+  Building2, Settings, LogOut, UserCircle, ChevronDown, Lock,
+  Maximize, Minimize, RotateCcw, Kanban,
+} from 'lucide-react';
+
+function OrgBrand() {
+  const org = useSelector((s) => s.auth.user?.organization);
+  const brandName = org?.name || 'CRM Line';
+  return (
+    <div className="hidden lg:flex items-center gap-2.5 shrink-0">
+      <div className="w-8 h-8 bg-white/15 rounded-xl flex items-center justify-center overflow-hidden shrink-0">
+        {org?.logo
+          ? <img src={mediaUrl(org.logo)} alt={brandName} className="w-full h-full object-cover" />
+          : <Building2 className="w-4 h-4 text-white" />}
+      </div>
+      <span className="font-semibold text-white text-sm leading-none">{brandName}</span>
+    </div>
+  );
+}
+
+function NavBar({ active, onNavigate }) {
+  const tFn = useT();
+  const dispatch = useDispatch();
+  const { canSeeModule } = usePermissions();
+  const isAuthed = useSelector((s) => s.auth.isAuthenticated);
+  const funnels  = useSelector((s) => s.funnels.list);
+  const fLoaded  = useSelector((s) => s.funnels.loaded);
+
+  useEffect(() => {
+    if (isAuthed && !fLoaded) dispatch(fetchFunnels());
+  }, [isAuthed, fLoaded, dispatch]);
+
+  const navItems = NAV_ITEMS.filter(i => canSeeModule(i.key));
+
+  return (
+    <nav className="hidden lg:flex items-center gap-0.5">
+      {navItems.map(item => {
+        const isActive = active === item.key;
+        return (
+          <button
+            key={item.key}
+            onClick={() => onNavigate?.(item.key)}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+              isActive ? 'bg-white/15 text-white' : 'text-white/65 hover:text-white hover:bg-white/10'
+            }`}
+          >
+            <item.icon className="w-4 h-4 shrink-0" />
+            <span>{tFn(item.labelKey)}</span>
+          </button>
+        );
+      })}
+
+      {funnels.length > 0 && (
+        <>
+          <div className="w-px h-4 bg-white/20 mx-1" />
+          {funnels.map(f => {
+            const key = `funnel-${f._id}`;
+            const isActive = active === key;
+            return (
+              <button
+                key={key}
+                onClick={() => onNavigate?.(key)}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                  isActive ? 'bg-white/15 text-white' : 'text-white/65 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <Kanban className="w-4 h-4 shrink-0" />
+                <span>{f.name}</span>
+              </button>
+            );
+          })}
+        </>
+      )}
+    </nav>
+  );
+}
 
 const LANGS = [
   { code: 'uz',      label: "O'zbek", flag: '🇺🇿' },
@@ -207,12 +286,24 @@ function FullscreenButton() {
   );
 }
 
-export default function TopBar({ left, right, onAccountSettings }) {
+export default function TopBar({ left, right, onAccountSettings, active, onNavigate }) {
   return (
     <>
-      <header className="bg-primary-800 px-4 lg:px-5 py-3 flex items-center justify-between shrink-0 safe-top [--safe-pad:0.75rem]">
-        <div className="flex items-center gap-3">{left}</div>
-        <div className="flex items-center gap-3">
+      <header className="bg-primary-800 px-4 lg:px-5 py-2.5 flex items-center gap-3 shrink-0 safe-top [--safe-pad:0.625rem]">
+        {/* Left: mobile menu + logo */}
+        <div className="flex items-center gap-3 shrink-0">
+          {left}
+          <OrgBrand />
+        </div>
+
+        {/* Center: nav items (desktop) */}
+        <div className="hidden lg:flex items-center gap-1 mx-3">
+          <div className="w-px h-5 bg-white/20 mr-2" />
+          <NavBar active={active} onNavigate={onNavigate} />
+        </div>
+
+        {/* Right: actions */}
+        <div className="flex items-center gap-2 ml-auto">
           {right && <>{right}<div className="w-px h-5 bg-white/20" /></>}
           <LangDropdown />
           <RefreshButton />

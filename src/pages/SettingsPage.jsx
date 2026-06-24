@@ -646,16 +646,26 @@ function IntegrationsTab() {
   const [igInfo,       setIgInfo]       = useState(null);
   const [igConnecting, setIgConnecting] = useState(false);
   const [igDisconnecting, setIgDisconnecting] = useState(false);
+  const [fbInfo,       setFbInfo]       = useState(null);
+  const [fbConnecting, setFbConnecting] = useState(false);
+  const [fbDisconnecting, setFbDisconnecting] = useState(false);
+  const [waInfo,       setWaInfo]       = useState(null);
+  const [waForm,       setWaForm]       = useState({ phoneNumberId: '', wabaId: '', accessToken: '', displayPhoneNumber: '' });
+  const [waSaving,     setWaSaving]     = useState(false);
 
   useEffect(() => {
     Promise.all([
       axios.get(`${API_URL}/organization/telegram-bot`),
       axios.get(`${API_URL}/organization/sticker-packs`),
       axios.get(`${API_URL}/instagram/status`),
-    ]).then(([tgRes, spRes, igRes]) => {
+      axios.get(`${API_URL}/facebook/status`),
+      axios.get(`${API_URL}/whatsapp/status`),
+    ]).then(([tgRes, spRes, igRes, fbRes, waRes]) => {
       setBotInfo(tgRes.data);
       setPacks(spRes.data.stickerPacks || []);
       setIgInfo(igRes.data);
+      setFbInfo(fbRes.data);
+      setWaInfo(waRes.data);
     }).catch(() => toast.error('Yuklanishda xato'))
       .finally(() => setLoading(false));
   }, []);
@@ -664,14 +674,19 @@ function IntegrationsTab() {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const ig = params.get('ig');
-    if (!ig) return;
+    const fb = params.get('fb');
+    if (!ig && !fb) return;
     if (ig === 'success') {
       toast.success('Instagram muvaffaqiyatli ulandi!');
       axios.get(`${API_URL}/instagram/status`).then(r => setIgInfo(r.data)).catch(() => {});
     } else if (ig === 'error') {
-      const msg = params.get('msg') || 'Ulanishda xato yuz berdi';
-      toast.error(msg);
-    }
+      toast.error(params.get('msg') || 'Ulanishda xato yuz berdi');
+    } else if (fb === 'success') {
+      toast.success('Facebook muvaffaqiyatli ulandi!');
+      axios.get(`${API_URL}/facebook/status`).then(r => setFbInfo(r.data)).catch(() => {});
+    } else if (fb === 'error') {
+      toast.error(params.get('msg') || 'Facebook ulanishda xato');
+    } else return;
     // Clean up URL params
     navigate('/settings?tab=integrations', { replace: true });
   }, [location.search, navigate]);
@@ -698,6 +713,63 @@ function IntegrationsTab() {
       toast.error('Xato');
     } finally {
       setIgDisconnecting(false);
+    }
+  };
+
+  // ── Facebook Messenger ──
+  const fbConnect = async () => {
+    setFbConnecting(true);
+    try {
+      const res = await axios.get(`${API_URL}/facebook/auth`);
+      window.location.href = res.data.url;
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'OAuth boshlanishda xato');
+      setFbConnecting(false);
+    }
+  };
+
+  const fbDisconnect = async () => {
+    if (!window.confirm("Facebook'ni uzib qo'yishni tasdiqlaysizmi?")) return;
+    setFbDisconnecting(true);
+    try {
+      await axios.delete(`${API_URL}/facebook/disconnect`);
+      setFbInfo({ connected: false, pageName: '', pageId: '' });
+      toast.success("Facebook uzildi");
+    } catch {
+      toast.error('Xato');
+    } finally {
+      setFbDisconnecting(false);
+    }
+  };
+
+  // ── WhatsApp (Cloud API — qo'lda ulash) ──
+  const waConnect = async () => {
+    if (!waForm.phoneNumberId.trim() || !waForm.accessToken.trim()) {
+      toast.error('Phone Number ID va Access Token kiriting');
+      return;
+    }
+    setWaSaving(true);
+    try {
+      await axios.post(`${API_URL}/whatsapp/connect`, waForm);
+      const r = await axios.get(`${API_URL}/whatsapp/status`);
+      setWaInfo(r.data);
+      toast.success('WhatsApp ulandi!');
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Ulanishda xato');
+    } finally {
+      setWaSaving(false);
+    }
+  };
+
+  const waDisconnect = async () => {
+    if (!window.confirm("WhatsApp'ni uzib qo'yishni tasdiqlaysizmi?")) return;
+    try {
+      await axios.delete(`${API_URL}/whatsapp/disconnect`);
+      setWaInfo({ connected: false, displayPhoneNumber: '', phoneNumberId: '' });
+      setWaForm({ phoneNumberId: '', wabaId: '', accessToken: '', displayPhoneNumber: '' });
+      toast.success("WhatsApp uzildi");
+    } catch {
+      toast.error('Xato');
     }
   };
 
@@ -941,22 +1013,112 @@ function IntegrationsTab() {
         </div>
       </div>
 
-      {/* Coming soon channels */}
-      {[
-        { name: 'WhatsApp Business',  color: '#25D366', bg: '#e8faf0' },
-        { name: 'Facebook Messenger', color: '#1877F2', bg: '#e7f0fd' },
-      ].map(ch => (
-        <div key={ch.name} className="bg-white border border-surface-200 rounded-2xl px-5 py-4 flex items-center gap-3 opacity-50">
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: ch.bg }}>
-            <div className="w-4 h-4 rounded-full" style={{ background: ch.color }} />
+      {/* Facebook Messenger */}
+      <div className="bg-white border border-surface-200 rounded-2xl overflow-hidden">
+        <div className="px-5 py-4 flex items-center gap-3 border-b border-surface-100">
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: '#e7f0fd' }}>
+            <svg viewBox="0 0 24 24" className="w-5 h-5 fill-current" style={{ color: '#1877F2' }}>
+              <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+            </svg>
           </div>
           <div className="flex-1">
-            <p className="font-semibold text-ink text-sm">{ch.name}</p>
-            <p className="text-xs text-ink-tertiary">Tez kunda</p>
+            <p className="font-semibold text-ink text-sm">Facebook Messenger</p>
+            <p className="text-xs text-ink-tertiary">Page xabarlarni Inbox'ga ulang</p>
           </div>
-          <span className="text-xs text-ink-disabled bg-surface-100 px-2 py-0.5 rounded-full">Kutish</span>
+          {fbInfo?.connected && (
+            <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">Ulangan</span>
+          )}
         </div>
-      ))}
+        <div className="px-5 py-4 space-y-4">
+          {fbInfo?.connected ? (
+            <>
+              <div className="flex items-center gap-3 p-3 bg-emerald-50 rounded-xl">
+                <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-ink">{fbInfo.pageName || fbInfo.pageId}</p>
+                  <p className="text-xs text-ink-tertiary mt-0.5">Facebook Page ulangan</p>
+                </div>
+              </div>
+              <button onClick={fbDisconnect} disabled={fbDisconnecting}
+                className="w-full py-2 rounded-lg border border-red-200 text-red-600 text-sm font-medium hover:bg-red-50 transition-colors flex items-center justify-center gap-2">
+                {fbDisconnecting ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />}
+                Uzib qo'yish
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="text-xs text-ink-tertiary leading-relaxed">
+                Facebook biznes sahifangizni ulang. Sahifaga kelgan Messenger xabarlari Inbox'ga tushadi.
+              </p>
+              <button onClick={fbConnect} disabled={fbConnecting}
+                className="w-full py-2.5 rounded-xl text-sm font-semibold text-white flex items-center justify-center gap-2 transition-opacity hover:opacity-90"
+                style={{ background: '#1877F2' }}>
+                {fbConnecting ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                Facebook orqali ulash
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* WhatsApp Business */}
+      <div className="bg-white border border-surface-200 rounded-2xl overflow-hidden">
+        <div className="px-5 py-4 flex items-center gap-3 border-b border-surface-100">
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: '#e8faf0' }}>
+            <svg viewBox="0 0 24 24" className="w-5 h-5 fill-current" style={{ color: '#25D366' }}>
+              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
+              <path d="M12 0C5.373 0 0 5.373 0 12c0 2.133.558 4.133 1.535 5.866L.057 23.857l6.156-1.617A11.944 11.944 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.794 9.794 0 01-5.031-1.386l-.36-.214-3.733.98.999-3.645-.235-.374A9.809 9.809 0 012.182 12C2.182 6.58 6.58 2.182 12 2.182S21.818 6.58 21.818 12 17.42 21.818 12 21.818z"/>
+            </svg>
+          </div>
+          <div className="flex-1">
+            <p className="font-semibold text-ink text-sm">WhatsApp Business</p>
+            <p className="text-xs text-ink-tertiary">Cloud API orqali ulang</p>
+          </div>
+          {waInfo?.connected && (
+            <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">Ulangan</span>
+          )}
+        </div>
+        <div className="px-5 py-4 space-y-3">
+          {waInfo?.connected ? (
+            <>
+              <div className="flex items-center gap-3 p-3 bg-emerald-50 rounded-xl">
+                <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-ink">{waInfo.displayPhoneNumber || waInfo.phoneNumberId}</p>
+                  <p className="text-xs text-ink-tertiary mt-0.5">WhatsApp Cloud API ulangan</p>
+                </div>
+              </div>
+              <button onClick={waDisconnect}
+                className="w-full py-2 rounded-lg border border-red-200 text-red-600 text-sm font-medium hover:bg-red-50 transition-colors flex items-center justify-center gap-2">
+                <X className="w-4 h-4" /> Uzib qo'yish
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="text-xs text-ink-tertiary leading-relaxed">
+                Meta Cloud API ma'lumotlarini kiriting (Meta dashboard → WhatsApp → API Setup).
+              </p>
+              <input value={waForm.phoneNumberId} onChange={e => setWaForm(f => ({ ...f, phoneNumberId: e.target.value }))}
+                placeholder="Phone Number ID" className="w-full px-3 py-2 text-sm border border-surface-200 rounded-lg" />
+              <input value={waForm.wabaId} onChange={e => setWaForm(f => ({ ...f, wabaId: e.target.value }))}
+                placeholder="WhatsApp Business Account ID (ixtiyoriy)" className="w-full px-3 py-2 text-sm border border-surface-200 rounded-lg" />
+              <input value={waForm.displayPhoneNumber} onChange={e => setWaForm(f => ({ ...f, displayPhoneNumber: e.target.value }))}
+                placeholder="Telefon raqami (mas. +998...)" className="w-full px-3 py-2 text-sm border border-surface-200 rounded-lg" />
+              <input value={waForm.accessToken} onChange={e => setWaForm(f => ({ ...f, accessToken: e.target.value }))}
+                placeholder="Access Token (permanent)" type="password" className="w-full px-3 py-2 text-sm border border-surface-200 rounded-lg" />
+              <button onClick={waConnect} disabled={waSaving}
+                className="w-full py-2.5 rounded-xl text-sm font-semibold text-white flex items-center justify-center gap-2 transition-opacity hover:opacity-90"
+                style={{ background: '#25D366' }}>
+                {waSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                Ulash
+              </button>
+              <p className="text-xs text-ink-disabled text-center">
+                Webhook URL: {`{domen}`}/api/whatsapp/webhook · Verify token: crm-line-verify-2024
+              </p>
+            </>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

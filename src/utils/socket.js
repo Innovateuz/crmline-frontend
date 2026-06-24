@@ -7,7 +7,13 @@ let socket = null;
 
 export function getSocket() {
   if (!socket) {
-    socket = io(SOCKET_URL, { autoConnect: false, transports: ['websocket', 'polling'] });
+    socket = io(SOCKET_URL, {
+      autoConnect: false,
+      transports: ['websocket', 'polling'],
+      // Backend har ulanishda JWT token talab qiladi (server.js io.use).
+      // Funksiya sifatida beramiz — qayta ulanishda ham yangi token o'qiladi.
+      auth: (cb) => cb({ token: localStorage.getItem('token') }),
+    });
   }
   return socket;
 }

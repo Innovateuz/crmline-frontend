@@ -113,6 +113,7 @@ function AppInit() {
         <Route path="/tasks"                   element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
         <Route path="/inbox"                   element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
         <Route path="/inbox/analytics"         element={<PrivateRoute><InboxAnalyticsPage /></PrivateRoute>} />
+        <Route path="/reviews"                 element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
         <Route path="/calls"                   element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
         <Route path="/funnel/:id"              element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
         <Route path="/funnel/:id/deal/new"     element={<PrivateRoute><DashboardPage /></PrivateRoute>} />

@@ -1802,5 +1802,6 @@ export default {
     tasks: "Vazifalar",
     inbox: "Inbox",
     calls: "Qo'ng'iroqlar",
+    reviews: "Otzivlar",
   },
 };

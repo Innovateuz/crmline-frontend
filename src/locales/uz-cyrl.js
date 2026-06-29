@@ -1765,5 +1765,6 @@ export default {
     tasks: "Вазифалар",
     inbox: "Inbox",
     calls: "Қўнғироқлар",
+    reviews: "Отзивлар",
   },
 };

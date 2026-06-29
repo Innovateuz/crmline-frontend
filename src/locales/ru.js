@@ -1726,5 +1726,6 @@ export default {
     tasks: "Задачи",
     inbox: "Inbox",
     calls: "Звонки",
+    reviews: "Отзывы",
   },
 };

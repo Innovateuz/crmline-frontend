@@ -1792,5 +1792,6 @@ export default {
     tasks: "Tasks",
     inbox: "Inbox",
     calls: "Calls",
+    reviews: "Reviews",
   },
 };

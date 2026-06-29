@@ -4,7 +4,7 @@ import { useT } from '../utils/translate';
 import { usePermissions } from '../utils/permissions';
 import { fetchFunnels } from '../store/funnelSlice';
 import {
-  LayoutDashboard, Users, Kanban, CheckSquare2, MessageSquare, Phone, X,
+  LayoutDashboard, Users, Kanban, CheckSquare2, MessageSquare, Phone, Star, X,
 } from 'lucide-react';
 
 export const NAV_ITEMS = [
@@ -13,6 +13,7 @@ export const NAV_ITEMS = [
   { key: 'tasks',     icon: CheckSquare2,    labelKey: 'bottomNav.tasks'     },
   { key: 'inbox',     icon: MessageSquare,   labelKey: 'bottomNav.inbox'     },
   { key: 'calls',     icon: Phone,           labelKey: 'bottomNav.calls'     },
+  { key: 'reviews',   icon: Star,            labelKey: 'bottomNav.reviews'   },
 ];
 
 function NavList({ active, onNavigate, mobile = false, onCloseMobile }) {

@@ -12,6 +12,7 @@ import DealDetailPage from './DealDetailPage';
 import TasksPage from './TasksPage';
 import InboxPage from './InboxPage';
 import CallsPage from './CallsPage';
+import ReviewsPage from './ReviewsPage';
 import IncomingCallModal from '../components/IncomingCallModal';
 import BottomNav from '../components/BottomNav';
 import { getSocket } from '../utils/socket';
@@ -25,6 +26,7 @@ function navKeyToPath(key) {
   if (key === 'tasks')     return '/tasks';
   if (key === 'inbox')     return '/inbox';
   if (key === 'calls')     return '/calls';
+  if (key === 'reviews')   return '/reviews';
   if (key.startsWith('funnel-')) return `/funnel/${key.replace('funnel-', '')}`;
   return '/dashboard';
 }
@@ -34,6 +36,7 @@ function pathToNavKey(pathname) {
   if (pathname.startsWith('/tasks'))    return 'tasks';
   if (pathname.startsWith('/inbox'))    return 'inbox';
   if (pathname.startsWith('/calls'))    return 'calls';
+  if (pathname.startsWith('/reviews'))  return 'reviews';
   if (pathname.startsWith('/funnel/')) {
     const funnelId = pathname.split('/')[2];
     return `funnel-${funnelId}`;
@@ -106,6 +109,7 @@ export default function DashboardPage() {
     if (p === '/tasks')   return <TasksPage />;
     if (p === '/inbox')   return <InboxPage />;
     if (p === '/calls')   return <CallsPage />;
+    if (p === '/reviews') return <ReviewsPage />;
     if (p.startsWith('/funnel/')) {
       // /funnel/:id/deal/new  or  /funnel/:id/deal/:dealId
       const dealMatch = p.match(/^\/funnel\/([^/]+)\/deal\/(.+)$/);

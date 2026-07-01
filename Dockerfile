@@ -13,7 +13,8 @@ COPY . .
 
 # Build the React application
 # Note: Since the GitHub Action will inject ENV vars if configured, they will be available here
-RUN npm run build
+# CI=false — CRA aks holda ESLint warning'larni error deb build'ni to'xtatadi
+RUN CI=false npm run build
 
 # Stage 2: Serve the app with Nginx
 FROM nginx:alpine

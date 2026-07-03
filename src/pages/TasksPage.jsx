@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { fetchTasks, invalidateTasks, upsertTask, removeTask as removeTaskAction } from '../store/tasksSlice';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { useT } from '../utils/translate';
+import { mediaDownloadUrl } from '../utils/media';
 import {
   DndContext, DragOverlay, PointerSensor, useSensor, useSensors,
   useDroppable, useDraggable,
@@ -12,6 +13,7 @@ import {
   Plus, X, Loader2, Check, ChevronDown,
   Calendar, CheckSquare2, Pencil, Trash2,
   AlertCircle, User, Link2, Search, Filter,
+  Paperclip, Upload, FileText,
 } from 'lucide-react';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5002/api';
@@ -154,10 +156,27 @@ function TaskCard({ task, onEdit, onDelete, overlay = false }) {
         <p className="text-[11px] text-ink-tertiary mt-1 line-clamp-2 leading-relaxed">{task.description}</p>
       )}
 
+      {task.tags?.length > 0 && (
+        <div className="flex flex-wrap gap-1 mt-1.5">
+          {task.tags.map(tag => (
+            <span key={tag} className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-primary-50 text-primary-700">
+              #{tag}
+            </span>
+          ))}
+        </div>
+      )}
+
       {task.contact && (
         <div className="flex items-center gap-1 mt-1.5">
           <Link2 className="w-3 h-3 text-ink-disabled shrink-0" />
           <span className="text-[11px] text-ink-tertiary truncate">{task.contact.name}</span>
+        </div>
+      )}
+
+      {task.createdBy && (
+        <div className="flex items-center gap-1 mt-1.5">
+          <User className="w-3 h-3 text-ink-disabled shrink-0" />
+          <span className="text-[11px] text-ink-tertiary truncate">{t('tasks.createdByPrefix')} {task.createdBy.name}</span>
         </div>
       )}
 
@@ -167,6 +186,12 @@ function TaskCard({ task, onEdit, onDelete, overlay = false }) {
             {overdue && <AlertCircle className="w-3 h-3" />}
             <Calendar className="w-3 h-3" />
             {fmtDate(task.dueDate)}
+          </span>
+        )}
+        {task.files?.length > 0 && (
+          <span className="flex items-center gap-1 text-[10px] text-ink-tertiary">
+            <Paperclip className="w-3 h-3" />
+            {task.files.length}
           </span>
         )}
         {task.assignedTo && (
@@ -216,8 +241,61 @@ function Column({ stage, tasks, onAdd, onEdit, onDelete }) {
   );
 }
 
+/* ─── Tag Input ────────────────────────────────────────────── */
+function TagInput({ tags, allTags, onChange }) {
+  const t = useT();
+  const [input, setInput] = useState('');
+
+  const add = (raw) => {
+    const val = raw.trim();
+    if (!val || tags.includes(val)) return;
+    onChange([...tags, val]);
+    setInput('');
+  };
+  const remove = (val) => onChange(tags.filter(x => x !== val));
+
+  const suggestions = allTags.filter(x => !tags.includes(x) && x.toLowerCase().includes(input.trim().toLowerCase()));
+
+  return (
+    <div>
+      {tags.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mb-1.5">
+          {tags.map(tag => (
+            <span key={tag} className="inline-flex items-center gap-1 text-[11px] font-medium pl-2 pr-1 py-0.5 rounded-full bg-primary-50 text-primary-700 border border-primary-200">
+              #{tag}
+              <button type="button" onClick={() => remove(tag)} className="p-0.5 rounded-full hover:bg-primary-100 hover:text-primary-900">
+                <X className="w-2.5 h-2.5" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+      <input
+        className="input"
+        placeholder={t('tasks.tagsPlaceholder')}
+        value={input}
+        onChange={e => setInput(e.target.value)}
+        onKeyDown={e => {
+          if (e.key === 'Enter') { e.preventDefault(); add(input); }
+          else if (e.key === 'Backspace' && !input && tags.length) remove(tags[tags.length - 1]);
+        }}
+      />
+      {input && suggestions.length > 0 && (
+        <div className="flex flex-wrap gap-1 mt-1.5">
+          {suggestions.slice(0, 6).map(s => (
+            <button key={s} type="button" onClick={() => add(s)}
+              className="text-[11px] px-2 py-0.5 rounded-full border border-dashed border-surface-300 text-ink-tertiary hover:border-primary-300 hover:text-primary-600 transition-colors">
+              + #{s}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ─── Task Modal ──────────────────────────────────────────── */
-function TaskModal({ initial, stages, users, onSave, onClose, saving }) {
+function TaskModal({ initial, stages, users, allTags, onSave, onClose, saving }) {
   const t = useT();
   const [title,       setTitle]       = useState(initial?.title       || '');
   const [description, setDescription] = useState(initial?.description || '');
@@ -229,6 +307,29 @@ function TaskModal({ initial, stages, users, onSave, onClose, saving }) {
   const [priority,    setPriority]    = useState(initial?.priority || 'normal');
   const [contactId,   setContactId]   = useState(initial?.contact?._id || initial?.contact || null);
   const [contactName, setContactName] = useState(initial?.contact?.name || '');
+  const [tags,         setTags]         = useState(initial?.tags || []);
+  const [files,        setFiles]        = useState(initial?.files || []);
+  const [uploadingFile, setUploadingFile] = useState(false);
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingFile(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await axios.post(`${API_URL}/upload/file`, fd);
+      const { url, name, size, type } = res.data;
+      setFiles(prev => [...prev, { name, url, size, type }]);
+    } catch (err) {
+      toast.error(err.response?.data?.message || t('tasks.error'));
+    } finally {
+      setUploadingFile(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleFileRemove = (idx) => setFiles(prev => prev.filter((_, i) => i !== idx));
 
   const handleSave = () => {
     if (!title.trim()) { toast.error(t('tasks.titleRequired')); return; }
@@ -237,6 +338,8 @@ function TaskModal({ initial, stages, users, onSave, onClose, saving }) {
       assignedTo: assignedTo || null,
       dueDate:    dueDate    || null,
       contact:    contactId  || null,
+      tags,
+      files,
     });
   };
 
@@ -245,7 +348,15 @@ function TaskModal({ initial, stages, users, onSave, onClose, saving }) {
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div className="relative bg-white rounded-2xl shadow-modal w-full max-w-md flex flex-col max-h-[90vh]">
         <div className="flex items-center justify-between px-5 py-4 border-b border-surface-100 shrink-0">
-          <h2 className="font-semibold text-ink">{initial?._id ? t('tasks.editTask') : t('tasks.newTask')}</h2>
+          <div>
+            <h2 className="font-semibold text-ink">{initial?._id ? t('tasks.editTask') : t('tasks.newTask')}</h2>
+            {initial?._id && initial?.createdBy && (
+              <p className="text-[11px] text-ink-disabled mt-0.5">
+                {t('tasks.createdByPrefix')} {initial.createdBy.name}
+                {initial.createdAt ? ` · ${fmtDate(initial.createdAt)}` : ''}
+              </p>
+            )}
+          </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-surface-100 text-ink-tertiary">
             <X className="w-4 h-4" />
           </button>
@@ -327,6 +438,43 @@ function TaskModal({ initial, stages, users, onSave, onClose, saving }) {
               onChange={(id, name) => { setContactId(id); setContactName(name); }}
             />
           </div>
+
+          {/* Tags */}
+          <div>
+            <label className="block text-xs font-medium text-ink-tertiary mb-1">{t('tasks.tags')}</label>
+            <TagInput tags={tags} allTags={allTags} onChange={setTags} />
+          </div>
+
+          {/* Files */}
+          <div>
+            <label className="block text-xs font-medium text-ink-tertiary mb-1 flex items-center gap-1">
+              <Paperclip className="w-3 h-3" /> {t('tasks.files')}
+            </label>
+            <label className={`w-full flex items-center justify-center gap-2 py-2.5 border-2 border-dashed border-surface-200 rounded-xl text-xs transition-colors cursor-pointer ${
+              uploadingFile ? 'opacity-50 pointer-events-none' : 'hover:border-primary-300 hover:text-primary-600 text-ink-tertiary'
+            }`}>
+              {uploadingFile ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+              {uploadingFile ? t('tasks.uploading') : t('tasks.uploadFile')}
+              <input type="file" className="hidden" onChange={handleFileUpload} disabled={uploadingFile} />
+            </label>
+            {files.length > 0 && (
+              <div className="mt-2 space-y-1.5">
+                {files.map((f, i) => (
+                  <div key={i} className="flex items-center gap-2 px-2.5 py-1.5 bg-surface-50 border border-surface-100 rounded-lg group">
+                    <FileText className="w-3.5 h-3.5 text-primary-400 shrink-0" />
+                    <a href={mediaDownloadUrl(f.url)} target="_blank" rel="noreferrer"
+                      className="text-xs text-ink truncate flex-1 hover:underline">
+                      {f.name}
+                    </a>
+                    <button type="button" onClick={() => handleFileRemove(i)}
+                      className="p-0.5 rounded text-ink-disabled hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="flex justify-end gap-2 px-5 py-4 border-t border-surface-100 shrink-0">
@@ -357,6 +505,8 @@ export default function TasksPage() {
   const [filterPriority, setFilterPriority] = useState('');
   const [filterAssignee, setFilterAssignee] = useState('');
   const [showFilters,    setShowFilters]    = useState(false);
+
+  const allTags = useMemo(() => [...new Set(tasks.flatMap(tk => tk.tags || []))], [tasks]);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
@@ -587,6 +737,7 @@ export default function TasksPage() {
           initial={modal.task || { stageId: modal.stageId }}
           stages={stages}
           users={users}
+          allTags={allTags}
           onSave={handleSave}
           onClose={closeModal}
           saving={saving}

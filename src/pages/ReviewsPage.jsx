@@ -130,15 +130,19 @@ export default function ReviewsPage() {
         <div className="grid gap-2">
           {feedback.length === 0 && <p className="text-center text-ink-tertiary py-10 text-sm">Hozircha ichki feedback yo'q</p>}
           {feedback.map(f => (
-            <div key={f._id} className={`bg-white border rounded-xl p-3 ${f.handled ? 'border-surface-200 opacity-60' : 'border-amber-200'}`}>
+            <div key={f._id} className={`bg-white border rounded-xl p-3 ${f.handled ? 'border-surface-200 opacity-60' : f.kind === 'lead' ? 'border-emerald-200' : 'border-amber-200'}`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1">
                   {[1,2,3,4,5].map(n => <Star key={n} className={`w-3.5 h-3.5 ${n <= f.rating ? 'text-amber-400 fill-amber-400' : 'text-surface-300'}`} />)}
                   <span className="text-xs text-ink-tertiary ml-2">{f.reviewPage?.name}</span>
+                  {f.kind === 'lead'
+                    ? <span className="text-[10px] font-medium text-emerald-700 bg-emerald-50 rounded px-1.5 py-0.5 ml-1">Kontakt</span>
+                    : <span className="text-[10px] font-medium text-amber-700 bg-amber-50 rounded px-1.5 py-0.5 ml-1">Shikoyat</span>}
                 </div>
                 {!f.handled && <button onClick={() => markHandled(f._id)} className="text-xs text-emerald-600 flex items-center gap-1"><Check className="w-3 h-3" /> Ko'rib chiqildi</button>}
               </div>
               {f.text && <p className="text-sm text-ink mt-1.5">{f.text}</p>}
+              {f.name && <p className="text-xs text-ink-tertiary mt-1">👤 {f.name}</p>}
               {f.phone && <p className="text-xs text-ink-tertiary mt-1">📞 {f.phone}</p>}
             </div>
           ))}

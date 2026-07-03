@@ -17,13 +17,29 @@ const PLATFORM_COLOR = {
   tripadvisor: '#00AA6C',
 };
 
+// O'zbekiston raqamini +998 90 123 45 67 ko'rinishida formatlash (ixtiyoriy maydon).
+function formatUzPhone(raw) {
+  let d = String(raw).replace(/\D/g, '');
+  if (d.startsWith('998')) d = d.slice(3);
+  d = d.slice(0, 9);
+  if (!d) return '';
+  let out = '+998';
+  if (d.length > 0) out += ' ' + d.slice(0, 2);
+  if (d.length > 2) out += ' ' + d.slice(2, 5);
+  if (d.length > 5) out += ' ' + d.slice(5, 7);
+  if (d.length > 7) out += ' ' + d.slice(7, 9);
+  return out;
+}
+
 export default function ReviewLandingPage() {
   const { slug } = useParams();
   const [page, setPage]       = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState(false);
-  const [rating, setRating]   = useState(0);     // gating uchun tanlangan yulduz
-  const [stage, setStage]     = useState('rate'); // rate | platforms | feedback | done
+  const [rating, setRating]   = useState(0);      // gating uchun tanlangan yulduz
+  const [hover, setHover]     = useState(0);      // yulduz ustiga olib borilganda
+  const [stage, setStage]     = useState('rate'); // rate | contact | platforms | feedback | done
+  const [sending, setSending] = useState(false);
   const [fb, setFb]           = useState({ text: '', name: '', phone: '' });
 
   useEffect(() => {
@@ -44,7 +60,20 @@ export default function ReviewLandingPage() {
   const pickRating = (n) => {
     setRating(n);
     const min = page.gating?.minStars || 4;
-    setStage(n >= min ? 'platforms' : 'feedback');
+    // Yuqori baho -> avval kontakt bosqichi, keyin map tanlash; past baho -> ichki feedback.
+    setStage(n >= min ? 'contact' : 'feedback');
+  };
+
+  // Kontaktni saqlab (yoki skip qilib) platformalarga o'tish.
+  const goToPlatforms = async (withContact) => {
+    if (withContact && (fb.name.trim() || fb.phone.trim())) {
+      setSending(true);
+      await axios.post(`${API_URL}/reviews/p/${slug}/contact`, {
+        rating, name: fb.name.trim(), phone: fb.phone.trim(),
+      }).catch(() => {});
+      setSending(false);
+    }
+    setStage('platforms');
   };
 
   const openPlatform = (p) => {
@@ -53,15 +82,36 @@ export default function ReviewLandingPage() {
   };
 
   const sendFeedback = async () => {
+    setSending(true);
     await axios.post(`${API_URL}/reviews/p/${slug}/feedback`, { rating, ...fb }).catch(() => {});
+    setSending(false);
     setStage('done');
   };
 
   if (loading) return <Center>Yuklanmoqda…</Center>;
   if (error || !page) return <Center>Sahifa topilmadi</Center>;
 
+  const inputStyle = {
+    width: '100%', boxSizing: 'border-box', padding: '13px 14px', borderRadius: 12,
+    border: '1px solid #e0e0e6', fontSize: 16, fontFamily: 'inherit', outline: 'none',
+    marginBottom: 10, transition: 'border-color .15s',
+  };
+  const primaryBtn = {
+    width: '100%', padding: 15, borderRadius: 14, border: 'none', background: color,
+    color: '#fff', fontSize: 16, fontWeight: 700, cursor: 'pointer',
+    boxShadow: `0 6px 18px ${hexA(color, 0.35)}`, transition: 'transform .1s, opacity .15s',
+  };
+
   return (
     <div style={{ minHeight: '100vh', background: '#f5f5f7', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, fontFamily: 'system-ui, sans-serif' }}>
+      <style>{`
+        @keyframes rl-pop { 0%{transform:scale(.5);opacity:0} 60%{transform:scale(1.18)} 100%{transform:scale(1);opacity:1} }
+        @keyframes rl-fade { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+        .rl-in { animation: rl-fade .35s ease both; }
+        .rl-star-pop { display:inline-block; animation: rl-pop .4s ease both; }
+        .rl-input:focus { border-color: ${color} !important; }
+      `}</style>
+
       <div style={{ width: '100%', maxWidth: 420, background: '#fff', borderRadius: 20, boxShadow: '0 10px 40px rgba(0,0,0,.08)', padding: 28, textAlign: 'center' }}>
         {page.logo
           ? <img src={page.logo} alt="" style={{ width: 72, height: 72, borderRadius: 16, objectFit: 'cover', margin: '0 auto 14px' }} />
@@ -70,22 +120,60 @@ export default function ReviewLandingPage() {
 
         {/* RATE */}
         {stage === 'rate' && (
-          <>
+          <div className="rl-in">
             <p style={{ color: '#666', margin: '0 0 18px' }}>{page.headline}</p>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: 6 }}>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 6 }}
+                 onMouseLeave={() => setHover(0)}>
               {[1,2,3,4,5].map(n => (
                 <button key={n} onClick={() => pickRating(n)}
-                  style={{ background: 'none', border: 'none', fontSize: 40, cursor: 'pointer', color: n <= rating ? '#FFB400' : '#ddd', transition: 'transform .1s' }}
-                  onMouseEnter={() => setRating(n)}>★</button>
+                  style={{ background: 'none', border: 'none', fontSize: 42, cursor: 'pointer', color: n <= (hover || rating) ? '#FFB400' : '#ddd', transition: 'transform .12s, color .12s', transform: n <= hover ? 'scale(1.15)' : 'scale(1)' }}
+                  onMouseEnter={() => setHover(n)}>★</button>
               ))}
             </div>
-          </>
+          </div>
+        )}
+
+        {/* CONTACT (yuqori baho — map'ga o'tishdan oldin, ixtiyoriy) */}
+        {stage === 'contact' && (
+          <div className="rl-in">
+            {/* Tanlangan yulduzlar — bayramona tasdiq */}
+            <div style={{ margin: '6px 0 2px' }}>
+              {[1,2,3,4,5].map(n => (
+                <span key={n} className="rl-star-pop"
+                  style={{ fontSize: 30, color: n <= rating ? '#FFB400' : '#eee', animationDelay: `${n * 60}ms` }}>★</span>
+              ))}
+            </div>
+            <h2 style={{ fontSize: 19, fontWeight: 700, margin: '10px 0 4px', color: '#1a1a1a' }}>
+              Bahoyingiz uchun rahmat! 🎉
+            </h2>
+            <p style={{ color: '#666', margin: '0 0 16px', fontSize: 14.5, lineHeight: 1.5 }}>
+              Maxsus takliflar va chegirmalardan birinchi bo'lib xabardor bo'lish uchun ma'lumotlaringizni qoldiring 🎁
+            </p>
+
+            <input value={fb.name} onChange={e => setFb({ ...fb, name: e.target.value })}
+              className="rl-input" style={inputStyle} placeholder="Ismingiz" autoFocus />
+            <input value={fb.phone} onChange={e => setFb({ ...fb, phone: formatUzPhone(e.target.value) })}
+              className="rl-input" style={inputStyle} placeholder="+998 90 123 45 67"
+              inputMode="numeric" type="tel" />
+
+            <button onClick={() => goToPlatforms(true)} disabled={sending}
+              style={{ ...primaryBtn, opacity: sending ? 0.7 : 1 }}>
+              {sending ? 'Yuborilmoqda…' : 'Davom etish →'}
+            </button>
+
+            <button onClick={() => goToPlatforms(false)} disabled={sending}
+              style={{ display: 'block', width: '100%', marginTop: 12, background: 'none', border: 'none', color: '#9a9aa2', fontSize: 14, cursor: 'pointer', textDecoration: 'underline', fontFamily: 'inherit' }}>
+              Hozircha o'tkazib yuborish
+            </button>
+
+            <p style={{ marginTop: 14, fontSize: 12, color: '#bbb' }}>🔒 Ma'lumotlaringiz uchinchi shaxslarga berilmaydi</p>
+          </div>
         )}
 
         {/* PLATFORMS (yaxshi baho) */}
         {stage === 'platforms' && (
-          <>
-            <p style={{ color: '#666', margin: '0 0 18px' }}>Rahmat! Qayerda otziv qoldirasiz?</p>
+          <div className="rl-in">
+            <p style={{ color: '#666', margin: '0 0 18px' }}>Deyarli tayyor! Qayerda otziv qoldirasiz?</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {page.platforms.map(p => (
                 <button key={p.type} onClick={() => openPlatform(p)}
@@ -96,32 +184,34 @@ export default function ReviewLandingPage() {
               ))}
               {page.platforms.length === 0 && <p style={{ color: '#999' }}>Platforma sozlanmagan</p>}
             </div>
-          </>
+          </div>
         )}
 
         {/* FEEDBACK (past baho) */}
         {stage === 'feedback' && (
-          <>
+          <div className="rl-in">
             <p style={{ color: '#666', margin: '0 0 14px' }}>Kechirasiz! Nima yoqmaganini ayting — biz tuzatamiz.</p>
             <textarea value={fb.text} onChange={e => setFb({ ...fb, text: e.target.value })}
-              placeholder="Fikringiz…" rows={3}
-              style={{ width: '100%', boxSizing: 'border-box', padding: 12, borderRadius: 10, border: '1px solid #ddd', marginBottom: 8, fontFamily: 'inherit' }} />
-            <input value={fb.phone} onChange={e => setFb({ ...fb, phone: e.target.value })}
-              placeholder="Telefon (ixtiyoriy)"
-              style={{ width: '100%', boxSizing: 'border-box', padding: 12, borderRadius: 10, border: '1px solid #ddd', marginBottom: 10 }} />
-            <button onClick={sendFeedback}
-              style={{ width: '100%', padding: 14, borderRadius: 12, border: 'none', background: color, color: '#fff', fontSize: 16, fontWeight: 600, cursor: 'pointer' }}>
-              Yuborish
+              placeholder="Fikringiz…" rows={3} className="rl-input"
+              style={{ ...inputStyle, resize: 'vertical' }} />
+            <input value={fb.name} onChange={e => setFb({ ...fb, name: e.target.value })}
+              className="rl-input" style={inputStyle} placeholder="Ismingiz (ixtiyoriy)" />
+            <input value={fb.phone} onChange={e => setFb({ ...fb, phone: formatUzPhone(e.target.value) })}
+              className="rl-input" style={inputStyle} placeholder="Telefon (ixtiyoriy)"
+              inputMode="numeric" type="tel" />
+            <button onClick={sendFeedback} disabled={sending}
+              style={{ ...primaryBtn, opacity: sending ? 0.7 : 1 }}>
+              {sending ? 'Yuborilmoqda…' : 'Yuborish'}
             </button>
-          </>
+          </div>
         )}
 
         {/* DONE */}
         {stage === 'done' && (
-          <>
+          <div className="rl-in">
             <div style={{ fontSize: 48, margin: '10px 0' }}>🙏</div>
             <p style={{ color: '#444', fontWeight: 600 }}>Rahmat! Fikringiz biz uchun muhim.</p>
-          </>
+          </div>
         )}
 
         <p style={{ marginTop: 22, fontSize: 12, color: '#bbb' }}>CRM Line</p>
@@ -132,6 +222,13 @@ export default function ReviewLandingPage() {
 
 function Center({ children }) {
   return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#888', fontFamily: 'system-ui' }}>{children}</div>;
+}
+
+// #rrggbb + alpha -> rgba() (soya rangi uchun)
+function hexA(hex, a) {
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex || '');
+  if (!m) return `rgba(185,24,59,${a})`;
+  return `rgba(${parseInt(m[1], 16)},${parseInt(m[2], 16)},${parseInt(m[3], 16)},${a})`;
 }
 
 // Platforma logotipi — Google/Yandex uchun brend logolari, qolganlari uchun rangli fallback

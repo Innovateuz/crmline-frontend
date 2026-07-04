@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
-import { Plus, QrCode, Trash2, Edit2, X, Download, Star, BarChart3, MessageSquareWarning, Check, Loader2, MapPin, RefreshCw, Search, ExternalLink } from 'lucide-react';
+import { Plus, QrCode, Trash2, Edit2, X, Download, Star, BarChart3, MessageSquareWarning, Check, Loader2, MapPin, RefreshCw, Search, ExternalLink, Send } from 'lucide-react';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
 
@@ -20,11 +20,17 @@ export default function ReviewsPage() {
   const [pages, setPages]       = useState([]);
   const [analytics, setAnalytics] = useState(null);
   const [feedback, setFeedback] = useState([]);
+  const [collected, setCollected] = useState([]);
+  const [collectedTotal, setCollectedTotal] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [loading, setLoading]   = useState(true);
   const [editing, setEditing]   = useState(null);   // page obyekti yoki 'new'
   const [qrPage, setQrPage]     = useState(null);
   const [googlePage, setGooglePage] = useState(null);
-  const [tab, setTab]           = useState('pages'); // pages | feedback
+  const [notifyOpen, setNotifyOpen] = useState(false);
+  const [tab, setTab]           = useState('pages'); // pages | collected | feedback
+
+  const PAGE_SIZE = 50;
 
   const load = useCallback(() => {
     setLoading(true);
@@ -40,7 +46,37 @@ export default function ReviewsPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  // Xarita otzivlarini sahifalab yuklash. reset=true — boshidan; aks holda keyingi sahifa (ustiga qo'shadi).
+  const fetchCollected = useCallback((reset = false) => {
+    const offset = reset ? 0 : collected.length;
+    if (reset) setCollected([]);
+    setLoadingMore(true);
+    axios.get(`${API_URL}/reviews/collected?limit=${PAGE_SIZE}&offset=${offset}`)
+      .then(({ data }) => {
+        setCollected(prev => reset ? (data.reviews || []) : [...prev, ...(data.reviews || [])]);
+        setCollectedTotal(data.total ?? 0);
+      })
+      .catch(() => toast.error('Otzivlarni yuklashda xato'))
+      .finally(() => setLoadingMore(false));
+  }, [collected.length]);
+
+  // Faqat "yangi otzivlar" badge'ini yangilash (ko'rildi bosilgandan keyin).
+  const refreshAnalytics = useCallback(() => {
+    axios.get(`${API_URL}/reviews/analytics`).then(({ data }) => setAnalytics(data)).catch(() => {});
+  }, []);
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { load(); fetchCollected(true); }, [load]);
+
+  // "Xarita otzivlari" tabi ochilganda — hammasini "ko'rildi" deb belgilaymiz, badge nolga tushadi.
+  const openCollectedTab = () => {
+    setTab('collected');
+    if (analytics?.newReviews > 0) {
+      axios.post(`${API_URL}/reviews/collected/seen`)
+        .then(() => refreshAnalytics())
+        .catch(() => {});
+    }
+  };
 
   const handleDelete = async (id) => {
     if (!window.confirm("Bu sahifani o'chirasizmi?")) return;
@@ -51,6 +87,26 @@ export default function ReviewsPage() {
   const markHandled = async (id) => {
     try { await axios.put(`${API_URL}/reviews/feedback/${id}/handled`); load(); }
     catch { toast.error('Xato'); }
+  };
+
+  const [collecting, setCollecting] = useState(false);
+  const collectAll = async () => {
+    const linked = pages.filter(p => p.google?.placeId || p.yandex?.orgId);
+    if (linked.length === 0) { toast('Google/Yandex bog\'langan sahifa yo\'q'); return; }
+    setCollecting(true);
+    try {
+      const results = await Promise.allSettled(
+        linked.map(p => axios.post(`${API_URL}/reviews/pages/${p._id}/collect`))
+      );
+      const added = results.reduce((sum, r) => {
+        const n = r.value?.data?.newReviews;
+        return sum + (n ? (n.google || 0) + (n.yandex || 0) : 0);
+      }, 0);
+      toast.success(added > 0 ? `${added} ta yangi otziv yig'ildi` : 'Yangi otziv yo\'q');
+      load();
+      fetchCollected(true);
+    } catch { toast.error('Yig\'ishda xato'); }
+    finally { setCollecting(false); }
   };
 
   return (
@@ -78,9 +134,16 @@ export default function ReviewsPage() {
 
       {/* Tablar */}
       <div className="flex gap-2 mb-4 border-b border-surface-200">
-        {[['pages', 'Sahifalar'], ['feedback', `Ichki feedback (${feedback.length})`]].map(([k, l]) => (
-          <button key={k} onClick={() => setTab(k)}
-            className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px ${tab === k ? 'border-primary-600 text-primary-600' : 'border-transparent text-ink-tertiary'}`}>{l}</button>
+        {[
+          { k: 'pages',     l: 'Sahifalar',      onClick: () => setTab('pages') },
+          { k: 'collected', l: 'Xarita otzivlari', badge: analytics?.newReviews || 0, onClick: openCollectedTab },
+          { k: 'feedback',  l: `Ichki feedback (${feedback.length})`, onClick: () => setTab('feedback') },
+        ].map(({ k, l, badge, onClick }) => (
+          <button key={k} onClick={onClick}
+            className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 ${tab === k ? 'border-primary-600 text-primary-600' : 'border-transparent text-ink-tertiary'}`}>
+            {l}
+            {badge > 0 && <span className="text-[10px] font-bold text-white bg-red-500 rounded-full px-1.5 py-0.5 leading-none">{badge}</span>}
+          </button>
         ))}
       </div>
 
@@ -126,6 +189,58 @@ export default function ReviewsPage() {
             ))}
           </div>
         )
+      ) : tab === 'collected' ? (
+        <div className="grid gap-2">
+          <div className="flex justify-between items-center gap-2">
+            <span className="text-xs text-ink-tertiary">Jami: {collectedTotal} ta otziv</span>
+            <div className="flex gap-2">
+            <button onClick={() => setNotifyOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-100 text-ink-secondary text-xs font-medium hover:bg-surface-200">
+              <Send className="w-3.5 h-3.5" /> Telegram
+            </button>
+            <button onClick={collectAll} disabled={collecting}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-100 text-ink-secondary text-xs font-medium hover:bg-surface-200 disabled:opacity-50">
+              <RefreshCw className={`w-3.5 h-3.5 ${collecting ? 'animate-spin' : ''}`} /> Hoziroq yig'ish
+            </button>
+            </div>
+          </div>
+          {collected.length === 0 && (
+            <p className="text-center text-ink-tertiary py-10 text-sm">
+              Hozircha xaritalardan otziv yig'ilmagan. Sahifada Google/Yandex bog'langan bo'lsa,
+              otzivlar avtomatik (har bir necha soatda) yig'iladi.
+            </p>
+          )}
+          {collected.map(r => (
+            <div key={r._id} className="bg-white border border-surface-200 rounded-xl p-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 min-w-0">
+                  {r.authorPhoto
+                    ? <img src={r.authorPhoto} alt="" className="w-6 h-6 rounded-full shrink-0" />
+                    : <div className="w-6 h-6 rounded-full bg-surface-100 shrink-0" />}
+                  <span className="text-sm font-medium text-ink truncate">{r.author || 'Anonim'}</span>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded shrink-0 ${r.platform === 'google' ? 'bg-blue-50 text-blue-600' : 'bg-red-50 text-red-600'}`}>
+                    {r.platform === 'google' ? 'Google' : 'Yandex'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-0.5 shrink-0">
+                  {[1,2,3,4,5].map(n => <Star key={n} className={`w-3.5 h-3.5 ${n <= r.rating ? 'text-amber-400 fill-amber-400' : 'text-surface-300'}`} />)}
+                </div>
+              </div>
+              {r.text && <p className="text-sm text-ink mt-1.5 whitespace-pre-wrap">{r.text}</p>}
+              <div className="flex items-center gap-2 mt-1.5 text-[11px] text-ink-tertiary">
+                {r.reviewPage?.name && <span>{r.reviewPage.name}</span>}
+                {r.publishedAt && <span>· {new Date(r.publishedAt).toLocaleDateString()}</span>}
+              </div>
+            </div>
+          ))}
+          {collected.length < collectedTotal && (
+            <button onClick={() => fetchCollected(false)} disabled={loadingMore}
+              className="mx-auto mt-2 px-4 py-2 rounded-lg bg-surface-100 text-ink-secondary text-sm font-medium hover:bg-surface-200 disabled:opacity-50 flex items-center gap-2">
+              {loadingMore && <Loader2 className="w-4 h-4 animate-spin" />}
+              Yana yuklash ({collected.length}/{collectedTotal})
+            </button>
+          )}
+        </div>
       ) : (
         <div className="grid gap-2">
           {feedback.length === 0 && <p className="text-center text-ink-tertiary py-10 text-sm">Hozircha ichki feedback yo'q</p>}
@@ -152,6 +267,102 @@ export default function ReviewsPage() {
       {editing && <Editor page={editing === 'new' ? null : editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} />}
       {qrPage  && <QrModal page={qrPage} onClose={() => setQrPage(null)} />}
       {googlePage && <GoogleModal page={googlePage} onClose={() => setGooglePage(null)} onChanged={load} />}
+      {notifyOpen && <NotifyModal onClose={() => setNotifyOpen(false)} />}
+    </div>
+  );
+}
+
+// Telegram bildirishnoma sozlamasi — har org o'z bot token va chat_id'si.
+function NotifyModal({ onClose }) {
+  const [enabled, setEnabled] = useState(false);
+  const [botToken, setBotToken] = useState('');
+  const [chatId, setChatId]   = useState('');
+  const [hasToken, setHasToken] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving]   = useState(false);
+  const [testing, setTesting] = useState(false);
+
+  useEffect(() => {
+    axios.get(`${API_URL}/reviews/notify-config`).then(({ data }) => {
+      const c = data.config || {};
+      setEnabled(!!c.enabled);
+      setChatId(c.chatId || '');
+      setHasToken(!!c.hasToken);
+    }).catch(() => {}).finally(() => setLoading(false));
+  }, []);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await axios.put(`${API_URL}/reviews/notify-config`, { enabled, botToken, chatId });
+      if (botToken) setHasToken(true);
+      setBotToken('');
+      toast.success('Saqlandi');
+    } catch { toast.error('Saqlashda xato'); }
+    finally { setSaving(false); }
+  };
+
+  const test = async () => {
+    setTesting(true);
+    try {
+      // Test'dan oldin joriy kiritilgan qiymatlarni saqlaymiz.
+      await axios.put(`${API_URL}/reviews/notify-config`, { enabled, botToken, chatId });
+      if (botToken) { setHasToken(true); setBotToken(''); }
+      await axios.post(`${API_URL}/reviews/notify-test`);
+      toast.success('Test xabari yuborildi ✅');
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Test yuborilmadi');
+    } finally { setTesting(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl p-5 w-full max-w-md">
+        <div className="flex items-center justify-between mb-1">
+          <h3 className="font-bold text-ink flex items-center gap-2"><Send className="w-4 h-4" /> Telegram bildirishnoma</h3>
+          <button onClick={onClose} className="p-1 rounded-lg hover:bg-surface-100 text-ink-tertiary"><X className="w-4 h-4" /></button>
+        </div>
+        <p className="text-xs text-ink-tertiary mb-4">Yangi Google/Yandex otzivlari kelganda Telegram guruh/kanalingizga avtomatik yuboriladi.</p>
+
+        {loading ? (
+          <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-ink-tertiary" /></div>
+        ) : (
+          <div className="space-y-3">
+            <label className="flex items-center gap-2 text-sm text-ink cursor-pointer">
+              <input type="checkbox" checked={enabled} onChange={e => setEnabled(e.target.checked)} className="w-4 h-4" />
+              Bildirishnoma yoqilgan
+            </label>
+
+            <div>
+              <label className="text-xs font-medium text-ink-secondary">Bot token</label>
+              <input value={botToken} onChange={e => setBotToken(e.target.value)} type="password"
+                placeholder={hasToken ? '•••••• (saqlangan — o\'zgartirish uchun yangisini kiriting)' : '123456:ABC-DEF...'}
+                className="w-full mt-1 px-3 py-2 rounded-lg border border-surface-200 text-sm focus:outline-none focus:border-primary-500" />
+              <p className="text-[11px] text-ink-tertiary mt-1">@BotFather'dan bot yarating va tokenini kiriting.</p>
+            </div>
+
+            <div>
+              <label className="text-xs font-medium text-ink-secondary">Chat ID</label>
+              <input value={chatId} onChange={e => setChatId(e.target.value)}
+                placeholder="-1001234567890 yoki @kanal_nomi"
+                className="w-full mt-1 px-3 py-2 rounded-lg border border-surface-200 text-sm focus:outline-none focus:border-primary-500" />
+              <p className="text-[11px] text-ink-tertiary mt-1">Botni guruhga qo'shing. Guruh chat_id'sini @getidsbot orqali biling.</p>
+            </div>
+
+            <div className="flex gap-2 pt-1">
+              <button onClick={save} disabled={saving}
+                className="flex-1 px-4 py-2 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:opacity-90 disabled:opacity-50">
+                {saving ? 'Saqlanmoqda...' : 'Saqlash'}
+              </button>
+              <button onClick={test} disabled={testing || (!hasToken && !botToken) || !chatId}
+                className="px-4 py-2 rounded-lg bg-surface-100 text-ink-secondary text-sm font-medium hover:bg-surface-200 disabled:opacity-50">
+                {testing ? '...' : 'Test'}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -527,7 +738,8 @@ function Editor({ page, onClose, onSaved }) {
           ? { placeId: linkedPlace.placeId } : {}),
       ...(unlinkGoogle ? { unlinkGoogle: true } : {}),
       ...(linkedYandex && (!page?.yandex?.orgId || page.yandex.orgId !== linkedYandex.orgId)
-          ? { yandexOrgId: linkedYandex.orgId } : {}),
+          ? { yandexOrgId: linkedYandex.orgId, yandexName: linkedYandex.name,
+              yandexAddress: linkedYandex.address, yandexMapsUrl: linkedYandex.mapsUrl } : {}),
       ...(unlinkYandexFlag ? { unlinkYandex: true } : {}),
     };
     try {

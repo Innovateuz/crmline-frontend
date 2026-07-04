@@ -91,7 +91,7 @@ export default function ReviewsPage() {
 
   const [collecting, setCollecting] = useState(false);
   const collectAll = async () => {
-    const linked = pages.filter(p => p.google?.placeId || p.yandex?.orgId);
+    const linked = pages.filter(p => p.google?.placeId || p.yandex?.orgId || p.twogis?.branchId);
     if (linked.length === 0) { toast('Google/Yandex bog\'langan sahifa yo\'q'); return; }
     setCollecting(true);
     try {
@@ -100,7 +100,7 @@ export default function ReviewsPage() {
       );
       const added = results.reduce((sum, r) => {
         const n = r.value?.data?.newReviews;
-        return sum + (n ? (n.google || 0) + (n.yandex || 0) : 0);
+        return sum + (n ? (n.google || 0) + (n.yandex || 0) + (n.twogis || 0) : 0);
       }, 0);
       toast.success(added > 0 ? `${added} ta yangi otziv yig'ildi` : 'Yangi otziv yo\'q');
       load();
@@ -177,6 +177,12 @@ export default function ReviewsPage() {
                         Y {(p.yandex.rating || 0).toFixed(1)} · {p.yandex.total || 0}
                       </span>
                     )}
+                    {p.twogis?.branchId && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-50 text-green-700 flex items-center gap-1">
+                        <Star className="w-2.5 h-2.5 fill-green-600 text-green-600" />
+                        2ГИС {(p.twogis.rating || 0).toFixed(1)} · {p.twogis.total || 0}
+                      </span>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
@@ -218,8 +224,8 @@ export default function ReviewsPage() {
                     ? <img src={r.authorPhoto} alt="" className="w-6 h-6 rounded-full shrink-0" />
                     : <div className="w-6 h-6 rounded-full bg-surface-100 shrink-0" />}
                   <span className="text-sm font-medium text-ink truncate">{r.author || 'Anonim'}</span>
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded shrink-0 ${r.platform === 'google' ? 'bg-blue-50 text-blue-600' : 'bg-red-50 text-red-600'}`}>
-                    {r.platform === 'google' ? 'Google' : 'Yandex'}
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded shrink-0 ${r.platform === 'google' ? 'bg-blue-50 text-blue-600' : r.platform === '2gis' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}>
+                    {r.platform === 'google' ? 'Google' : r.platform === '2gis' ? '2GIS' : 'Yandex'}
                   </span>
                 </div>
                 <div className="flex items-center gap-0.5 shrink-0">
@@ -719,6 +725,35 @@ function Editor({ page, onClose, onSaved }) {
     });
   };
 
+  // 2GIS bog'lash — dedicated endpoint (URL joylash orqali, mavjud sahifa uchun)
+  const [twogisState, setTwogisState] = useState(page?.twogis?.branchId ? page.twogis : null);
+  const [twogisUrl, setTwogisUrl]     = useState('');
+  const [twogisBusy, setTwogisBusy]   = useState(false);
+
+  const do2gisLink = async () => {
+    if (!page) { toast('Avval sahifani saqlang, keyin 2GIS bog\'lang'); return; }
+    if (!twogisUrl.trim()) return;
+    setTwogisBusy(true);
+    try {
+      const { data } = await axios.post(`${API_URL}/reviews/pages/${page._id}/2gis/link`, { url: twogisUrl.trim() });
+      setTwogisState(data.twogis);
+      setTwogisUrl('');
+      toast.success('2GIS bog\'landi — otzivlar yig\'ildi');
+    } catch (e) { toast.error(e.response?.data?.message || '2GIS bog\'lashda xato'); }
+    finally { setTwogisBusy(false); }
+  };
+
+  const do2gisUnlink = async () => {
+    if (!page) { setTwogisState(null); return; }
+    setTwogisBusy(true);
+    try {
+      await axios.delete(`${API_URL}/reviews/pages/${page._id}/2gis`);
+      setTwogisState(null);
+      toast.success('2GIS uzildi');
+    } catch { toast.error('Xato'); }
+    finally { setTwogisBusy(false); }
+  };
+
   const removeYandex = () => {
     setLinkedYandex(null);
     setUnlinkYandexFlag(true);
@@ -881,6 +916,35 @@ function Editor({ page, onClose, onSaved }) {
                     ))}
                   </div>
                 )}
+              </div>
+            )}
+          </div>
+
+          {/* 2GIS bog'lash — URL joylash orqali */}
+          <div>
+            <p className="text-xs font-semibold text-ink-tertiary uppercase mb-2">2GIS</p>
+            {twogisState ? (
+              <div className="bg-green-50 border border-green-200 rounded-xl p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-ink">{twogisState.name || '2GIS filiali'}</p>
+                    <p className="text-xs text-green-700 mt-0.5">{(twogisState.rating || 0).toFixed(1)}★ · {twogisState.total || 0} otziv</p>
+                  </div>
+                  <button type="button" onClick={do2gisUnlink} disabled={twogisBusy}
+                    className="text-xs px-2 py-1 rounded-lg text-red-500 hover:bg-red-50 disabled:opacity-50">Uzish</button>
+                </div>
+              </div>
+            ) : !page ? (
+              <p className="text-xs text-ink-tertiary bg-surface-50 rounded-xl p-3">2GIS bog'lash uchun avval sahifani saqlang, keyin qayta oching.</p>
+            ) : (
+              <div className="flex gap-2">
+                <input value={twogisUrl} onChange={e => setTwogisUrl(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), do2gisLink())}
+                  className="input flex-1 text-sm" placeholder="2GIS havolasi: 2gis.uz/tashkent/firm/70000..." />
+                <button type="button" onClick={do2gisLink} disabled={twogisBusy || !twogisUrl.trim()}
+                  className="px-3 rounded-xl bg-green-600 text-white text-sm disabled:opacity-50 flex items-center">
+                  {twogisBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Bog\'lash'}
+                </button>
               </div>
             )}
           </div>

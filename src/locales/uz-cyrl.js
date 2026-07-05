@@ -988,6 +988,9 @@ export default {
       atc: "Телефония (ATC)",
       audit: "Аудит журнали",
     },
+    groups: {
+      general: "Умумий", crm: "CRM", channels: "Каналлар", system: "Тизим",
+    },
     branding: {
       title: "Брендинг",
       subtitle: "Ташкилот номи, логоси ва бренд ранги — дастур шу кўринишда очилади",

@@ -23,6 +23,10 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
 
+  // Faqat http(s) so'rovlarini keshlaymiz — chrome-extension:// va boshqa
+  // sxemalarni Cache API rad etadi ("unsupported scheme" xatosi).
+  if (!url.protocol.startsWith('http')) return;
+
   // API: always network, no caching
   if (url.pathname.startsWith('/api/')) return;
 

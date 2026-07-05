@@ -43,6 +43,15 @@ const TABS = [
   { key: 'audit',       icon: History,          label: 'Audit jurnali'    },
 ];
 
+// Sozlamalar 2 qatlamli: modul (guruh) → shu modulning sub-tablari.
+// Har bir TABS kaliti aynan bitta guruhga tegishli bo'lishi kerak.
+const TAB_GROUPS = [
+  { key: 'general',  icon: Palette,       label: 'Umumiy',   tabs: ['branding', 'modules'] },
+  { key: 'crm',      icon: Kanban,        label: 'CRM',      tabs: ['funnels', 'tasks', 'deal-sources', 'lead-forms', 'goals'] },
+  { key: 'channels', icon: MessageSquare, label: 'Kanallar', tabs: ['inbox', 'atc', 'integrations'] },
+  { key: 'system',   icon: ShieldCheck,   label: 'Tizim',    tabs: ['users', 'roles', 'audit'] },
+];
+
 // Biznes egasiga ko'rinmasin — faqat URL orqali (?tab=general / ?tab=branding) ochiladi.
 const HIDDEN_TAB_KEYS = [];
 
@@ -103,6 +112,7 @@ function BrandingTab() {
   const [saving, setSaving]     = useState(false);
   const [uploading, setUploading] = useState(false);
   const [dragLogo, setDragLogo] = useState(false);
+  const [section, setSection] = useState('asosiy');
   const fileRef = useRef(null);
   const uploadLogoRef = useRef(null);
 
@@ -172,6 +182,12 @@ function BrandingTab() {
 
   if (!loaded) return <div className="flex items-center justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-ink-tertiary" /></div>;
 
+  const BRANDING_SECTIONS = [
+    { key: 'asosiy',   label: 'Asosiy' },
+    { key: 'aloqa',    label: 'Aloqa ma\'lumotlari' },
+    { key: 'korinish', label: "Ko'rinish" },
+  ];
+
   return (
     <div className="space-y-6 max-w-2xl">
       <div>
@@ -179,148 +195,165 @@ function BrandingTab() {
         <p className="text-ink-tertiary text-sm mt-0.5">{t('settings.branding.subtitle')}</p>
       </div>
 
-      {/* Name */}
-      <div>
-        <label className="block text-sm font-medium text-ink mb-1.5">{t('settings.branding.orgName')}</label>
-        <input className="input max-w-sm" value={name} onChange={e => setName(e.target.value)} placeholder={t('settings.branding.orgNamePlaceholder')} />
+      {/* Ichki sub-tablar */}
+      <div className="flex gap-1 bg-surface-100 p-1 rounded-xl overflow-x-auto max-w-md">
+        {BRANDING_SECTIONS.map(s => (
+          <button key={s.key} type="button" onClick={() => setSection(s.key)}
+            className={`flex-1 px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${section === s.key ? 'bg-white text-ink shadow-sm' : 'text-ink-tertiary hover:text-ink'}`}>
+            {s.label}
+          </button>
+        ))}
       </div>
 
-      {/* Contact info */}
-      <div className="space-y-3">
-        <p className="text-sm font-semibold text-ink">Tashkilot ma'lumotlari</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-medium text-ink-secondary mb-1">Direktor ism familiyasi</label>
-            <input className="input" value={directorName} onChange={e => setDirectorName(e.target.value)} placeholder="Masalan: Aliyev Jasur Ahmadovich" />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-ink-secondary mb-1">Office raqami</label>
-            <input className="input" value={officePhone} onChange={e => setOfficePhone(e.target.value)} placeholder="+998 71 200 00 00" />
-          </div>
-        </div>
+      {/* ══ ASOSIY: nomi + valyuta ══ */}
+      {section === 'asosiy' && <>
+        {/* Name */}
         <div>
-          <label className="block text-xs font-medium text-ink-secondary mb-1">Manzil</label>
-          <input className="input" value={address} onChange={e => setAddress(e.target.value)} placeholder="Masalan: Toshkent sh., Chilonzor t., 12-uy" />
+          <label className="block text-sm font-medium text-ink mb-1.5">{t('settings.branding.orgName')}</label>
+          <input className="input max-w-sm" value={name} onChange={e => setName(e.target.value)} placeholder={t('settings.branding.orgNamePlaceholder')} />
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div>
-            <label className="block text-xs font-medium text-ink-secondary mb-1">Web sayt</label>
-            <input className="input" value={website} onChange={e => setWebsite(e.target.value)} placeholder="https://example.com" />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-ink-secondary mb-1">Instagram</label>
-            <input className="input" value={instagram} onChange={e => setInstagram(e.target.value)} placeholder="@username yoki to'liq link" />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-ink-secondary mb-1">Telegram</label>
-            <input className="input" value={telegram} onChange={e => setTelegram(e.target.value)} placeholder="@username yoki +998..." />
-          </div>
-        </div>
-      </div>
 
-      {/* Currency */}
-      <div>
-        <label className="block text-sm font-medium text-ink mb-1.5">Asosiy valyuta</label>
-        <p className="text-xs text-ink-tertiary mb-3">Barcha sdelka va lidlar shu valyutada ko'rsatiladi.</p>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          {CURRENCIES.map(c => (
-            <button
-              key={c.code}
-              type="button"
-              onClick={() => setCurrency(c.code)}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border-2 text-left transition-colors ${
-                currency === c.code
-                  ? 'border-primary-500 bg-primary-50'
-                  : 'border-surface-200 hover:border-surface-300 bg-white'
+        {/* Currency */}
+        <div>
+          <label className="block text-sm font-medium text-ink mb-1.5">Asosiy valyuta</label>
+          <p className="text-xs text-ink-tertiary mb-3">Barcha sdelka va lidlar shu valyutada ko'rsatiladi.</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {CURRENCIES.map(c => (
+              <button
+                key={c.code}
+                type="button"
+                onClick={() => setCurrency(c.code)}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border-2 text-left transition-colors ${
+                  currency === c.code
+                    ? 'border-primary-500 bg-primary-50'
+                    : 'border-surface-200 hover:border-surface-300 bg-white'
+                }`}
+              >
+                <span className={`text-base font-bold w-8 shrink-0 text-center ${currency === c.code ? 'text-primary-600' : 'text-ink-tertiary'}`}>
+                  {c.symbol}
+                </span>
+                <div className="min-w-0">
+                  <div className={`text-xs font-semibold leading-none ${currency === c.code ? 'text-primary-700' : 'text-ink'}`}>{c.code}</div>
+                  <div className="text-xs text-ink-tertiary mt-0.5 truncate">{c.label}</div>
+                </div>
+                {currency === c.code && <Check className="w-3.5 h-3.5 text-primary-600 ml-auto shrink-0" />}
+              </button>
+            ))}
+          </div>
+        </div>
+      </>}
+
+      {/* ══ ALOQA: direktor, manzil, telefon, ijtimoiy tarmoqlar ══ */}
+      {section === 'aloqa' && <>
+        <div className="space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-ink-secondary mb-1">Direktor ism familiyasi</label>
+              <input className="input" value={directorName} onChange={e => setDirectorName(e.target.value)} placeholder="Masalan: Aliyev Jasur Ahmadovich" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-ink-secondary mb-1">Office raqami</label>
+              <input className="input" value={officePhone} onChange={e => setOfficePhone(e.target.value)} placeholder="+998 71 200 00 00" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-ink-secondary mb-1">Manzil</label>
+            <input className="input" value={address} onChange={e => setAddress(e.target.value)} placeholder="Masalan: Toshkent sh., Chilonzor t., 12-uy" />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-ink-secondary mb-1">Web sayt</label>
+              <input className="input" value={website} onChange={e => setWebsite(e.target.value)} placeholder="https://example.com" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-ink-secondary mb-1">Instagram</label>
+              <input className="input" value={instagram} onChange={e => setInstagram(e.target.value)} placeholder="@username yoki to'liq link" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-ink-secondary mb-1">Telegram</label>
+              <input className="input" value={telegram} onChange={e => setTelegram(e.target.value)} placeholder="@username yoki +998..." />
+            </div>
+          </div>
+        </div>
+      </>}
+
+      {/* ══ KO'RINISH: logo, brend rangi, preview ══ */}
+      {section === 'korinish' && <>
+        {/* Logo */}
+        <div>
+          <label className="block text-sm font-medium text-ink mb-1.5">{t('settings.branding.logo')}</label>
+          <div className="flex items-center gap-4">
+            <div
+              onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setDragLogo(true); }}
+              onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setDragLogo(true); }}
+              onDragLeave={(e) => { e.stopPropagation(); if (!e.currentTarget.contains(e.relatedTarget)) setDragLogo(false); }}
+              onDrop={(e) => { e.preventDefault(); e.stopPropagation(); setDragLogo(false); const f = e.dataTransfer.files?.[0]; if (f) uploadLogo(f); }}
+              onClick={() => fileRef.current?.click()}
+              className={`w-16 h-16 rounded-2xl flex items-center justify-center overflow-hidden shrink-0 cursor-pointer transition-all ${
+                dragLogo ? 'ring-2 ring-primary-400 ring-offset-2 bg-primary-50' : 'bg-surface-100'
               }`}
             >
-              <span className={`text-base font-bold w-8 shrink-0 text-center ${currency === c.code ? 'text-primary-600' : 'text-ink-tertiary'}`}>
-                {c.symbol}
-              </span>
-              <div className="min-w-0">
-                <div className={`text-xs font-semibold leading-none ${currency === c.code ? 'text-primary-700' : 'text-ink'}`}>{c.code}</div>
-                <div className="text-xs text-ink-tertiary mt-0.5 truncate">{c.label}</div>
-              </div>
-              {currency === c.code && <Check className="w-3.5 h-3.5 text-primary-600 ml-auto shrink-0" />}
-            </button>
-          ))}
+              {logo ? <img src={mediaUrl(logo)} alt="logo" className="w-full h-full object-cover" /> : <Building2 className={`w-7 h-7 ${dragLogo ? 'text-primary-500' : 'text-ink-disabled'}`} />}
+            </div>
+            <div className="flex items-center gap-2">
+              <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={e => uploadLogo(e.target.files?.[0])} />
+              <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading} className="btn-secondary btn-md flex items-center gap-2">
+                {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />} {t('settings.branding.upload')}
+              </button>
+              {logo && <button type="button" onClick={() => setLogo('')} className="btn-secondary btn-md text-red-600">{t('settings.branding.removeLogo')}</button>}
+            </div>
+          </div>
         </div>
-      </div>
 
-      {/* Logo */}
-      <div>
-        <label className="block text-sm font-medium text-ink mb-1.5">{t('settings.branding.logo')}</label>
-        <div className="flex items-center gap-4">
-          <div
-            onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setDragLogo(true); }}
-            onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setDragLogo(true); }}
-            onDragLeave={(e) => { e.stopPropagation(); if (!e.currentTarget.contains(e.relatedTarget)) setDragLogo(false); }}
-            onDrop={(e) => { e.preventDefault(); e.stopPropagation(); setDragLogo(false); const f = e.dataTransfer.files?.[0]; if (f) uploadLogo(f); }}
-            onClick={() => fileRef.current?.click()}
-            className={`w-16 h-16 rounded-2xl flex items-center justify-center overflow-hidden shrink-0 cursor-pointer transition-all ${
-              dragLogo ? 'ring-2 ring-primary-400 ring-offset-2 bg-primary-50' : 'bg-surface-100'
-            }`}
-          >
-            {logo ? <img src={mediaUrl(logo)} alt="logo" className="w-full h-full object-cover" /> : <Building2 className={`w-7 h-7 ${dragLogo ? 'text-primary-500' : 'text-ink-disabled'}`} />}
+        {/* Brand color */}
+        <div>
+          <label className="block text-sm font-medium text-ink mb-2">{t('settings.branding.brandColor')}</label>
+          <div className="flex flex-wrap items-center gap-2 mb-3">
+            <button type="button" onClick={() => setColor('')} title={t('settings.branding.defaultGreen')}
+              className={`w-8 h-8 rounded-full border-2 flex items-center justify-center ${!color ? 'border-ink' : 'border-transparent'}`}
+              style={{ backgroundColor: '#059669' }}>
+              {!color && <Check className="w-4 h-4 text-white" />}
+            </button>
+            <div className="w-px h-6 bg-surface-200 mx-1" />
+            {BRAND_PRESETS.map(c => (
+              <button key={c} type="button" onClick={() => setColor(c)}
+                className={`w-8 h-8 rounded-full border-2 flex items-center justify-center ${color.toLowerCase() === c ? 'border-ink' : 'border-transparent'}`}
+                style={{ backgroundColor: c }}>
+                {color.toLowerCase() === c && <Check className="w-4 h-4 text-white" />}
+              </button>
+            ))}
           </div>
           <div className="flex items-center gap-2">
-            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={e => uploadLogo(e.target.files?.[0])} />
-            <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading} className="btn-secondary btn-md flex items-center gap-2">
-              {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />} {t('settings.branding.upload')}
-            </button>
-            {logo && <button type="button" onClick={() => setLogo('')} className="btn-secondary btn-md text-red-600">{t('settings.branding.removeLogo')}</button>}
+            <input type="color" value={color || '#059669'} onChange={e => setColor(e.target.value)} className="w-10 h-10 rounded-lg border border-surface-200 cursor-pointer bg-white p-0.5" />
+            <input className="input font-mono w-32" value={color} onChange={e => setColor(e.target.value)} placeholder="#059669" maxLength={7} />
+            <span className="text-xs text-ink-tertiary">{color ? t('settings.branding.customColor') : t('settings.branding.defaultGreen')}</span>
           </div>
         </div>
-      </div>
 
-      {/* Brand color */}
-      <div>
-        <label className="block text-sm font-medium text-ink mb-2">{t('settings.branding.brandColor')}</label>
-        <div className="flex flex-wrap items-center gap-2 mb-3">
-          <button type="button" onClick={() => setColor('')} title={t('settings.branding.defaultGreen')}
-            className={`w-8 h-8 rounded-full border-2 flex items-center justify-center ${!color ? 'border-ink' : 'border-transparent'}`}
-            style={{ backgroundColor: '#059669' }}>
-            {!color && <Check className="w-4 h-4 text-white" />}
+        {/* Sidebar/topbar asl rang opsiyasi */}
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="font-medium text-ink text-sm">{t('settings.branding.solidTitle')}</p>
+            <p className="text-xs text-ink-tertiary mt-1 leading-relaxed">{t('settings.branding.solidHint')}</p>
+          </div>
+          <button type="button" onClick={() => setSolid(s => !s)} disabled={saving}
+            className={`relative shrink-0 w-11 h-6 rounded-full transition-colors ${solid ? 'bg-primary-600' : 'bg-surface-200'} disabled:opacity-60`}>
+            <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${solid ? 'translate-x-5' : ''}`} />
           </button>
-          <div className="w-px h-6 bg-surface-200 mx-1" />
-          {BRAND_PRESETS.map(c => (
-            <button key={c} type="button" onClick={() => setColor(c)}
-              className={`w-8 h-8 rounded-full border-2 flex items-center justify-center ${color.toLowerCase() === c ? 'border-ink' : 'border-transparent'}`}
-              style={{ backgroundColor: c }}>
-              {color.toLowerCase() === c && <Check className="w-4 h-4 text-white" />}
-            </button>
-          ))}
         </div>
-        <div className="flex items-center gap-2">
-          <input type="color" value={color || '#059669'} onChange={e => setColor(e.target.value)} className="w-10 h-10 rounded-lg border border-surface-200 cursor-pointer bg-white p-0.5" />
-          <input className="input font-mono w-32" value={color} onChange={e => setColor(e.target.value)} placeholder="#059669" maxLength={7} />
-          <span className="text-xs text-ink-tertiary">{color ? t('settings.branding.customColor') : t('settings.branding.defaultGreen')}</span>
-        </div>
-      </div>
 
-      {/* Sidebar/topbar asl rang opsiyasi */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="font-medium text-ink text-sm">{t('settings.branding.solidTitle')}</p>
-          <p className="text-xs text-ink-tertiary mt-1 leading-relaxed">{t('settings.branding.solidHint')}</p>
+        {/* Preview */}
+        <div className="card card-body">
+          <p className="text-xs font-semibold text-ink-tertiary uppercase tracking-wide mb-3">{t('settings.branding.preview')}</p>
+          <div className="flex items-center gap-3 flex-wrap">
+            <button className="btn-primary btn-md">{t('settings.branding.primaryBtn')}</button>
+            <span className="badge" style={{ backgroundColor: 'rgb(var(--p-50))', color: 'rgb(var(--p-700))' }}>{t('settings.branding.badge')}</span>
+            <span className="text-primary-600 font-semibold">{t('settings.branding.linkText')}</span>
+            <div className="w-8 h-8 rounded-lg bg-primary-600" />
+            <div className="w-8 h-8 rounded-lg bg-primary-800" />
+          </div>
         </div>
-        <button type="button" onClick={() => setSolid(s => !s)} disabled={saving}
-          className={`relative shrink-0 w-11 h-6 rounded-full transition-colors ${solid ? 'bg-primary-600' : 'bg-surface-200'} disabled:opacity-60`}>
-          <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${solid ? 'translate-x-5' : ''}`} />
-        </button>
-      </div>
-
-      {/* Preview */}
-      <div className="card card-body">
-        <p className="text-xs font-semibold text-ink-tertiary uppercase tracking-wide mb-3">{t('settings.branding.preview')}</p>
-        <div className="flex items-center gap-3 flex-wrap">
-          <button className="btn-primary btn-md">{t('settings.branding.primaryBtn')}</button>
-          <span className="badge" style={{ backgroundColor: 'rgb(var(--p-50))', color: 'rgb(var(--p-700))' }}>{t('settings.branding.badge')}</span>
-          <span className="text-primary-600 font-semibold">{t('settings.branding.linkText')}</span>
-          <div className="w-8 h-8 rounded-lg bg-primary-600" />
-          <div className="w-8 h-8 rounded-lg bg-primary-800" />
-        </div>
-      </div>
+      </>}
 
       <div className="flex justify-end">
         <button onClick={save} disabled={saving} className="btn-primary btn-md flex items-center gap-2">
@@ -1122,7 +1155,8 @@ function ModulesTab() {
       setNavHiddenSaved(hm);
     }).catch(() => toast.error(t('settings.general.error')))
       .finally(() => setLoaded(true));
-  }, [t]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const syncSettings = (org) => {
     if (org?.settings) dispatch(setOrganization({ settings: org.settings }));
@@ -5931,6 +5965,9 @@ export default function SettingsPage() {
   const [tab, setTab] = useState(initialTab);
   // Strip'da ko'rinadigan tablar: yashirinlardan tashqari + (URL orqali ochilgan bo'lsa) joriy yashirin tab.
   const visibleTabs = TABS.filter(x => !HIDDEN_TAB_KEYS.includes(x.key) || x.key === tab);
+  // Joriy tab qaysi guruhga tegishli bo'lsa — shu guruh faol; sub-tab strip shu guruh ichidagilarga cheklanadi.
+  const activeGroup = TAB_GROUPS.find(g => g.tabs.includes(tab)) || TAB_GROUPS[0];
+  const subTabs = visibleTabs.filter(x => activeGroup.tabs.includes(x.key));
   const activeTabRef = useRef(null);
 
   // Mobilda scroll-tab: faol tabni avtomatik ko'rinadigan joyga surish.
@@ -5958,10 +5995,34 @@ export default function SettingsPage() {
         }
       />
 
-      {/* Tabs — mobilda gorizontal scroll bo'ladigan strip, desktopda o'zgarmaydi */}
+      {/* Modullar (guruhlar) — birinchi qatlam */}
+      <div className="bg-primary-800/[0.04] border-b border-surface-200 px-4 lg:px-6">
+        <div className="flex gap-1.5 overflow-x-auto no-scrollbar py-2">
+          {TAB_GROUPS.map(g => {
+            const isActive = activeGroup.key === g.key;
+            const GIcon = g.icon;
+            return (
+              <button
+                key={g.key}
+                onClick={() => { if (!isActive) setTab(g.tabs[0]); }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium transition-colors shrink-0 whitespace-nowrap ${
+                  isActive
+                    ? 'bg-primary-600 text-white shadow-sm'
+                    : 'text-ink-secondary hover:bg-white hover:text-ink'
+                }`}
+              >
+                <GIcon className="w-4 h-4 shrink-0" />
+                {t('settings.groups.' + g.key)}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Sub-tablar — ikkinchi qatlam, faqat faol guruhga tegishlilari */}
       <div className="bg-white border-b border-surface-200 px-4 lg:px-6">
         <div className="flex gap-1 overflow-x-auto no-scrollbar">
-          {visibleTabs.map(({ key, icon: Icon, label }) => (
+          {subTabs.map(({ key, icon: Icon, label }) => (
             <button
               key={key}
               ref={tab === key ? activeTabRef : null}

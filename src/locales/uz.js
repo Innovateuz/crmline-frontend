@@ -1017,6 +1017,9 @@ export default {
       atc: "Telefoniya (ATC)",
       audit: "Audit jurnali",
     },
+    groups: {
+      general: "Umumiy", crm: "CRM", channels: "Kanallar", system: "Tizim",
+    },
     branding: {
       title: "Brending",
       subtitle: "Tashkilot nomi, logosi va brend rangi — dastur shu ko'rinishda ochiladi",

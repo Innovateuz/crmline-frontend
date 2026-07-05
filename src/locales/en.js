@@ -1007,6 +1007,9 @@ export default {
       atc: "Telephony (ATC)",
       audit: "Audit log",
     },
+    groups: {
+      general: "General", crm: "CRM", channels: "Channels", system: "System",
+    },
     branding: {
       title: "Branding",
       subtitle: "Organization name, logo and brand color — the app opens with this look",

@@ -15,16 +15,18 @@ import {
 
 function OrgBrand() {
   const org = useSelector((s) => s.auth.user?.organization);
+  const navigate = useNavigate();
   const brandName = org?.name || 'CRM Line';
   return (
-    <div className="hidden lg:flex items-center gap-2.5 shrink-0">
+    <button onClick={() => navigate('/dashboard')}
+      className="hidden lg:flex items-center gap-2.5 shrink-0 rounded-lg hover:bg-white/10 transition-colors -mx-1 px-1 py-0.5">
       <div className="w-8 h-8 bg-white/15 rounded-xl flex items-center justify-center overflow-hidden shrink-0">
         {org?.logo
           ? <img src={mediaUrl(org.logo)} alt={brandName} className="w-full h-full object-cover" />
           : <Building2 className="w-4 h-4 text-white" />}
       </div>
       <span className="font-semibold text-white text-sm leading-none">{brandName}</span>
-    </div>
+    </button>
   );
 }
 

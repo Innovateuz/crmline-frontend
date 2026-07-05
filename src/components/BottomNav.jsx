@@ -9,19 +9,21 @@ import {
 } from 'lucide-react';
 import { useSelector } from 'react-redux';
 import { useT } from '../utils/translate';
+import { usePermissions } from '../utils/permissions';
 
 export default function BottomNav() {
   const location = useLocation();
   const unread   = useSelector(s => s.inbox?.totalUnread || 0);
   const t = useT();
+  const { canSeeModule } = usePermissions();
 
   const NAV_ITEMS = [
-    { to: '/dashboard', icon: LayoutDashboard, label: t('bottomNav.dashboard') },
-    { to: '/contacts',  icon: Users,           label: t('bottomNav.contacts') },
-    { to: '/tasks',     icon: CheckSquare,     label: t('bottomNav.tasks') },
-    { to: '/inbox',     icon: MessageSquare,   label: t('bottomNav.inbox') },
-    { to: '/calls',     icon: Phone,           label: t('bottomNav.calls') },
-  ];
+    { key: 'dashboard', to: '/dashboard', icon: LayoutDashboard, label: t('bottomNav.dashboard') },
+    { key: 'contacts',  to: '/contacts',  icon: Users,           label: t('bottomNav.contacts') },
+    { key: 'tasks',     to: '/tasks',     icon: CheckSquare,     label: t('bottomNav.tasks') },
+    { key: 'inbox',     to: '/inbox',     icon: MessageSquare,   label: t('bottomNav.inbox') },
+    { key: 'calls',     to: '/calls',     icon: Phone,           label: t('bottomNav.calls') },
+  ].filter(i => canSeeModule(i.key));
 
   const isActive = (to) => {
     if (to === '/dashboard') return location.pathname === '/dashboard';

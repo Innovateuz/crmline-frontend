@@ -12,7 +12,7 @@ import {
 import {
   Plus, X, Loader2, Check, ChevronDown,
   Calendar, CheckSquare2, Pencil, Trash2,
-  AlertCircle, User, UserCheck, Link2, Search, Filter,
+  AlertCircle, User, UserCheck, Link2, Search, Filter, Eye, Archive, ArchiveRestore,
   Paperclip, Upload, FileText, Tag,
 } from 'lucide-react';
 
@@ -117,7 +117,7 @@ function ContactSearch({ contactId, contactName, onChange }) {
 }
 
 /* ─── Draggable Task Card ─────────────────────────────────── */
-function TaskCard({ task, onEdit, onDelete, overlay = false }) {
+function TaskCard({ task, onView, onEdit, onArchive, onDelete, overlay = false }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: task._id });
   const overdue = isOverdue(task.dueDate);
   const pri = PRIORITY_MAP[task.priority] || PRIORITY_MAP.normal;
@@ -138,9 +138,20 @@ function TaskCard({ task, onEdit, onDelete, overlay = false }) {
         </span>
         <div className="flex items-center gap-0.5 shrink-0">
           <button onPointerDown={e => e.stopPropagation()}
+            onClick={e => { e.stopPropagation(); onView(task); }}
+            className="p-1 rounded-md hover:bg-surface-100 text-ink-disabled hover:text-ink-tertiary transition-colors">
+            <Eye className="w-3 h-3" />
+          </button>
+          <button onPointerDown={e => e.stopPropagation()}
             onClick={e => { e.stopPropagation(); onEdit(task); }}
             className="p-1 rounded-md hover:bg-surface-100 text-ink-disabled hover:text-ink-tertiary transition-colors">
             <Pencil className="w-3 h-3" />
+          </button>
+          <button onPointerDown={e => e.stopPropagation()}
+            onClick={e => { e.stopPropagation(); onArchive(task); }}
+            title="Arxivlash"
+            className="p-1 rounded-md hover:bg-surface-100 text-ink-disabled hover:text-ink-tertiary transition-colors">
+            <Archive className="w-3 h-3" />
           </button>
           <button onPointerDown={e => e.stopPropagation()}
             onClick={e => { e.stopPropagation(); onDelete(task._id); }}
@@ -226,7 +237,7 @@ function TaskCard({ task, onEdit, onDelete, overlay = false }) {
 }
 
 /* ─── Droppable Column ────────────────────────────────────── */
-function Column({ stage, tasks, onAdd, onEdit, onDelete }) {
+function Column({ stage, tasks, onAdd, onView, onEdit, onArchive, onDelete }) {
   const { setNodeRef, isOver } = useDroppable({ id: String(stage._id || stage.name) });
   const overdueCount = tasks.filter(t => isOverdue(t.dueDate)).length;
   const t = useT();
@@ -251,7 +262,7 @@ function Column({ stage, tasks, onAdd, onEdit, onDelete }) {
           isOver ? 'bg-primary-50 ring-2 ring-primary-300' : 'bg-surface-100'
         }`}>
         {tasks.map(task => (
-          <TaskCard key={task._id} task={task} onEdit={onEdit} onDelete={onDelete} />
+          <TaskCard key={task._id} task={task} onView={onView} onEdit={onEdit} onArchive={onArchive} onDelete={onDelete} />
         ))}
       </div>
     </div>
@@ -312,7 +323,7 @@ function TagInput({ tags, allTags, onChange }) {
 }
 
 /* ─── Task Modal ──────────────────────────────────────────── */
-function TaskModal({ initial, stages, users, allTags, onSave, onClose, saving }) {
+function TaskModal({ initial, stages, users, allTags, onSave, onClose, saving, readOnly = false }) {
   const t = useT();
   const [title,       setTitle]       = useState(initial?.title       || '');
   const [description, setDescription] = useState(initial?.description || '');
@@ -370,7 +381,7 @@ function TaskModal({ initial, stages, users, allTags, onSave, onClose, saving })
       <div className="relative bg-white rounded-2xl shadow-modal w-full max-w-md flex flex-col max-h-[90vh]">
         <div className="flex items-center justify-between px-5 py-4 border-b border-surface-100 shrink-0">
           <div>
-            <h2 className="font-semibold text-ink">{initial?._id ? t('tasks.editTask') : t('tasks.newTask')}</h2>
+            <h2 className="font-semibold text-ink">{readOnly ? t('tasks.viewTask') : initial?._id ? t('tasks.editTask') : t('tasks.newTask')}</h2>
             {initial?._id && initial?.createdBy && (
               <p className="text-[11px] text-ink-disabled mt-0.5">
                 {t('tasks.createdByPrefix')} {initial.createdBy.name}
@@ -383,7 +394,8 @@ function TaskModal({ initial, stages, users, allTags, onSave, onClose, saving })
           </button>
         </div>
 
-        <div className="px-5 py-4 space-y-4 overflow-y-auto">
+        <div className="px-5 py-4 overflow-y-auto">
+        <fieldset disabled={readOnly} className="contents space-y-4 border-0 m-0 p-0">
           {/* Title */}
           <div>
             <label className="block text-xs font-medium text-ink-tertiary mb-1">{t('tasks.modalTitle')}</label>
@@ -521,14 +533,103 @@ function TaskModal({ initial, stages, users, allTags, onSave, onClose, saving })
               </div>
             )}
           </div>
+        </fieldset>
         </div>
 
         <div className="flex justify-end gap-2 px-5 py-4 border-t border-surface-100 shrink-0">
-          <button onClick={onClose} className="btn-secondary btn-md">{t('tasks.cancel')}</button>
-          <button onClick={handleSave} disabled={saving} className="btn-primary btn-md flex items-center gap-2">
-            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-            {initial?._id ? t('tasks.save') : t('tasks.create')}
+          <button onClick={onClose} className="btn-secondary btn-md">
+            {readOnly ? t('tasks.close') : t('tasks.cancel')}
           </button>
+          {!readOnly && (
+            <button onClick={handleSave} disabled={saving} className="btn-primary btn-md flex items-center gap-2">
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+              {initial?._id ? t('tasks.save') : t('tasks.create')}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Archive Modal ───────────────────────────────────────── */
+function ArchiveModal({ stages, onClose, onRestored }) {
+  const t = useT();
+  const [tasks,   setTasks]   = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [busyId,  setBusyId]  = useState(null);
+
+  useEffect(() => {
+    axios.get(`${API_URL}/tasks`, { params: { archived: true, limit: 1000 } })
+      .then(r => setTasks(r.data.tasks || []))
+      .catch(() => toast.error(t('tasks.loadError')))
+      .finally(() => setLoading(false));
+  }, [t]);
+
+  const stageName = (id) => stages.find(s => String(s._id || s.name) === String(id))?.name || '—';
+
+  const restore = async (id) => {
+    setBusyId(id);
+    try {
+      await axios.put(`${API_URL}/tasks/${id}`, { archived: false });
+      setTasks(prev => prev.filter(x => x._id !== id));
+      onRestored();
+      toast.success(t('tasks.restored'));
+    } catch { toast.error(t('tasks.error')); }
+    finally { setBusyId(null); }
+  };
+
+  const remove = async (id) => {
+    if (!window.confirm(t('tasks.deleteConfirm'))) return;
+    setBusyId(id);
+    try {
+      await axios.delete(`${API_URL}/tasks/${id}`);
+      setTasks(prev => prev.filter(x => x._id !== id));
+      toast.success(t('tasks.deleted'));
+    } catch { toast.error(t('tasks.error')); }
+    finally { setBusyId(null); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-modal w-full max-w-lg max-h-[80vh] flex flex-col">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-surface-100 shrink-0">
+          <h2 className="font-semibold text-ink flex items-center gap-2">
+            <Archive className="w-4 h-4" /> {t('tasks.archive')}
+          </h2>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-surface-100 text-ink-tertiary">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-5 py-3">
+          {loading ? (
+            <div className="flex items-center justify-center py-10">
+              <Loader2 className="w-6 h-6 animate-spin text-primary-400" />
+            </div>
+          ) : tasks.length === 0 ? (
+            <p className="text-sm text-ink-tertiary text-center py-10">{t('tasks.archiveEmpty')}</p>
+          ) : (
+            <div className="space-y-2">
+              {tasks.map(task => (
+                <div key={task._id} className="flex items-center gap-3 p-3 border border-surface-100 rounded-xl">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-ink truncate">{task.title}</p>
+                    <p className="text-xs text-ink-tertiary truncate">{stageName(task.stageId)}</p>
+                  </div>
+                  <button onClick={() => restore(task._id)} disabled={busyId === task._id}
+                    title={t('tasks.restore')}
+                    className="p-1.5 rounded-lg text-ink-tertiary hover:bg-primary-50 hover:text-primary-600 transition-colors">
+                    <ArchiveRestore className="w-4 h-4" />
+                  </button>
+                  <button onClick={() => remove(task._id)} disabled={busyId === task._id}
+                    className="p-1.5 rounded-lg text-ink-tertiary hover:bg-red-50 hover:text-red-500 transition-colors">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -545,6 +646,7 @@ export default function TasksPage() {
   const [saving,   setSaving]   = useState(false);
   const [modal,    setModal]    = useState(null);
   const [activeId, setActiveId] = useState(null);
+  const [showArchive, setShowArchive] = useState(false);
 
   // Filters
   const [filterSearch,   setFilterSearch]   = useState('');
@@ -607,6 +709,7 @@ export default function TasksPage() {
   };
 
   const openCreate = (stage) => setModal({ stageId: stageKey(stage) });
+  const openView   = (task)  => setModal({ task, readOnly: true });
   const openEdit   = (task)  => setModal({ task });
   const closeModal = ()      => setModal(null);
 
@@ -640,6 +743,18 @@ export default function TasksPage() {
     try {
       await axios.delete(`${API_URL}/tasks/${id}`);
       toast.success(t('tasks.deleted'));
+    } catch {
+      toast.error(t('tasks.error'));
+      dispatch(invalidateTasks());
+      load();
+    }
+  };
+
+  const handleArchive = async (task) => {
+    dispatch(removeTaskAction(task._id));
+    try {
+      await axios.put(`${API_URL}/tasks/${task._id}`, { archived: true });
+      toast.success(t('tasks.archived'));
     } catch {
       toast.error(t('tasks.error'));
       dispatch(invalidateTasks());
@@ -745,6 +860,11 @@ export default function TasksPage() {
               )}
             </button>
 
+            <button onClick={() => setShowArchive(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium border bg-surface-50 border-surface-200 text-ink-secondary hover:bg-surface-100 transition-colors">
+              <Archive className="w-3.5 h-3.5" /> {t('tasks.archive')}
+            </button>
+
             <button onClick={() => openCreate(stages[0])} className="btn-primary btn-md flex items-center gap-2">
               <Plus className="w-4 h-4" /> {t('tasks.newTask')}
             </button>
@@ -815,11 +935,11 @@ export default function TasksPage() {
           <div className="flex gap-4 h-full px-6 py-5 items-stretch">
             {stages.map(stage => (
               <Column key={stageKey(stage)} stage={stage} tasks={tasksForStage(stage)}
-                onAdd={openCreate} onEdit={openEdit} onDelete={handleDelete} />
+                onAdd={openCreate} onView={openView} onEdit={openEdit} onArchive={handleArchive} onDelete={handleDelete} />
             ))}
           </div>
           <DragOverlay>
-            {activeTask && <TaskCard task={activeTask} onEdit={() => {}} onDelete={() => {}} overlay />}
+            {activeTask && <TaskCard task={activeTask} onView={() => {}} onEdit={() => {}} onArchive={() => {}} onDelete={() => {}} overlay />}
           </DragOverlay>
         </DndContext>
       </div>
@@ -833,6 +953,15 @@ export default function TasksPage() {
           onSave={handleSave}
           onClose={closeModal}
           saving={saving}
+          readOnly={!!modal.readOnly}
+        />
+      )}
+
+      {showArchive && (
+        <ArchiveModal
+          stages={stages}
+          onClose={() => setShowArchive(false)}
+          onRestored={() => dispatch(invalidateTasks())}
         />
       )}
     </div>

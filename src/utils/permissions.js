@@ -10,16 +10,24 @@ import { useSelector } from 'react-redux';
 // next getMe refresh delivers the real permissions.
 
 // Build the helper API from a permissions object. Pure — usable outside React.
-export function makePermissions(perm) {
+// `orgHiddenModules` — org-wide "Modullar ko'rinishi" toggle (Sozlamalar → Menyu):
+// a module hidden here is hidden for EVERYONE, including owner/admin — it's a
+// business config choice ("we don't use this module"), not a role restriction.
+export function makePermissions(perm, orgHiddenModules = []) {
   const full = !perm || perm.full !== false;
   const modules = Array.isArray(perm?.modules) ? perm.modules : [];
   const actions = perm?.actions && typeof perm.actions === 'object' ? perm.actions : {};
   const hiddenData = Array.isArray(perm?.hiddenData) ? perm.hiddenData : [];
+  const orgHidden = Array.isArray(orgHiddenModules) ? orgHiddenModules : [];
 
   return {
     full,
-    // Can this sidebar module / submodule be shown? `dashboard` always visible.
-    canSeeModule: (navKey) => full || navKey === 'dashboard' || modules.includes(navKey),
+    // Can this sidebar module / submodule be shown? `dashboard` always visible
+    // (unless explicitly org-hidden). Org-level hide always wins over role access.
+    canSeeModule: (navKey) => {
+      if (orgHidden.includes(navKey)) return false;
+      return full || navKey === 'dashboard' || modules.includes(navKey);
+    },
     // Is an action (view|create|edit|delete) allowed for a module?
     // Default-allow `view` so a visible module is at least readable.
     can: (navKey, action) => {
@@ -36,5 +44,6 @@ export function makePermissions(perm) {
 // React hook — binds to the current auth user's permissions.
 export function usePermissions() {
   const perm = useSelector((s) => s.auth.user?.permissions);
-  return makePermissions(perm);
+  const orgHiddenModules = useSelector((s) => s.auth.user?.organization?.settings?.hiddenModules);
+  return makePermissions(perm, orgHiddenModules);
 }

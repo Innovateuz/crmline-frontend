@@ -12,7 +12,7 @@ import {
 import {
   Plus, X, Loader2, Check, ChevronDown,
   Calendar, CheckSquare2, Pencil, Trash2,
-  AlertCircle, User, Link2, Search, Filter,
+  AlertCircle, User, UserCheck, Link2, Search, Filter,
   Paperclip, Upload, FileText, Tag,
 } from 'lucide-react';
 
@@ -180,6 +180,13 @@ function TaskCard({ task, onEdit, onDelete, overlay = false }) {
         </div>
       )}
 
+      {task.assignedTo && (
+        <div className="flex items-center gap-1 mt-1.5">
+          <UserCheck className="w-3 h-3 text-ink-disabled shrink-0" />
+          <span className="text-[11px] text-ink-tertiary truncate">{t('tasks.assignedToPrefix')} {task.assignedTo.name}</span>
+        </div>
+      )}
+
       <div className="flex items-center gap-2 mt-2 flex-wrap">
         {task.dueDate && (
           <span className={`flex items-center gap-1 text-[10px] font-medium ${overdue ? 'text-red-500' : 'text-ink-tertiary'}`}>
@@ -194,11 +201,21 @@ function TaskCard({ task, onEdit, onDelete, overlay = false }) {
             {task.files.length}
           </span>
         )}
-        {task.assignedTo && (
-          <span className="w-5 h-5 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-[9px] font-bold shrink-0 ml-auto"
-            title={task.assignedTo.name}>
-            {initials(task.assignedTo.name)}
-          </span>
+        {(task.assignedTo || task.additionalAssignees?.length > 0) && (
+          <div className="flex items-center -space-x-1.5 ml-auto shrink-0">
+            {task.additionalAssignees?.map(u => (
+              <span key={u._id} className="w-5 h-5 rounded-full bg-surface-200 text-ink-secondary flex items-center justify-center text-[9px] font-bold shrink-0 ring-2 ring-white"
+                title={u.name}>
+                {initials(u.name)}
+              </span>
+            ))}
+            {task.assignedTo && (
+              <span className="w-5 h-5 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-[9px] font-bold shrink-0 ring-2 ring-white"
+                title={task.assignedTo.name}>
+                {initials(task.assignedTo.name)}
+              </span>
+            )}
+          </div>
         )}
       </div>
     </div>
@@ -303,6 +320,9 @@ function TaskModal({ initial, stages, users, allTags, onSave, onClose, saving })
     initial?.stageId ? String(initial.stageId) : (stages[0] ? String(stages[0]._id || stages[0].name) : '')
   );
   const [assignedTo,  setAssignedTo]  = useState(initial?.assignedTo?._id || initial?.assignedTo || '');
+  const [additionalAssignees, setAdditionalAssignees] = useState(
+    (initial?.additionalAssignees || []).map(u => u?._id || u)
+  );
   const [dueDate,     setDueDate]     = useState(initial?.dueDate ? initial.dueDate.slice(0, 10) : '');
   const [priority,    setPriority]    = useState(initial?.priority || 'normal');
   const [contactId,   setContactId]   = useState(initial?.contact?._id || initial?.contact || null);
@@ -336,6 +356,7 @@ function TaskModal({ initial, stages, users, allTags, onSave, onClose, saving })
     onSave({
       title, description, stageId, priority,
       assignedTo: assignedTo || null,
+      additionalAssignees,
       dueDate:    dueDate    || null,
       contact:    contactId  || null,
       tags,
@@ -427,6 +448,31 @@ function TaskModal({ initial, stages, users, allTags, onSave, onClose, saving })
             </div>
           </div>
 
+          {/* Additional assignees */}
+          {users.length > 0 && (
+            <div>
+              <label className="block text-xs font-medium text-ink-tertiary mb-1">{t('tasks.additionalAssignees')}</label>
+              <div className="flex flex-wrap gap-1.5">
+                {users.map(u => {
+                  const active = additionalAssignees.includes(u._id);
+                  return (
+                    <button key={u._id} type="button"
+                      onClick={() => setAdditionalAssignees(prev =>
+                        prev.includes(u._id) ? prev.filter(id => id !== u._id) : [...prev, u._id]
+                      )}
+                      className={`px-2.5 py-1 text-xs font-medium rounded-full border transition-colors ${
+                        active
+                          ? 'bg-primary-50 border-primary-300 text-primary-700'
+                          : 'bg-surface-50 border-surface-200 text-ink-tertiary hover:border-surface-300'
+                      }`}>
+                      {u.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Contact link */}
           <div>
             <label className="block text-xs font-medium text-ink-tertiary mb-1 flex items-center gap-1">
@@ -491,7 +537,7 @@ function TaskModal({ initial, stages, users, allTags, onSave, onClose, saving })
 
 /* ─── Main Page ───────────────────────────────────────────── */
 export default function TasksPage() {
-  const meId    = useSelector(s => s.auth.user?._id);
+  const meId    = useSelector(s => s.auth.user?._id || s.auth.user?.id);
   const dispatch = useDispatch();
   const t = useT();
   const { tasks, stages, users, loading, total: tasksTotal } = useSelector(s => s.tasks);
@@ -533,7 +579,9 @@ export default function TasksPage() {
       .filter(t => !filterSearch   || t.title.toLowerCase().includes(filterSearch.toLowerCase())
                                    || t.description?.toLowerCase().includes(filterSearch.toLowerCase()))
       .filter(t => !filterPriority || t.priority === filterPriority)
-      .filter(t => !filterAssignee || String(t.assignedTo?._id || t.assignedTo || '') === filterAssignee)
+      .filter(t => !filterAssignee
+        || String(t.assignedTo?._id || t.assignedTo || '') === filterAssignee
+        || (t.additionalAssignees || []).some(u => String(u?._id || u) === filterAssignee))
       .filter(t => filterTags.length === 0 || filterTags.every(tag => t.tags?.includes(tag)))
       .filter(t => !filterCreatedByMe || String(t.createdBy?._id || t.createdBy || '') === String(meId));
 

@@ -37,10 +37,12 @@ function Gauge({ value, max, label, size = 200 }) {
   const progDeg = 180 - pct * 180;
   const prog  = pt(progDeg);
 
-  // sweep=0 (counterclockwise on screen) from left → top → right
-  const bgPath = `M${left.x} ${left.y} A${r} ${r} 0 0 0 ${right.x} ${right.y}`;
+  // sweep=1 (clockwise on screen, since SVG y grows downward) from left → top → right.
+  const bgPath = `M${left.x} ${left.y} A${r} ${r} 0 0 1 ${right.x} ${right.y}`;
+  // Sweep never exceeds 180° (this is a semicircle gauge), so the arc from
+  // `left` to `prog` is always the minor arc — large-arc-flag is always 0.
   const fgPath = pct > 0.005
-    ? `M${left.x} ${left.y} A${r} ${r} 0 ${pct > 0.5 ? 1 : 0} 0 ${prog.x} ${prog.y}`
+    ? `M${left.x} ${left.y} A${r} ${r} 0 0 1 ${prog.x} ${prog.y}`
     : null;
 
   const arcColor = pct < 0.5 ? '#ef4444' : pct < 0.8 ? '#f59e0b' : '#22c55e';
@@ -63,6 +65,27 @@ function Gauge({ value, max, label, size = 200 }) {
       </text>
       <text x={cx} y={cy - r * 0.22} textAnchor="middle" fontSize={size * 0.055} fill="#64748b">
         {label}
+      </text>
+    </svg>
+  );
+}
+
+// ── SVG Donut progress ring (single value, 0..1) ──────────────────────────────
+function DonutProgress({ pct, size = 64, strokeWidth = 7 }) {
+  const r = (size - strokeWidth) / 2;
+  const c = 2 * Math.PI * r;
+  const offset = c * (1 - pct);
+  const color = pct < 0.5 ? '#ef4444' : pct < 0.8 ? '#f59e0b' : '#22c55e';
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#f1f5f9" strokeWidth={strokeWidth} />
+      {pct > 0 && (
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={strokeWidth}
+          strokeDasharray={c} strokeDashoffset={offset} strokeLinecap="round"
+          transform={`rotate(-90 ${size / 2} ${size / 2})`} />
+      )}
+      <text x={size / 2} y={size / 2} textAnchor="middle" dominantBaseline="central" fontSize={size * 0.24} fontWeight="700" fill="#1e293b">
+        {Math.round(pct * 100)}%
       </text>
     </svg>
   );
@@ -289,48 +312,40 @@ export default function DashboardHome() {
 
               {/* Per-user progress */}
               {goalsProgress.byUser?.some(u => u.targetSum > 0 || u.targetCount > 0) && (
-                <div className="mt-6 pt-5 border-t border-surface-100 space-y-4">
-                  <p className="text-xs font-semibold text-ink-secondary uppercase tracking-wide">Xodimlar bo'yicha</p>
-                  {goalsProgress.byUser.filter(u => u.targetSum > 0 || u.targetCount > 0).map((u, i) => {
-                    const sumPct   = u.targetSum   > 0 ? Math.min(u.currentSum   / u.targetSum,   1) : 0;
-                    const countPct = u.targetCount > 0 ? Math.min(u.currentCount / u.targetCount, 1) : 0;
-                    return (
-                      <div key={i} className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <div className="w-7 h-7 rounded-full bg-primary-100 flex items-center justify-center shrink-0">
-                              <span className="text-xs font-bold text-primary-600">{u.name.charAt(0).toUpperCase()}</span>
+                <div className="mt-6 pt-5 border-t border-surface-100">
+                  <p className="text-xs font-semibold text-ink-secondary uppercase tracking-wide mb-3">Xodimlar bo'yicha</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {goalsProgress.byUser.filter(u => u.targetSum > 0 || u.targetCount > 0).map((u, i) => {
+                      const sumPct   = u.targetSum   > 0 ? Math.min(u.currentSum   / u.targetSum,   1) : 0;
+                      const countPct = u.targetCount > 0 ? Math.min(u.currentCount / u.targetCount, 1) : 0;
+                      return (
+                        <div key={i} className="flex items-center gap-3 p-3 rounded-xl border border-surface-100">
+                          <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center shrink-0">
+                            <span className="text-xs font-bold text-primary-600">{u.name.charAt(0).toUpperCase()}</span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-ink truncate mb-2">{u.name}</p>
+                            <div className="flex items-center gap-4">
+                              {u.targetSum > 0 && (
+                                <div className="flex flex-col items-center gap-1 shrink-0">
+                                  <DonutProgress pct={sumPct} />
+                                  <span className="text-[10px] text-ink-tertiary">Summa</span>
+                                  <span className="text-[10px] text-ink-secondary whitespace-nowrap">{fmtSum(u.currentSum)} / {fmtSum(u.targetSum)}</span>
+                                </div>
+                              )}
+                              {u.targetCount > 0 && (
+                                <div className="flex flex-col items-center gap-1 shrink-0">
+                                  <DonutProgress pct={countPct} />
+                                  <span className="text-[10px] text-ink-tertiary">Soni</span>
+                                  <span className="text-[10px] text-ink-secondary whitespace-nowrap">{u.currentCount} / {u.targetCount} ta</span>
+                                </div>
+                              )}
                             </div>
-                            <span className="text-sm font-medium text-ink">{u.name}</span>
                           </div>
                         </div>
-                        {u.targetSum > 0 && (
-                          <div className="flex items-center gap-2">
-                            <span className="text-[11px] text-ink-tertiary w-12 shrink-0">Summa</span>
-                            <div className="flex-1 h-1.5 bg-surface-100 rounded-full overflow-hidden">
-                              <div className="h-full rounded-full transition-all"
-                                style={{ width: `${sumPct * 100}%`, backgroundColor: sumPct < 0.5 ? '#ef4444' : sumPct < 0.8 ? '#f59e0b' : '#22c55e' }} />
-                            </div>
-                            <span className="text-[11px] text-ink-secondary shrink-0 w-24 text-right">
-                              {fmtSum(u.currentSum)} / {fmtSum(u.targetSum)}
-                            </span>
-                          </div>
-                        )}
-                        {u.targetCount > 0 && (
-                          <div className="flex items-center gap-2">
-                            <span className="text-[11px] text-ink-tertiary w-12 shrink-0">Soni</span>
-                            <div className="flex-1 h-1.5 bg-surface-100 rounded-full overflow-hidden">
-                              <div className="h-full rounded-full transition-all"
-                                style={{ width: `${countPct * 100}%`, backgroundColor: countPct < 0.5 ? '#ef4444' : countPct < 0.8 ? '#f59e0b' : '#22c55e' }} />
-                            </div>
-                            <span className="text-[11px] text-ink-secondary shrink-0 w-24 text-right">
-                              {u.currentCount} / {u.targetCount} ta
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </div>

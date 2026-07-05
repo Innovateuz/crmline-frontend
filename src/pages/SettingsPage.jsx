@@ -5,7 +5,6 @@ import { useSelector, useDispatch } from 'react-redux';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import TopBar from '../components/TopBar';
-import { navKeyToPath } from './DashboardPage';
 import Pagination from '../components/Pagination';
 import { setOrganization } from '../store/authSlice';
 import { useT } from '../utils/translate';
@@ -539,15 +538,26 @@ function FunnelsTab() {
 /* ─── TasksTab ───────────────────────────────────────────── */
 function TasksTab() {
   const [stages,  setStages]  = useState([]);
+  const [tasks,   setTasks]   = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving,  setSaving]  = useState(false);
 
   useEffect(() => {
-    axios.get(`${API_URL}/organization/task-stages`)
-      .then(r => setStages(r.data.stages || []))
+    Promise.all([
+      axios.get(`${API_URL}/organization/task-stages`),
+      axios.get(`${API_URL}/tasks`, { params: { limit: 1000 } }),
+    ])
+      .then(([stagesRes, tasksRes]) => {
+        setStages(stagesRes.data.stages || []);
+        setTasks(tasksRes.data.tasks || []);
+      })
       .catch(() => toast.error('Yuklanishda xato'))
       .finally(() => setLoading(false));
   }, []);
+
+  const doneStageIds = new Set(stages.filter(s => s.isDone).map(s => String(s._id || s.name)));
+  const doneCount    = tasks.filter(t => doneStageIds.has(String(t.stageId))).length;
+  const pendingCount = tasks.length - doneCount;
 
   const genId = () => Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 6);
 
@@ -585,9 +595,22 @@ function TasksTab() {
       <div className="flex items-center justify-between">
         <div>
           <h3 className="font-semibold text-ink">Vazifalar bosqichlari</h3>
-          <p className="text-sm text-ink-tertiary mt-0.5">Kanban ustunlarini sozlang</p>
+          <p className="text-sm text-ink-tertiary mt-0.5">Kanban ustunlarini sozlang. "Bajarilgan" belgisi qo'yilgan bosqichdagi vazifalar yakunlangan hisoblanadi.</p>
         </div>
       </div>
+
+      {doneStageIds.size > 0 && (
+        <div className="flex items-center gap-4 px-4 py-3 bg-surface-50 rounded-xl border border-surface-100">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-green-500 shrink-0" />
+            <span className="text-sm text-ink-secondary">Bajarilgan: <span className="font-semibold text-ink">{doneCount}</span></span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
+            <span className="text-sm text-ink-secondary">Yakunlanmagan: <span className="font-semibold text-ink">{pendingCount}</span></span>
+          </div>
+        </div>
+      )}
 
       <div className="space-y-2">
         {stages.map((s, i) => (
@@ -604,6 +627,15 @@ function TasksTab() {
               value={s.name}
               onChange={e => updateStage(i, 'name', e.target.value)}
             />
+            <label className="flex items-center gap-1.5 shrink-0 px-2 py-1 rounded-lg hover:bg-surface-50 cursor-pointer" title="Bajarilgan bosqich">
+              <input
+                type="checkbox"
+                className="accent-green-600 w-3.5 h-3.5 rounded"
+                checked={!!s.isDone}
+                onChange={e => updateStage(i, 'isDone', e.target.checked)}
+              />
+              <span className="text-xs text-ink-tertiary whitespace-nowrap">Bajarilgan</span>
+            </label>
             <button onClick={() => moveStage(i, -1)} disabled={i === 0}
               className="p-1.5 rounded-lg hover:bg-surface-100 text-ink-disabled hover:text-ink-tertiary disabled:opacity-30 transition-colors">
               <ChevronUp className="w-3.5 h-3.5" />
@@ -4873,6 +4905,18 @@ function TrashTab() {
 const ROLE_ACTIONS = ['view', 'create', 'edit', 'delete'];
 // Leaf nav keys (childless top-level items + every child) — actions apply here.
 const NAV_LEAVES = NAV_ITEMS.flatMap(i => (i.children ? i.children.map(c => c.key) : [i.key]));
+// Modules an admin can toggle per custom role. Decoupled from NAV_ITEMS (the
+// actual navigation bar) so this catalog can include modules like `funnels`
+// that aren't rendered as a fixed nav button (funnels are per-id routes).
+const ROLE_MODULES = [
+  { key: 'dashboard' },
+  { key: 'contacts' },
+  { key: 'tasks' },
+  { key: 'inbox' },
+  { key: 'calls' },
+  { key: 'reviews' },
+  { key: 'funnels' },
+];
 
 function RoleModal({ initial, onClose, onSaved }) {
   const t = useT();
@@ -4979,7 +5023,7 @@ function RoleModal({ initial, onClose, onSaved }) {
                 <span className="flex-1">{t('roles.module')}</span>
                 {ROLE_ACTIONS.map(a => <span key={a} className="w-12 text-center">{t('roles.action' + a[0].toUpperCase() + a.slice(1))}</span>)}
               </div>
-              {NAV_ITEMS.map(item => {
+              {ROLE_MODULES.map(item => {
                 const locked = item.key === 'dashboard';
                 if (!item.children) {
                   const checked = hasModule(item.key) || locked;
@@ -5023,23 +5067,6 @@ function RoleModal({ initial, onClose, onSaved }) {
                               </span>
                             ))}
                           </div>
-                          {child.key === 'production-orders' && checked && (
-                            <div className="pl-10 pr-3 py-2 flex flex-wrap gap-x-5 gap-y-2 bg-amber-50/50 border-t border-amber-100">
-                              <span className="w-full text-[11px] font-medium text-amber-700">{t('roles.prodSubActionsLabel')}</span>
-                              <label className="flex items-center gap-1.5 cursor-pointer">
-                                <input type="checkbox" className="accent-primary-600 w-3.5 h-3.5 rounded"
-                                  checked={actionOn('production-orders', 'editOutputs')}
-                                  onChange={() => toggleAction('production-orders', 'editOutputs')} />
-                                <span className="text-xs text-ink-secondary">{t('roles.prodEditOutputs')}</span>
-                              </label>
-                              <label className="flex items-center gap-1.5 cursor-pointer">
-                                <input type="checkbox" className="accent-primary-600 w-3.5 h-3.5 rounded"
-                                  checked={actionOn('production-orders', 'editComponents')}
-                                  onChange={() => toggleAction('production-orders', 'editComponents')} />
-                                <span className="text-xs text-ink-secondary">{t('roles.prodEditComponents')}</span>
-                              </label>
-                            </div>
-                          )}
                         </React.Fragment>
                       );
                     })}
@@ -5465,7 +5492,7 @@ export default function SettingsPage() {
     <div className="min-h-screen bg-surface-50 flex flex-col">
       <TopBar
         onAccountSettings={() => navigate('/dashboard')}
-        onNavigate={(key) => navigate(navKeyToPath(key))}
+        showNav={false}
         left={
           <>
             <button

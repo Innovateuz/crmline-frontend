@@ -286,7 +286,7 @@ function FullscreenButton() {
   );
 }
 
-export default function TopBar({ left, right, onAccountSettings, active, onNavigate }) {
+export default function TopBar({ left, right, onAccountSettings, active, onNavigate, showNav = true }) {
   return (
     <>
       <header className="bg-primary-800 px-4 lg:px-5 py-2.5 flex items-center gap-3 shrink-0 safe-top [--safe-pad:0.625rem]">
@@ -297,10 +297,12 @@ export default function TopBar({ left, right, onAccountSettings, active, onNavig
         </div>
 
         {/* Center: nav items (desktop) */}
-        <div className="hidden lg:flex items-center gap-1 mx-3">
-          <div className="w-px h-5 bg-white/20 mr-2" />
-          <NavBar active={active} onNavigate={onNavigate} />
-        </div>
+        {showNav && (
+          <div className="hidden lg:flex items-center gap-1 mx-3">
+            <div className="w-px h-5 bg-white/20 mr-2" />
+            <NavBar active={active} onNavigate={onNavigate} />
+          </div>
+        )}
 
         {/* Right: actions */}
         <div className="flex items-center gap-2 ml-auto">

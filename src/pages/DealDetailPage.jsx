@@ -9,7 +9,7 @@ import {
   ArrowLeft, Loader2, Send, MessageSquare, Trash2, Pencil,
   Plus, X, Check, ChevronDown, Upload, FileText, MoreVertical,
   User, DollarSign, Kanban, Phone, Trophy, XCircle, RotateCcw,
-  Mail, AlertCircle, ExternalLink,
+  Mail, AlertCircle, ExternalLink, Layers,
 } from 'lucide-react';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:5002/api';
@@ -202,6 +202,7 @@ export default function DealDetailPage({ funnelId, dealId }) {
   const [value,      setValue]      = useState('');
   const [assignedTo, setAssignedTo] = useState('');
   const [contact,    setContact]    = useState('');
+  const [source,     setSource]     = useState('');
   const [notes,      setNotes]      = useState('');
 
   // Custom fields
@@ -219,6 +220,7 @@ export default function DealDetailPage({ funnelId, dealId }) {
   // Aux data
   const [contacts, setContacts] = useState([]);
   const [users,    setUsers]    = useState([]);
+  const [dealSources, setDealSources] = useState([]);
   const [linkedContact,        setLinkedContact]        = useState(null);
   const [linkedContactLoading, setLinkedContactLoading] = useState(false);
   const [showAssignedPicker, setShowAssignedPicker] = useState(false);
@@ -256,6 +258,7 @@ export default function DealDetailPage({ funnelId, dealId }) {
   const [origValue,      setOrigValue]      = useState('');
   const [origAssignedTo, setOrigAssignedTo] = useState('');
   const [origContact,    setOrigContact]    = useState('');
+  const [origSource,     setOrigSource]     = useState('');
 
   const isDirty = isNew || (
     title !== origTitle ||
@@ -263,6 +266,7 @@ export default function DealDetailPage({ funnelId, dealId }) {
     String(value) !== String(origValue) ||
     assignedTo !== origAssignedTo ||
     contact !== origContact ||
+    source !== origSource ||
     JSON.stringify(customFieldValues) !== JSON.stringify(origCustomFieldValues) ||
     JSON.stringify(orgSections) !== JSON.stringify(origOrgSections)
   );
@@ -272,14 +276,16 @@ export default function DealDetailPage({ funnelId, dealId }) {
     const fetchAll = async () => {
       setLoading(true);
       try {
-        const [fRes, cRes, uRes, fieldsRes] = await Promise.all([
+        const [fRes, cRes, uRes, fieldsRes, sourcesRes] = await Promise.all([
           isNew
             ? axios.get(`${API}/funnels/${funnelId}`)
             : axios.get(`${API}/funnels/${funnelId}/deals/${dealId}`),
           axios.get(`${API}/contacts?limit=200`),
           axios.get(`${API}/organization/users`),
           axios.get(`${API}/organization/deal-fields`),
+          axios.get(`${API}/organization/deal-sources`),
         ]);
+        setDealSources(sourcesRes.data.sources || []);
 
         const funnelData = fRes.data.funnel;
         setFunnel(funnelData);
@@ -300,6 +306,7 @@ export default function DealDetailPage({ funnelId, dealId }) {
           setValue(d.value ?? '');
           setAssignedTo(d.assignedTo?._id || d.assignedTo || '');
           setContact(d.contact?._id || d.contact || '');
+          setSource(d.source || '');
           setNotes(d.notes || '');
           setFiles(d.files || []);
           setDealStatus(d.status || 'active');
@@ -314,6 +321,7 @@ export default function DealDetailPage({ funnelId, dealId }) {
           setOrigValue(d.value ?? '');
           setOrigAssignedTo(d.assignedTo?._id || d.assignedTo || '');
           setOrigContact(d.contact?._id || d.contact || '');
+          setOrigSource(d.source || '');
         } else {
           // New deal: first stage + current user as default assignee
           const firstStage = funnelData?.stages?.[0];
@@ -385,6 +393,7 @@ export default function DealDetailPage({ funnelId, dealId }) {
       const payload = {
         title: title.trim(), stageId, value: Number(value) || 0,
         assignedTo: assignedTo || null, contact: contact || null,
+        source: source || '',
         notes, customFieldValues,
       };
 
@@ -399,6 +408,7 @@ export default function DealDetailPage({ funnelId, dealId }) {
         setOrigValue(value);
         setOrigAssignedTo(assignedTo);
         setOrigContact(contact);
+        setOrigSource(source);
         setOrigCustomFieldValues(JSON.parse(JSON.stringify(customFieldValues)));
         toast.success('Saqlandi');
         loadActivities();
@@ -744,6 +754,22 @@ export default function DealDetailPage({ funnelId, dealId }) {
                     <span className="text-xs text-ink-tertiary shrink-0">{currency}</span>
                   </div>
 
+                  {/* Source */}
+                  {dealSources.length > 0 && (
+                    <div className="flex items-center gap-4 px-4 py-2.5">
+                      <div className="flex items-center gap-2 w-32 shrink-0">
+                        <Layers className="w-3.5 h-3.5 text-ink-tertiary" />
+                        <span className="text-sm text-ink">Manba</span>
+                      </div>
+                      <select className="flex-1 min-w-0 text-sm text-ink bg-transparent border-0 outline-none focus:outline-none focus:ring-0"
+                        value={source} onChange={e => setSource(e.target.value)}>
+                        <option value="">— Tanlanmagan —</option>
+                        {dealSources.map(s => (
+                          <option key={String(s._id)} value={String(s._id)}>{s.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
 
                   {/* Contact */}
                   <div className="flex items-center gap-4 px-4 py-2.5">

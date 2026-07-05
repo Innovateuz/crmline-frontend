@@ -9,6 +9,7 @@ import {
   ArrowLeft, Loader2, Send, MessageSquare, Trash2, Pencil,
   Plus, X, Check, ChevronDown, Upload, FileText, MoreVertical,
   User, DollarSign, Kanban, Phone, Trophy, XCircle, RotateCcw,
+  Mail, AlertCircle, ExternalLink,
 } from 'lucide-react';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:5002/api';
@@ -218,6 +219,8 @@ export default function DealDetailPage({ funnelId, dealId }) {
   // Aux data
   const [contacts, setContacts] = useState([]);
   const [users,    setUsers]    = useState([]);
+  const [linkedContact,        setLinkedContact]        = useState(null);
+  const [linkedContactLoading, setLinkedContactLoading] = useState(false);
   const [showAssignedPicker, setShowAssignedPicker] = useState(false);
   const [showContactPicker,  setShowContactPicker]  = useState(false);
   const [contactSearch,      setContactSearch]      = useState('');
@@ -341,6 +344,16 @@ export default function DealDetailPage({ funnelId, dealId }) {
 
   useEffect(() => { loadActivities(); }, [loadActivities]);
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [activities]);
+
+  // Biriktirilgan kontaktning to'liq ma'lumotini tortib olish (200 talik ro'yxatga tayanmasdan)
+  useEffect(() => {
+    if (!contact) { setLinkedContact(null); return; }
+    setLinkedContactLoading(true);
+    axios.get(`${API}/contacts/${contact}`)
+      .then(r => setLinkedContact(r.data.contact))
+      .catch(() => setLinkedContact(null))
+      .finally(() => setLinkedContactLoading(false));
+  }, [contact]);
 
   // Statistika tab: qo'ng'iroqlarni deal va/yoki kontakt bo'yicha yuklash
   useEffect(() => {
@@ -744,10 +757,10 @@ export default function DealDetailPage({ funnelId, dealId }) {
                       onClick={() => { setShowContactPicker(v => !v); setShowAssignedPicker(false); }}
                       className="flex-1 flex items-center justify-between gap-2 min-w-0 hover:text-primary-600 transition-colors"
                     >
-                      {selectedContact ? (
+                      {(linkedContact || selectedContact) ? (
                         <span className="text-sm truncate">
-                          <span className="font-medium text-ink">{selectedContact.name}</span>
-                          {selectedContact.phone && <span className="text-ink-tertiary ml-2">{selectedContact.phone}</span>}
+                          <span className="font-medium text-ink">{(linkedContact || selectedContact).name}</span>
+                          {(linkedContact || selectedContact).phone && <span className="text-ink-tertiary ml-2">{(linkedContact || selectedContact).phone}</span>}
                         </span>
                       ) : <span className="text-sm text-ink-disabled">— Tanlang</span>}
                       <ChevronDown className={`w-3.5 h-3.5 text-ink-tertiary shrink-0 transition-transform ${showContactPicker ? 'rotate-180' : ''}`} />
@@ -789,6 +802,61 @@ export default function DealDetailPage({ funnelId, dealId }) {
                       </div>
                     </FloatingDropdown>
                   </div>
+
+                  {/* Biriktirilgan kontakt ma'lumotlari */}
+                  {linkedContactLoading && (
+                    <div className="flex items-center gap-2 text-xs text-ink-tertiary px-4 pb-3">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" /> Yuklanmoqda...
+                    </div>
+                  )}
+                  {!linkedContactLoading && linkedContact && (
+                    <div className="mx-4 mb-3 border border-surface-100 rounded-xl overflow-hidden">
+                      <div className="divide-y divide-surface-100">
+                        <div className="flex items-center gap-4 px-4 py-2.5">
+                          <span className="w-28 text-sm text-ink-tertiary shrink-0">Kontakt</span>
+                          <div className="flex-1 flex items-center gap-2 min-w-0">
+                            {linkedContact.contactNumber && (
+                              <span className="text-xs font-semibold text-ink-tertiary shrink-0">#{linkedContact.contactNumber}</span>
+                            )}
+                            <span className="text-sm font-medium text-ink truncate">{linkedContact.name}</span>
+                            {linkedContact.blocked && (
+                              <span className="text-[10px] font-medium text-red-500 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded-full shrink-0">
+                                Bloklangan
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        {linkedContact.phone && (
+                          <div className="flex items-center gap-4 px-4 py-2.5">
+                            <span className="w-28 text-sm text-ink-tertiary shrink-0 flex items-center gap-1.5">
+                              <Phone className="w-3.5 h-3.5" /> Telefon
+                            </span>
+                            <span className="text-sm text-ink">{linkedContact.phone}</span>
+                          </div>
+                        )}
+                        {linkedContact.email && (
+                          <div className="flex items-center gap-4 px-4 py-2.5">
+                            <span className="w-28 text-sm text-ink-tertiary shrink-0 flex items-center gap-1.5">
+                              <Mail className="w-3.5 h-3.5" /> Email
+                            </span>
+                            <span className="text-sm text-ink truncate">{linkedContact.email}</span>
+                          </div>
+                        )}
+                        {linkedContact.reminderAt && new Date(linkedContact.reminderAt) < new Date() && (
+                          <div className="flex items-center gap-4 px-4 py-2.5">
+                            <span className="w-28 text-sm text-ink-tertiary shrink-0 flex items-center gap-1.5">
+                              <AlertCircle className="w-3.5 h-3.5 text-red-500" /> Eslatma
+                            </span>
+                            <span className="text-sm text-red-500 font-medium">Muddati o'tdi</span>
+                          </div>
+                        )}
+                      </div>
+                      <button type="button" onClick={() => navigate(`/contacts/${linkedContact._id}`)}
+                        className="w-full flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-primary-600 hover:bg-primary-50 border-t border-surface-100 transition-colors">
+                        <ExternalLink className="w-3.5 h-3.5" /> Kontaktni ochish
+                      </button>
+                    </div>
+                  )}
 
                   {/* Assigned to */}
                   <div className="flex items-center gap-4 px-4 py-2.5">

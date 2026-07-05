@@ -277,7 +277,7 @@ export default function DashboardHome() {
                     <Gauge
                       value={goalsProgress.currentCount}
                       max={goalsProgress.totalCountTarget}
-                      label="Soudalar soni"
+                      label="Savdolar soni"
                       size={200}
                     />
                     <div className="text-center">
@@ -340,14 +340,14 @@ export default function DashboardHome() {
         {/* Bottom row: managers + pie chart side by side */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
-          {/* Menejerlar bo'yicha soudalar */}
+          {/* Menejerlar bo'yicha savdolar */}
           {dealsByManager.length > 0 && (
             <div className="bg-white rounded-2xl border border-surface-200 overflow-hidden flex flex-col">
               <div className="flex items-center justify-between px-5 py-4 border-b border-surface-100">
                 <h2 className="text-sm font-semibold text-ink">Menejerlar bo'yicha</h2>
                 <div className="flex items-center gap-3">
                   <div className="text-right">
-                    <p className="text-[10px] text-ink-tertiary leading-none mb-0.5">Soudalar</p>
+                    <p className="text-[10px] text-ink-tertiary leading-none mb-0.5">Savdolar</p>
                     <p className="text-sm font-bold text-ink">{managerTotal.count} ta</p>
                   </div>
                   <div className="w-px h-7 bg-surface-200" />
@@ -388,7 +388,7 @@ export default function DashboardHome() {
           {/* Pie chart — deal sources */}
           {dealSources.length > 0 && (
             <div className="bg-white rounded-2xl border border-surface-200 p-5 flex flex-col">
-              <h2 className="text-sm font-semibold text-ink mb-5">Soudalar manbai</h2>
+              <h2 className="text-sm font-semibold text-ink mb-5">Savdolar manbai</h2>
               <div className="flex-1 flex items-center justify-center gap-6 flex-wrap">
                 <PieChart data={dealSources} size={160} />
                 <div className="flex flex-col gap-2.5">

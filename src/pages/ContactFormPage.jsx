@@ -1,14 +1,17 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import { useT } from '../utils/translate';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { invalidateContacts, removeContact } from '../store/contactsSlice';
+import DateTimePicker from '../components/DateTimePicker';
 import {
   ArrowLeft, Loader2, Send, MessageSquare,
   Trash2, Pencil, Plus, X, Check, ChevronDown, Upload, FileText,
   MoreVertical, ShieldOff, Shield,
   Phone, PhoneIncoming, PhoneOutgoing, PhoneMissed, Play, Pause,
+  Bell, AlertCircle,
 } from 'lucide-react';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:5002/api';
@@ -37,6 +40,26 @@ const NEEDS_OPTIONS = ['dropdown', 'multiselect'];
 
 function uid() {
   return Math.random().toString(36).slice(2, 9);
+}
+
+// ISO → "DD/MM/YYYY HH:mm" (local time, DateTimePicker mask)
+function reminderIsoToMask(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d)) return '';
+  const pad = n => String(n).padStart(2, '0');
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+// "DD/MM/YYYY HH:mm" → ISO | null
+function reminderMaskToIso(v) {
+  const m = String(v || '').match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})$/);
+  if (!m) return null;
+  const [, dd, mo, yy, hh, mi] = m;
+  const d = new Date(+yy, +mo - 1, +dd, +hh, +mi);
+  return isNaN(d) ? null : d.toISOString();
+}
+function isReminderOverdue(iso) {
+  return !!iso && new Date(iso) < new Date();
 }
 
 function initials(name = '') {
@@ -319,6 +342,8 @@ export default function ContactFormPage() {
   const [saving, setSaving]             = useState(false);
   const [contactNumber, setContactNumber] = useState(null);
   const [blocked, setBlocked]           = useState(false);
+  const [reminderAt, setReminderAt]         = useState(''); // mask "DD/MM/YYYY HH:mm"
+  const [originalReminderAt, setOriginalReminderAt] = useState('');
   const [showMenu, setShowMenu]         = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [tab, setTab]                   = useState('main');
@@ -338,6 +363,9 @@ export default function ContactFormPage() {
   const [addingField, setAddingField]             = useState(false);
   const [newField, setNewField]                   = useState({ key: '', type: 'text', options: [] });
   const [newOption, setNewOption]                 = useState('');
+  const [editingFieldId, setEditingFieldId]       = useState(null);
+  const [editField, setEditField]                 = useState({ key: '', options: [] });
+  const [editOption, setEditOption]               = useState('');
 
   // Activity
   const [activities, setActivities] = useState([]);
@@ -345,6 +373,7 @@ export default function ContactFormPage() {
   const [noteText, setNoteText]     = useState('');
   const [noteSending, setNoteSending] = useState(false);
   const meId = useSelector(s => s.auth.user?._id || s.auth.user?.id);
+  const dispatch = useDispatch();
   const bottomRef   = useRef(null);
   const textareaRef = useRef(null);
   const [contactCalls, setContactCalls] = useState([]);
@@ -359,6 +388,7 @@ export default function ContactFormPage() {
     JSON.stringify(form)               !== JSON.stringify(originalForm) ||
     JSON.stringify(customFieldValues)  !== JSON.stringify(originalCustomFieldValues) ||
     JSON.stringify(orgSections)        !== JSON.stringify(originalOrgSections) ||
+    reminderAt !== originalReminderAt ||
     Object.keys(pendingFileUploads).length > 0;
 
   // ── Load org config + contact ───────────────────────────────────────────────
@@ -384,6 +414,8 @@ export default function ContactFormPage() {
           setOriginalForm(loaded);
           setContactNumber(c.contactNumber || null);
           setBlocked(!!c.blocked);
+          setReminderAt(reminderIsoToMask(c.reminderAt));
+          setOriginalReminderAt(reminderIsoToMask(c.reminderAt));
           setContactFiles(c.files || []);
           const vals = (c.customFieldValues && typeof c.customFieldValues === 'object') ? c.customFieldValues : {};
           setCustomFieldValues(vals);
@@ -458,6 +490,7 @@ export default function ContactFormPage() {
         !isEdit ||
         JSON.stringify(form) !== JSON.stringify(originalForm) ||
         JSON.stringify(customFieldValues) !== JSON.stringify(originalCustomFieldValues) ||
+        reminderAt !== originalReminderAt ||
         pendingEntries.length > 0;
 
       const promises = [];
@@ -470,13 +503,15 @@ export default function ContactFormPage() {
       }
 
       if (contactChanged || !isEdit) {
-        const payload = { ...form, customFieldValues: finalCustomValues };
+        const payload = { ...form, customFieldValues: finalCustomValues, reminderAt: reminderMaskToIso(reminderAt) };
         if (isEdit) {
           promises.push(
             axios.put(`${API}/contacts/${id}`, payload)
               .then(() => {
                 setOriginalForm(form);
                 setOriginalCustomFieldValues(JSON.parse(JSON.stringify(finalCustomValues)));
+                setOriginalReminderAt(reminderAt);
+                dispatch(invalidateContacts());
                 loadActivities();
               })
           );
@@ -484,6 +519,7 @@ export default function ContactFormPage() {
           promises.push(
             axios.post(`${API}/contacts`, payload)
               .then(r => {
+                dispatch(invalidateContacts());
                 toast.success("Kontakt qo'shildi");
                 navigate(`/contacts/${r.data.contact._id}`, { replace: true });
               })
@@ -571,6 +607,34 @@ export default function ContactFormPage() {
     setAddingField(false);
   };
 
+  const startEditField = (field) => {
+    setEditingFieldId(field.id);
+    setEditField({ key: field.key, options: field.options ? [...field.options] : [] });
+    setEditOption('');
+    setAddingField(false);
+  };
+
+  const cancelEditField = () => {
+    setEditingFieldId(null);
+    setEditField({ key: '', options: [] });
+    setEditOption('');
+  };
+
+  const confirmEditField = (secId, fieldType) => {
+    const key = editField.key.trim();
+    if (!key) return;
+    if (NEEDS_OPTIONS.includes(fieldType) && editField.options.length === 0) return;
+    setOrgSections(prev => prev.map(s =>
+      s.id !== secId ? s : {
+        ...s,
+        fields: s.fields.map(f => f.id !== editingFieldId ? f : {
+          ...f, key, ...(NEEDS_OPTIONS.includes(fieldType) ? { options: editField.options } : {}),
+        }),
+      }
+    ));
+    cancelEditField();
+  };
+
   const updateFieldValue = (fieldId, value) => {
     if (value instanceof File) {
       setPendingFileUploads(prev => ({ ...prev, [fieldId]: value }));
@@ -613,6 +677,7 @@ export default function ContactFormPage() {
     try {
       await axios.put(`${API}/contacts/${id}`, { blocked: !blocked });
       setBlocked(b => !b);
+      dispatch(invalidateContacts());
       toast.success(blocked ? 'Blok olib tashlandi' : 'Kontakt bloklandi');
     } catch {
       toast.error('Xato yuz berdi');
@@ -622,6 +687,7 @@ export default function ContactFormPage() {
   const handleDelete = async () => {
     try {
       await axios.delete(`${API}/contacts/${id}`);
+      dispatch(removeContact(id));
       toast.success("Kontakt o'chirildi");
       navigate('/contacts');
     } catch {
@@ -668,6 +734,12 @@ export default function ContactFormPage() {
           {blocked && (
             <span className="text-xs font-medium bg-red-50 text-red-500 border border-red-200 px-2 py-0.5 rounded-full shrink-0">
               {t('contactForm.blocked')}
+            </span>
+          )}
+          {isReminderOverdue(reminderMaskToIso(reminderAt)) && (
+            <span className="flex items-center gap-1 text-xs font-medium bg-red-50 text-red-500 border border-red-200 px-2 py-0.5 rounded-full shrink-0">
+              <AlertCircle className="w-3 h-3" />
+              {t('contactForm.reminderOverdue')}
             </span>
           )}
         </div>
@@ -801,6 +873,29 @@ export default function ContactFormPage() {
                         value={form.email}
                         onChange={e => set('email', e.target.value)}
                       />
+                    </div>
+                    <div className="flex items-center gap-4 px-4 py-2.5">
+                      <span className="w-28 text-sm text-ink shrink-0 flex items-center gap-1.5">
+                        <Bell className="w-3.5 h-3.5 text-ink-tertiary" />
+                        {t('contactForm.reminder')}
+                      </span>
+                      <div className="flex-1 flex items-center gap-2 min-w-0">
+                        <DateTimePicker
+                          value={reminderAt}
+                          onChange={setReminderAt}
+                          disableFuture={false}
+                          className="text-sm py-1.5"
+                        />
+                        {reminderAt && (
+                          <button type="button" onClick={() => setReminderAt('')}
+                            className="shrink-0 p-1 rounded text-ink-tertiary hover:text-red-500 transition-colors">
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        {isReminderOverdue(reminderMaskToIso(reminderAt)) && (
+                          <AlertCircle className="w-3.5 h-3.5 text-red-500 shrink-0" />
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -954,7 +1049,7 @@ export default function ContactFormPage() {
                       {orgSections.map(sec => (
                         <button
                           key={sec.id}
-                          onClick={() => { setActiveSectionId(sec.id); setAddingField(false); }}
+                          onClick={() => { setActiveSectionId(sec.id); setAddingField(false); cancelEditField(); }}
                           className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${
                             activeSectionId === sec.id
                               ? 'bg-primary-500 text-white'
@@ -972,18 +1067,103 @@ export default function ContactFormPage() {
                           <p className="text-xs text-ink-tertiary py-2">Hali maydon yo'q</p>
                         )}
                         {activeOrgSection.fields.map(field => (
-                          <div key={field.id} className="flex items-center gap-3 py-2 border-b border-surface-50 group/field">
-                            <span className="flex-1 text-sm text-ink">{field.key}</span>
-                            <span className="text-xs text-ink-tertiary bg-surface-100 px-2 py-0.5 rounded-full shrink-0">
-                              {FIELD_TYPES.find(t => t.value === field.type)?.label}
-                            </span>
-                            <button
-                              onClick={() => deleteCustomField(activeOrgSection.id, field.id)}
-                              className="shrink-0 opacity-0 group-hover/field:opacity-100 p-1 rounded text-ink-tertiary hover:text-red-500 transition-all"
-                            >
-                              <X className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
+                          editingFieldId === field.id ? (
+                            <div key={field.id} className="py-2.5 border-b border-surface-50 space-y-2.5">
+                              <div className="flex gap-2">
+                                <input
+                                  autoFocus
+                                  className="input flex-1 text-sm"
+                                  placeholder="Maydon nomi..."
+                                  value={editField.key}
+                                  onChange={e => setEditField(f => ({ ...f, key: e.target.value }))}
+                                  onKeyDown={e => {
+                                    if (e.key === 'Enter' && !NEEDS_OPTIONS.includes(field.type)) confirmEditField(activeOrgSection.id, field.type);
+                                    if (e.key === 'Escape') cancelEditField();
+                                  }}
+                                />
+                                <span className="text-xs text-ink-tertiary bg-surface-100 px-2 py-0.5 rounded-full shrink-0 self-center">
+                                  {FIELD_TYPES.find(t => t.value === field.type)?.label}
+                                </span>
+                              </div>
+
+                              {NEEDS_OPTIONS.includes(field.type) && (
+                                <div className="pl-1 space-y-1.5">
+                                  <p className="text-xs text-ink-tertiary">Variantlar {editField.options.length === 0 && <span className="text-red-400">(kamida 1 ta)</span>}</p>
+                                  {editField.options.map((opt, i) => (
+                                    <div key={i} className="flex items-center gap-2">
+                                      <input
+                                        className="input flex-1 text-sm"
+                                        value={opt}
+                                        onChange={e => setEditField(f => ({ ...f, options: f.options.map((o, j) => j === i ? e.target.value : o) }))}
+                                      />
+                                      <button
+                                        onClick={() => setEditField(f => ({ ...f, options: f.options.filter((_, j) => j !== i) }))}
+                                        className="p-1 text-ink-tertiary hover:text-red-500 transition-colors"
+                                      >
+                                        <X className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                  ))}
+                                  <div className="flex gap-2">
+                                    <input
+                                      className="input flex-1 text-sm"
+                                      placeholder="Variant nomi..."
+                                      value={editOption}
+                                      onChange={e => setEditOption(e.target.value)}
+                                      onKeyDown={e => {
+                                        if (e.key === 'Enter') {
+                                          e.preventDefault();
+                                          if (editOption.trim()) {
+                                            setEditField(f => ({ ...f, options: [...f.options, editOption.trim()] }));
+                                            setEditOption('');
+                                          }
+                                        }
+                                      }}
+                                    />
+                                    <button
+                                      onClick={() => {
+                                        if (editOption.trim()) {
+                                          setEditField(f => ({ ...f, options: [...f.options, editOption.trim()] }));
+                                          setEditOption('');
+                                        }
+                                      }}
+                                      className="btn-sm btn-secondary shrink-0"
+                                    >
+                                      <Plus className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+
+                              <div className="flex gap-2">
+                                <button onClick={() => confirmEditField(activeOrgSection.id, field.type)} className="btn-sm btn-primary flex-1">
+                                  <Check className="w-3.5 h-3.5" /> Saqlash
+                                </button>
+                                <button onClick={cancelEditField} className="btn-sm btn-secondary flex-1">
+                                  Bekor
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div key={field.id} className="flex items-center gap-3 py-2 border-b border-surface-50 group/field">
+                              <span className="flex-1 text-sm text-ink">{field.key}</span>
+                              <span className="text-xs text-ink-tertiary bg-surface-100 px-2 py-0.5 rounded-full shrink-0">
+                                {FIELD_TYPES.find(t => t.value === field.type)?.label}
+                              </span>
+                              <button
+                                onClick={() => startEditField(field)}
+                                className="shrink-0 opacity-0 group-hover/field:opacity-100 p-1 rounded text-ink-tertiary hover:text-primary-600 transition-all"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => deleteCustomField(activeOrgSection.id, field.id)}
+                                className="shrink-0 opacity-0 group-hover/field:opacity-100 p-1 rounded text-ink-tertiary hover:text-red-500 transition-all"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          )
                         ))}
 
                         {addingField ? (
@@ -1075,7 +1255,7 @@ export default function ContactFormPage() {
                           </div>
                         ) : (
                           <button
-                            onClick={() => setAddingField(true)}
+                            onClick={() => { setAddingField(true); cancelEditField(); }}
                             className="mt-2 flex items-center gap-1.5 text-xs text-ink-tertiary hover:text-primary-600 transition-colors py-2"
                           >
                             <Plus className="w-3.5 h-3.5" /> Maydon qo'shish

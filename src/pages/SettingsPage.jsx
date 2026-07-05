@@ -5,6 +5,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import TopBar from '../components/TopBar';
+import { navKeyToPath } from './DashboardPage';
 import Pagination from '../components/Pagination';
 import { setOrganization } from '../store/authSlice';
 import { useT } from '../utils/translate';
@@ -30,7 +31,7 @@ const TABS = [
   { key: 'branding',    icon: Palette,          label: 'Brending'         },
   { key: 'funnels',     icon: Kanban,           label: 'Varonkalar'       },
   { key: 'tasks',       icon: SlidersHorizontal,label: 'Vazifalar'        },
-  { key: 'deal-sources',icon: Layers,           label: 'Souda manbalari' },
+  { key: 'deal-sources',icon: Layers,           label: 'Savdo manbalari' },
   { key: 'goals',       icon: Target,           label: 'Maqsadlar'       },
   { key: 'integrations',icon: Archive,          label: 'Integratsiyalar'  },
   { key: 'inbox',       icon: MessageSquare,    label: 'Inbox'            },
@@ -671,8 +672,8 @@ function DealSourcesTab() {
   return (
     <div className="space-y-5 max-w-lg">
       <div>
-        <h3 className="font-semibold text-ink">Soudalar manbalari</h3>
-        <p className="text-sm text-ink-tertiary mt-0.5">Souda qo'shishda tanlash mumkin bo'lgan manbalar</p>
+        <h3 className="font-semibold text-ink">Savdolar manbalari</h3>
+        <p className="text-sm text-ink-tertiary mt-0.5">Savdo qo'shishda tanlash mumkin bo'lgan manbalar</p>
       </div>
 
       <div className="space-y-2">
@@ -775,7 +776,7 @@ function GoalsTab() {
     <div className="space-y-6 max-w-xl">
       <div>
         <h3 className="font-semibold text-ink">Maqsadlar (Цели)</h3>
-        <p className="text-sm text-ink-tertiary mt-0.5">Jami va xodimlar bo'yicha souda maqsadlarini belgilang</p>
+        <p className="text-sm text-ink-tertiary mt-0.5">Jami va xodimlar bo'yicha savdo maqsadlarini belgilang</p>
       </div>
 
       {/* Jami maqsad */}
@@ -788,7 +789,7 @@ function GoalsTab() {
               value={totalSum} onChange={e => setTotalSum(e.target.value)} />
           </div>
           <div>
-            <label className="block text-xs font-medium text-ink mb-1">Soudalar soni</label>
+            <label className="block text-xs font-medium text-ink mb-1">Savdolar soni</label>
             <input className="input" type="number" min="0" placeholder="0"
               value={totalCount} onChange={e => setTotalCount(e.target.value)} />
           </div>
@@ -5464,6 +5465,7 @@ export default function SettingsPage() {
     <div className="min-h-screen bg-surface-50 flex flex-col">
       <TopBar
         onAccountSettings={() => navigate('/dashboard')}
+        onNavigate={(key) => navigate(navKeyToPath(key))}
         left={
           <>
             <button

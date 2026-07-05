@@ -13,7 +13,7 @@ import {
   Plus, X, Loader2, Check, ChevronDown,
   Calendar, CheckSquare2, Pencil, Trash2,
   AlertCircle, User, Link2, Search, Filter,
-  Paperclip, Upload, FileText,
+  Paperclip, Upload, FileText, Tag,
 } from 'lucide-react';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5002/api';
@@ -504,7 +504,12 @@ export default function TasksPage() {
   const [filterSearch,   setFilterSearch]   = useState('');
   const [filterPriority, setFilterPriority] = useState('');
   const [filterAssignee, setFilterAssignee] = useState('');
+  const [filterTags,     setFilterTags]     = useState([]);
+  const [filterCreatedByMe, setFilterCreatedByMe] = useState(false);
   const [showFilters,    setShowFilters]    = useState(false);
+
+  const toggleFilterTag = (tag) =>
+    setFilterTags(cur => cur.includes(tag) ? cur.filter(x => x !== tag) : [...cur, tag]);
 
   const allTags = useMemo(() => [...new Set(tasks.flatMap(tk => tk.tags || []))], [tasks]);
 
@@ -528,7 +533,9 @@ export default function TasksPage() {
       .filter(t => !filterSearch   || t.title.toLowerCase().includes(filterSearch.toLowerCase())
                                    || t.description?.toLowerCase().includes(filterSearch.toLowerCase()))
       .filter(t => !filterPriority || t.priority === filterPriority)
-      .filter(t => !filterAssignee || String(t.assignedTo?._id || t.assignedTo || '') === filterAssignee);
+      .filter(t => !filterAssignee || String(t.assignedTo?._id || t.assignedTo || '') === filterAssignee)
+      .filter(t => filterTags.length === 0 || filterTags.every(tag => t.tags?.includes(tag)))
+      .filter(t => !filterCreatedByMe || String(t.createdBy?._id || t.createdBy || '') === String(meId));
 
   const activeTask = activeId ? tasks.find(t => t._id === activeId) : null;
 
@@ -593,7 +600,7 @@ export default function TasksPage() {
   };
 
   const totalOverdue = tasks.filter(t => isOverdue(t.dueDate)).length;
-  const hasFilters = filterSearch || filterPriority || filterAssignee;
+  const hasFilters = filterSearch || filterPriority || filterAssignee || filterTags.length > 0 || filterCreatedByMe;
 
   if (loading) {
     return (
@@ -637,6 +644,26 @@ export default function TasksPage() {
           )}
 
           <div className="ml-auto flex items-center gap-2">
+            {/* Quick filters: assigned to me / created by me */}
+            <button
+              onClick={() => setFilterAssignee(v => v === meId ? '' : meId)}
+              className={`px-3 py-1.5 rounded-xl text-sm font-medium border transition-colors whitespace-nowrap ${
+                filterAssignee === meId
+                  ? 'bg-primary-50 border-primary-300 text-primary-700'
+                  : 'bg-surface-50 border-surface-200 text-ink-secondary hover:bg-surface-100'
+              }`}>
+              {t('tasks.assignedToMe')}
+            </button>
+            <button
+              onClick={() => setFilterCreatedByMe(v => !v)}
+              className={`px-3 py-1.5 rounded-xl text-sm font-medium border transition-colors whitespace-nowrap ${
+                filterCreatedByMe
+                  ? 'bg-primary-50 border-primary-300 text-primary-700'
+                  : 'bg-surface-50 border-surface-200 text-ink-secondary hover:bg-surface-100'
+              }`}>
+              {t('tasks.createdByMe')}
+            </button>
+
             {/* Search */}
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-ink-disabled" />
@@ -657,15 +684,15 @@ export default function TasksPage() {
             {/* Filter toggle */}
             <button onClick={() => setShowFilters(v => !v)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium border transition-colors ${
-                showFilters || (filterPriority || filterAssignee)
+                showFilters || (filterPriority || filterAssignee || filterTags.length > 0)
                   ? 'bg-primary-50 border-primary-300 text-primary-700'
                   : 'bg-surface-50 border-surface-200 text-ink-secondary hover:bg-surface-100'
               }`}>
               <Filter className="w-3.5 h-3.5" />
               {t('tasks.filter')}
-              {(filterPriority || filterAssignee) && (
+              {(filterPriority || filterAssignee || filterTags.length > 0) && (
                 <span className="w-4 h-4 rounded-full bg-primary-600 text-white text-[9px] font-bold flex items-center justify-center">
-                  {(filterPriority ? 1 : 0) + (filterAssignee ? 1 : 0)}
+                  {(filterPriority ? 1 : 0) + (filterAssignee ? 1 : 0) + filterTags.length}
                 </span>
               )}
             </button>
@@ -707,8 +734,25 @@ export default function TasksPage() {
               <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-ink-disabled pointer-events-none" />
             </div>
 
+            {/* Tag filter */}
+            {allTags.length > 0 && (
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <Tag className="w-3.5 h-3.5 text-ink-disabled shrink-0" />
+                {allTags.map(tag => (
+                  <button key={tag} onClick={() => toggleFilterTag(tag)}
+                    className={`text-[11px] font-medium px-2 py-0.5 rounded-full border transition-colors ${
+                      filterTags.includes(tag)
+                        ? 'bg-primary-600 border-primary-600 text-white'
+                        : 'bg-surface-50 border-surface-200 text-ink-tertiary hover:border-primary-300 hover:text-primary-600'
+                    }`}>
+                    #{tag}
+                  </button>
+                ))}
+              </div>
+            )}
+
             {hasFilters && (
-              <button onClick={() => { setFilterSearch(''); setFilterPriority(''); setFilterAssignee(''); }}
+              <button onClick={() => { setFilterSearch(''); setFilterPriority(''); setFilterAssignee(''); setFilterTags([]); setFilterCreatedByMe(false); }}
                 className="text-xs text-ink-tertiary hover:text-red-500 flex items-center gap-1 transition-colors">
                 <X className="w-3 h-3" /> {t('tasks.clearFilters')}
               </button>

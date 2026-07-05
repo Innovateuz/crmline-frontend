@@ -144,7 +144,7 @@ export default function UserProfilePage() {
       fd.append('image', file);
       const res = await axios.post(`${API}/upload`, fd);
       setAvatarUrl(res.data.url);
-    } catch { toast.error('Rasm yuklanmadi'); }
+    } catch (e) { toast.error(e.response?.data?.message || 'Rasm yuklanmadi'); }
     finally { setAvatarUploading(false); }
   };
 

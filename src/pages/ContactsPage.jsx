@@ -8,8 +8,12 @@ import { fetchContacts, invalidateContacts, removeContact } from '../store/conta
 import Pagination from '../components/Pagination';
 import {
   Plus, Search, Pencil, Trash2, Loader2, Users, SlidersHorizontal, Check,
-  Download, Upload, Copy, X, AlertTriangle, ChevronDown, BarChart2,
+  Download, Upload, Copy, X, AlertTriangle, AlertCircle, ChevronDown, BarChart2,
 } from 'lucide-react';
+
+function isReminderOverdue(reminderAt) {
+  return !!reminderAt && new Date(reminderAt) < new Date();
+}
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:5002/api';
 const LS_KEY = 'crm_contacts_columns';
@@ -610,6 +614,9 @@ export default function ContactsPage() {
                             {c.contactNumber && <span className="text-xs font-semibold text-ink-tertiary shrink-0">#{c.contactNumber}</span>}
                             <p className="font-medium text-ink truncate">{c.name}</p>
                             {c.blocked && <span className="text-[10px] font-medium text-red-500 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded-full shrink-0">Bloklangan</span>}
+                            {isReminderOverdue(c.reminderAt) && (
+                              <AlertCircle className="w-3.5 h-3.5 text-red-500 shrink-0" title={t('contacts.reminderOverdue')} />
+                            )}
                           </div>
                         </td>
                         {colVis.phone && <td className="px-4 py-3 whitespace-nowrap"><span className="text-sm text-ink-secondary">{c.phone || <span className="text-ink-disabled">—</span>}</span></td>}

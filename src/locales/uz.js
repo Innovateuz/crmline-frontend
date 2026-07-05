@@ -1018,7 +1018,7 @@ export default {
       audit: "Audit jurnali",
     },
     groups: {
-      general: "Umumiy", crm: "CRM", channels: "Kanallar", system: "Tizim",
+      general: "Umumiy", crm: "CRM", channels: "Integratsiyalar", system: "Tizim",
     },
     branding: {
       title: "Brending",
@@ -1705,6 +1705,18 @@ export default {
     noData: "Ma'lumot topilmadi",
   },
 
+  dashboardHome: {
+    loadError: "Ma'lumot yuklanmadi", retry: "Qayta urinish",
+    overdueLabel: "Muddati o'tgan", overdueSubAlert: "Darhol e'tibor kerak", overdueSubOk: "Hammasi vaqtida",
+    completedLabel: "Bajarilgan", completedSub: "Oxirgi bosqichdagi",
+    activeLabel: "Faol vazifalar", activeSub: "Bajarilishi kerak",
+    unassignedLabel: "Biriktirilmagan", unassignedSubNoLeads: "Belgilanmagan lidlar",
+    goalsTitle: "Maqsadlar", gaugeSum: "Summa", gaugeDealCount: "Savdolar soni",
+    byEmployee: "Xodimlar bo'yicha", donutSum: "Summa", donutCount: "Soni",
+    byManager: "Menejerlar bo'yicha", dealsCountLabel: "Savdolar", sumLabel: "Summa",
+    dealSources: "Savdolar manbai", other: "Boshqa", total: "Jami", unit: "ta",
+  },
+
   funnel: {
     newDeal: "Yangi bitim",
     addQuick: "Tez qo'shish",
@@ -1841,5 +1853,6 @@ export default {
     inbox: "Inbox",
     calls: "Qo'ng'iroqlar",
     reviews: "Otzivlar",
+    funnels: "Voronkalar",
   },
 };

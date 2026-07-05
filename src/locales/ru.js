@@ -952,7 +952,7 @@ export default {
       audit: "Журнал аудита",
     },
     groups: {
-      general: "Общее", crm: "CRM", channels: "Каналы", system: "Система",
+      general: "Общее", crm: "CRM", channels: "Интеграции", system: "Система",
     },
     branding: {
       title: "Брендинг",
@@ -1629,6 +1629,18 @@ export default {
     noData: "Нет данных",
   },
 
+  dashboardHome: {
+    loadError: "Не удалось загрузить данные", retry: "Повторить",
+    overdueLabel: "Просроченные", overdueSubAlert: "Требует немедленного внимания", overdueSubOk: "Всё в срок",
+    completedLabel: "Выполнено", completedSub: "На последнем этапе",
+    activeLabel: "Активные задачи", activeSub: "Требуют выполнения",
+    unassignedLabel: "Без ответственного", unassignedSubNoLeads: "Неразмеченные лиды",
+    goalsTitle: "Цели", gaugeSum: "Сумма", gaugeDealCount: "Кол-во сделок",
+    byEmployee: "По сотрудникам", donutSum: "Сумма", donutCount: "Кол-во",
+    byManager: "По менеджерам", dealsCountLabel: "Сделки", sumLabel: "Сумма",
+    dealSources: "Источники сделок", other: "Другое", total: "Всего", unit: "шт",
+  },
+
   funnel: {
     newDeal: "Новая сделка",
     addQuick: "Быстро добавить",
@@ -1765,5 +1777,6 @@ export default {
     inbox: "Inbox",
     calls: "Звонки",
     reviews: "Отзывы",
+    funnels: "Воронки",
   },
 };

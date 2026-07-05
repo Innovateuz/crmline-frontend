@@ -788,25 +788,27 @@ export default function TasksPage() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="shrink-0 px-6 py-3 border-b border-surface-200 bg-white">
-        <div className="flex items-center gap-3 flex-wrap">
-          <CheckSquare2 className="w-5 h-5 text-primary-600 shrink-0" />
-          <h1 className="font-bold text-ink">{t('tasks.title')}</h1>
-          <span className="text-xs text-ink-disabled bg-surface-100 rounded-full px-2 py-0.5">{tasks.length}</span>
-          {totalOverdue > 0 && (
-            <span className="flex items-center gap-1 text-xs text-red-500 bg-red-50 rounded-full px-2 py-0.5 font-medium">
-              <AlertCircle className="w-3 h-3" />
-              {totalOverdue} {t('tasks.overdue')}
-            </span>
-          )}
-          {tasksTotal > tasks.length && (
-            <span className="flex items-center gap-1 text-xs text-amber-600 bg-amber-50 rounded-full px-2 py-0.5 font-medium">
-              <AlertCircle className="w-3 h-3" />
-              {t('tasks.totalNote').replace('{total}', tasksTotal).replace('{shown}', tasks.length)}
-            </span>
-          )}
+      <div className="shrink-0 px-4 lg:px-6 py-3 border-b border-surface-200 bg-white">
+        <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-3">
+          <div className="flex items-center gap-3 flex-wrap min-w-0">
+            <CheckSquare2 className="w-5 h-5 text-primary-600 shrink-0" />
+            <h1 className="font-bold text-ink">{t('tasks.title')}</h1>
+            <span className="text-xs text-ink-disabled bg-surface-100 rounded-full px-2 py-0.5">{tasks.length}</span>
+            {totalOverdue > 0 && (
+              <span className="flex items-center gap-1 text-xs text-red-500 bg-red-50 rounded-full px-2 py-0.5 font-medium">
+                <AlertCircle className="w-3 h-3" />
+                {totalOverdue} {t('tasks.overdue')}
+              </span>
+            )}
+            {tasksTotal > tasks.length && (
+              <span className="flex items-center gap-1 text-xs text-amber-600 bg-amber-50 rounded-full px-2 py-0.5 font-medium">
+                <AlertCircle className="w-3 h-3" />
+                {t('tasks.totalNote').replace('{total}', tasksTotal).replace('{shown}', tasks.length)}
+              </span>
+            )}
+          </div>
 
-          <div className="ml-auto flex items-center gap-2">
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar md:overflow-visible md:flex-wrap md:ml-auto -mx-4 px-4 md:mx-0 md:px-0">
             {/* Quick filters: assigned to me / created by me */}
             <button
               onClick={() => setFilterAssignee(v => v === meId ? '' : meId)}

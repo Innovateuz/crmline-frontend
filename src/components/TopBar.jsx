@@ -19,13 +19,13 @@ function OrgBrand() {
   const brandName = org?.name || 'CRM Line';
   return (
     <button onClick={() => navigate('/dashboard')}
-      className="hidden lg:flex items-center gap-2.5 shrink-0 rounded-lg hover:bg-white/10 transition-colors -mx-1 px-1 py-0.5">
+      className="flex items-center gap-2.5 min-w-0 rounded-lg hover:bg-white/10 transition-colors -mx-1 px-1 py-0.5">
       <div className="w-8 h-8 bg-white/15 rounded-xl flex items-center justify-center overflow-hidden shrink-0">
         {org?.logo
           ? <img src={mediaUrl(org.logo)} alt={brandName} className="w-full h-full object-cover" />
           : <Building2 className="w-4 h-4 text-white" />}
       </div>
-      <span className="font-semibold text-white text-sm leading-none">{brandName}</span>
+      <span className="font-semibold text-white text-sm leading-none truncate max-w-[110px] sm:max-w-[220px]">{brandName}</span>
     </button>
   );
 }
@@ -251,7 +251,7 @@ function LockButton() {
       type="button"
       onClick={() => dispatch(lockScreen())}
       title={t('topbar.lockScreen', lang)}
-      className="flex items-center justify-center w-8 h-8 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+      className="hidden lg:flex items-center justify-center w-8 h-8 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors"
     >
       <Lock className="w-4 h-4" />
     </button>
@@ -281,7 +281,7 @@ function FullscreenButton() {
       type="button"
       onClick={toggle}
       title={t(isFs ? 'topbar.exitFullscreen' : 'topbar.fullscreen', lang)}
-      className="flex items-center justify-center w-8 h-8 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+      className="hidden lg:flex items-center justify-center w-8 h-8 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors"
     >
       {isFs ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
     </button>
@@ -293,7 +293,7 @@ export default function TopBar({ left, right, onAccountSettings, active, onNavig
     <>
       <header className="bg-primary-800 px-4 lg:px-5 py-2.5 flex items-center gap-3 shrink-0 safe-top [--safe-pad:0.625rem]">
         {/* Left: mobile menu + logo */}
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-3 min-w-0">
           {left}
           <OrgBrand />
         </div>

@@ -568,10 +568,22 @@ export default function FunnelPage({ funnelId }) {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="px-6 py-4 border-b border-surface-100 bg-white shrink-0 flex items-center gap-4 min-h-[68px]">
-        {/* Title + Search */}
-        <h1 className="text-lg font-bold text-ink shrink-0">{funnel.name}</h1>
-        <div className="relative flex-1 min-w-0">
+      <div className="px-4 md:px-6 py-3 md:py-4 border-b border-surface-100 bg-white shrink-0 flex flex-col md:flex-row md:items-center gap-3 md:gap-4 md:min-h-[68px]">
+        {/* Title + Action (mobile: same row; desktop: split via order) */}
+        <div className="flex items-center justify-between gap-3 md:contents">
+          <h1 className="text-lg font-bold text-ink shrink-0 md:order-1">{funnel.name}</h1>
+          {funnel.stages.length >= 1 && (
+            <button
+              onClick={() => navigate(`/funnel/${funnelId}/deal/new`)}
+              className="btn-primary btn-md flex items-center gap-2 shrink-0 md:order-4"
+            >
+              <Plus className="w-4 h-4" /> {t('funnel.newLead')}
+            </button>
+          )}
+        </div>
+
+        {/* Search */}
+        <div className="relative flex-1 min-w-0 md:order-2">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-tertiary pointer-events-none" />
           <input
             className="input pl-9 text-sm h-9 w-full"
@@ -586,30 +598,22 @@ export default function FunnelPage({ funnelId }) {
           )}
         </div>
 
-        {/* Stats + Action */}
+        {/* Stats */}
         {(leadSum > 0 || progressSum > 0 || dealSum > 0) && (
-          <div className="flex items-center gap-3 shrink-0 text-xs font-semibold">
-            <span className="flex items-center gap-1.5 text-amber-600">
+          <div className="flex items-center gap-3 shrink-0 text-xs font-semibold overflow-x-auto no-scrollbar md:order-3">
+            <span className="flex items-center gap-1.5 text-amber-600 whitespace-nowrap">
               <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />
               Zayavka: {fmt(leadSum)} {currency}
             </span>
-            <span className="flex items-center gap-1.5 text-blue-600">
+            <span className="flex items-center gap-1.5 text-blue-600 whitespace-nowrap">
               <span className="w-2 h-2 rounded-full bg-blue-400 shrink-0" />
               Jarayonda: {fmt(progressSum)} {currency}
             </span>
-            <span className="flex items-center gap-1.5 text-green-600">
+            <span className="flex items-center gap-1.5 text-green-600 whitespace-nowrap">
               <span className="w-2 h-2 rounded-full bg-green-500 shrink-0" />
               Deal: {fmt(dealSum)} {currency}
             </span>
           </div>
-        )}
-        {funnel.stages.length >= 1 && (
-          <button
-            onClick={() => navigate(`/funnel/${funnelId}/deal/new`)}
-            className="btn-primary btn-md flex items-center gap-2 shrink-0"
-          >
-            <Plus className="w-4 h-4" /> {t('funnel.newLead')}
-          </button>
         )}
       </div>
 

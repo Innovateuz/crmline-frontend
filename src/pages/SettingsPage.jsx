@@ -48,7 +48,7 @@ const TABS = [
 const TAB_GROUPS = [
   { key: 'general',  icon: Palette,       label: 'Umumiy',   tabs: ['branding', 'modules'] },
   { key: 'crm',      icon: Kanban,        label: 'CRM',      tabs: ['funnels', 'tasks', 'deal-sources', 'lead-forms', 'goals'] },
-  { key: 'channels', icon: MessageSquare, label: 'Kanallar', tabs: ['inbox', 'atc', 'integrations'] },
+  { key: 'channels', icon: MessageSquare, label: 'Integratsiyalar', tabs: ['inbox', 'atc', 'integrations'] },
   { key: 'system',   icon: ShieldCheck,   label: 'Tizim',    tabs: ['users', 'roles', 'audit'] },
 ];
 
@@ -73,6 +73,8 @@ const TRASH_KIND = {
 };
 
 const BRAND_PRESETS = ['#059669', '#2563eb', '#4f46e5', '#7c3aed', '#db2777', '#dc2626', '#ea580c', '#0891b2', '#0d9488', '#475569'];
+// Vaqtincha yopilgan — faqat logo yuklash qoladi, brend rangini o'zgartirish kerak emas (hozircha).
+const SHOW_BRAND_COLOR_PICKER = false;
 
 const CURRENCIES = [
   { code: 'UZS', symbol: "so'm", label: "O'zbek so'mi" },
@@ -305,7 +307,8 @@ function BrandingTab() {
           </div>
         </div>
 
-        {/* Brand color */}
+        {/* Brand color — vaqtincha yopilgan */}
+        {SHOW_BRAND_COLOR_PICKER && <>
         <div>
           <label className="block text-sm font-medium text-ink mb-2">{t('settings.branding.brandColor')}</label>
           <div className="flex flex-wrap items-center gap-2 mb-3">
@@ -341,6 +344,7 @@ function BrandingTab() {
             <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${solid ? 'translate-x-5' : ''}`} />
           </button>
         </div>
+        </>}
 
         {/* Preview */}
         <div className="card card-body">
@@ -806,6 +810,7 @@ function LeadFormModal({ initial, funnels, onClose, onSaved }) {
   const [name,     setName]     = useState(initial?.name || '');
   const [headline, setHeadline] = useState(initial?.headline || "Biz bilan bog'laning");
   const [subtext,  setSubtext]  = useState(initial?.subtext || '');
+  const [color,    setColor]    = useState(initial?.color || '');
   const [funnelId, setFunnelId] = useState(initial?.funnel?._id || initial?.funnel || funnels[0]?._id || '');
   const [stageId,  setStageId]  = useState(initial?.stageId || '');
   const [fields,   setFields]   = useState(initial?.fields || []);
@@ -844,7 +849,7 @@ function LeadFormModal({ initial, funnels, onClose, onSaved }) {
     if (!funnelId)     return toast.error('Voronka tanlanishi shart');
     if (!stageId)       return toast.error('Bosqich tanlanishi shart');
     setSaving(true);
-    const payload = { name: name.trim(), headline, subtext, funnel: funnelId, stageId, fields };
+    const payload = { name: name.trim(), headline, subtext, color, funnel: funnelId, stageId, fields };
     try {
       if (isEdit) await axios.put(`${API_URL}/lead-forms/${initial._id}`, payload);
       else await axios.post(`${API_URL}/lead-forms`, payload);
@@ -894,6 +899,31 @@ function LeadFormModal({ initial, funnels, onClose, onSaved }) {
             <label className="block text-sm font-medium text-ink mb-1.5">Qo'shimcha izoh</label>
             <textarea className="input resize-none" rows={2} value={subtext} onChange={e => setSubtext(e.target.value)}
               placeholder="Ixtiyoriy..." />
+          </div>
+
+          {/* Forma rangi */}
+          <div>
+            <label className="block text-sm font-medium text-ink mb-1.5">Forma rangi</label>
+            <div className="flex flex-wrap items-center gap-2 mb-2">
+              <button type="button" onClick={() => setColor('')} title="Tashkilot brend rangi"
+                className={`w-8 h-8 rounded-full border-2 flex items-center justify-center bg-gradient-to-br from-primary-500 to-primary-700 ${!color ? 'border-ink' : 'border-transparent'}`}>
+                {!color && <Check className="w-4 h-4 text-white" />}
+              </button>
+              <div className="w-px h-6 bg-surface-200 mx-1" />
+              {BRAND_PRESETS.map(c => (
+                <button key={c} type="button" onClick={() => setColor(c)}
+                  className={`w-8 h-8 rounded-full border-2 flex items-center justify-center ${color.toLowerCase() === c ? 'border-ink' : 'border-transparent'}`}
+                  style={{ backgroundColor: c }}>
+                  {color.toLowerCase() === c && <Check className="w-4 h-4 text-white" />}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-2">
+              <input type="color" value={color || '#16a34a'} onChange={e => setColor(e.target.value)}
+                className="w-10 h-10 rounded-lg border border-surface-200 cursor-pointer bg-white p-0.5" />
+              <input className="input font-mono w-32" value={color} onChange={e => setColor(e.target.value)} placeholder="#16a34a" maxLength={7} />
+              <span className="text-xs text-ink-tertiary">{color ? 'Maxsus rang' : 'Tashkilot brend rangi'}</span>
+            </div>
           </div>
 
           {/* Fixed fields note */}
@@ -1406,6 +1436,7 @@ function IntegrationsTab() {
   const [emailTestRes,  setEmailTestRes]  = useState(null);
   const [showImapPass,  setShowImapPass]  = useState(false);
   const [showSmtpPass,  setShowSmtpPass]  = useState(false);
+  const [section,       setSection]       = useState('telegram');
 
   useEffect(() => {
     Promise.all([
@@ -1618,6 +1649,13 @@ function IntegrationsTab() {
 
   if (loading) return <div className="py-10 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto text-primary-400" /></div>;
 
+  const INTEGRATION_SECTIONS = [
+    { key: 'telegram', label: 'Telegram' },
+    { key: 'social',   label: 'Ijtimoiy tarmoqlar' },
+    { key: 'email',    label: 'Email' },
+    { key: 'push',     label: 'Bildirishnomalar' },
+  ];
+
   return (
     <div className="space-y-6 max-w-lg">
       <div>
@@ -1625,7 +1663,18 @@ function IntegrationsTab() {
         <p className="text-sm text-ink-tertiary mt-0.5">Tashqi kanallarni CRM ga ulang</p>
       </div>
 
-      {/* Telegram */}
+      {/* Ichki sub-tablar */}
+      <div className="flex gap-1 bg-surface-100 p-1 rounded-xl overflow-x-auto max-w-md no-scrollbar">
+        {INTEGRATION_SECTIONS.map(s => (
+          <button key={s.key} type="button" onClick={() => setSection(s.key)}
+            className={`flex-1 px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${section === s.key ? 'bg-white text-ink shadow-sm' : 'text-ink-tertiary hover:text-ink'}`}>
+            {s.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ══ TELEGRAM ══ */}
+      {section === 'telegram' && <>
       <div className="bg-white border border-surface-200 rounded-2xl overflow-hidden">
         <div className="flex items-center gap-3 px-5 py-4 border-b border-surface-100">
           <div className="w-9 h-9 rounded-xl bg-[#e8f4fb] flex items-center justify-center shrink-0">
@@ -1738,7 +1787,10 @@ function IntegrationsTab() {
           </button>
         </div>
       </div>
+      </>}
 
+      {/* ══ IJTIMOIY TARMOQLAR: Instagram + Facebook + WhatsApp ══ */}
+      {section === 'social' && <>
       {/* Instagram DM */}
       <div className="bg-white border border-surface-200 rounded-2xl overflow-hidden">
         <div className="flex items-center gap-3 px-5 py-4 border-b border-surface-100">
@@ -1804,7 +1856,10 @@ function IntegrationsTab() {
           )}
         </div>
       </div>
+      </>}
 
+      {/* ══ EMAIL ══ */}
+      {section === 'email' && <>
       {/* Email / IMAP+SMTP */}
       <div className="bg-white border border-surface-200 rounded-2xl overflow-hidden">
         <div className="flex items-center gap-3 px-5 py-4 border-b border-surface-100">
@@ -1932,6 +1987,10 @@ function IntegrationsTab() {
         </div>
       </div>
 
+      </>}
+
+      {/* ══ PUSH BILDIRISHNOMALAR ══ */}
+      {section === 'push' && <>
       {/* Push Notifications card */}
       <div className="bg-white border border-surface-200 rounded-2xl px-5 py-4">
         <div className="flex items-center gap-3 mb-3">
@@ -1976,7 +2035,10 @@ function IntegrationsTab() {
           </div>
         )}
       </div>
+      </>}
 
+      {/* ══ IJTIMOIY TARMOQLAR (davomi): Facebook + WhatsApp ══ */}
+      {section === 'social' && <>
       {/* Facebook Messenger */}
       <div className="bg-white border border-surface-200 rounded-2xl overflow-hidden">
         <div className="px-5 py-4 flex items-center gap-3 border-b border-surface-100">
@@ -2083,6 +2145,7 @@ function IntegrationsTab() {
           )}
         </div>
       </div>
+      </>}
     </div>
   );
 }

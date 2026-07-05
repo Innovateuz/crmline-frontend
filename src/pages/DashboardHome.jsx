@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { AlertCircle, CheckCircle2, ListTodo, UserX, Loader2, AlertTriangle, RefreshCw } from 'lucide-react';
+import { useT } from '../utils/translate';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:5002/api';
 
@@ -94,6 +95,7 @@ function DonutProgress({ pct, size = 64, strokeWidth = 7 }) {
 // ── SVG Pie Chart ─────────────────────────────────────────────────────────────
 function PieChart({ data, size = 160 }) {
   // data items already have .label and .color from backend
+  const t = useT();
   const [hovered, setHovered] = useState(null);
   const cx = size / 2, cy = size / 2, r = size / 2 - 8;
   const total = data.reduce((a, d) => a + d.count, 0);
@@ -154,7 +156,7 @@ function PieChart({ data, size = 160 }) {
       ) : (
         <>
           <text x={cx} y={cy - 5} textAnchor="middle" fontSize="11" fontWeight="600" fill="#64748b">
-            Jami
+            {t('dashboardHome.total')}
           </text>
           <text x={cx} y={cy + 12} textAnchor="middle" fontSize="18" fontWeight="800" fill="#1e293b">
             {total}
@@ -188,6 +190,7 @@ function StatCard({ icon: Icon, iconBg, iconColor, label, value, sub, onClick })
 // ── Main ──────────────────────────────────────────────────────────────────────
 export default function DashboardHome() {
   const navigate = useNavigate();
+  const t = useT();
   const [data,    setData]    = useState(null);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState(false);
@@ -219,9 +222,9 @@ export default function DashboardHome() {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-3 text-ink-tertiary">
         <AlertTriangle className="w-8 h-8" />
-        <p className="text-sm">Ma'lumot yuklanmadi</p>
+        <p className="text-sm">{t('dashboardHome.loadError')}</p>
         <button onClick={load} className="btn-primary btn-sm flex items-center gap-1.5">
-          <RefreshCw className="w-3.5 h-3.5" /> Qayta urinish
+          <RefreshCw className="w-3.5 h-3.5" /> {t('dashboardHome.retry')}
         </button>
       </div>
     );
@@ -240,36 +243,36 @@ export default function DashboardHome() {
             icon={AlertCircle}
             iconBg="bg-red-50"
             iconColor="text-red-500"
-            label="Muddati o'tgan"
+            label={t('dashboardHome.overdueLabel')}
             value={cards.overdueCount}
-            sub={cards.overdueCount > 0 ? "Darhol e'tibor kerak" : 'Hammasi vaqtida'}
+            sub={cards.overdueCount > 0 ? t('dashboardHome.overdueSubAlert') : t('dashboardHome.overdueSubOk')}
             onClick={() => navigate('/tasks')}
           />
           <StatCard
             icon={CheckCircle2}
             iconBg="bg-emerald-50"
             iconColor="text-emerald-500"
-            label="Bajarilgan"
+            label={t('dashboardHome.completedLabel')}
             value={cards.completedCount}
-            sub="Oxirgi bosqichdagi"
+            sub={t('dashboardHome.completedSub')}
             onClick={() => navigate('/tasks')}
           />
           <StatCard
             icon={ListTodo}
             iconBg="bg-blue-50"
             iconColor="text-blue-500"
-            label="Faol vazifalar"
+            label={t('dashboardHome.activeLabel')}
             value={cards.activeCount}
-            sub="Bajarilishi kerak"
+            sub={t('dashboardHome.activeSub')}
             onClick={() => navigate('/tasks')}
           />
           <StatCard
             icon={UserX}
             iconBg="bg-amber-50"
             iconColor="text-amber-500"
-            label="Biriktirilmagan"
+            label={t('dashboardHome.unassignedLabel')}
             value={cards.unassignedCount}
-            sub={cards.unassignedSum > 0 ? `${fmtSum(cards.unassignedSum)} UZS` : 'Belgilanmagan lidlar'}
+            sub={cards.unassignedSum > 0 ? `${fmtSum(cards.unassignedSum)} UZS` : t('dashboardHome.unassignedSubNoLeads')}
           />
         </div>
 
@@ -277,7 +280,7 @@ export default function DashboardHome() {
         {goalsProgress && (goalsProgress.totalSumTarget > 0 || goalsProgress.totalCountTarget > 0) && (
           <div className="bg-white rounded-2xl border border-surface-200 overflow-hidden">
             <div className="px-6 py-4 border-b border-surface-100">
-              <h2 className="text-sm font-semibold text-ink">Maqsadlar</h2>
+              <h2 className="text-sm font-semibold text-ink">{t('dashboardHome.goalsTitle')}</h2>
             </div>
             <div className="p-6">
               {/* Two gauges */}
@@ -287,7 +290,7 @@ export default function DashboardHome() {
                     <Gauge
                       value={goalsProgress.currentSum}
                       max={goalsProgress.totalSumTarget}
-                      label="Summa"
+                      label={t('dashboardHome.gaugeSum')}
                       size={200}
                     />
                     <div className="text-center">
@@ -300,11 +303,11 @@ export default function DashboardHome() {
                     <Gauge
                       value={goalsProgress.currentCount}
                       max={goalsProgress.totalCountTarget}
-                      label="Savdolar soni"
+                      label={t('dashboardHome.gaugeDealCount')}
                       size={200}
                     />
                     <div className="text-center">
-                      <p className="text-base font-bold text-ink">{goalsProgress.currentCount} <span className="text-xs text-ink-tertiary font-normal">/ {goalsProgress.totalCountTarget} ta</span></p>
+                      <p className="text-base font-bold text-ink">{goalsProgress.currentCount} <span className="text-xs text-ink-tertiary font-normal">/ {goalsProgress.totalCountTarget} {t('dashboardHome.unit')}</span></p>
                     </div>
                   </div>
                 )}
@@ -313,7 +316,7 @@ export default function DashboardHome() {
               {/* Per-user progress */}
               {goalsProgress.byUser?.some(u => u.targetSum > 0 || u.targetCount > 0) && (
                 <div className="mt-6 pt-5 border-t border-surface-100">
-                  <p className="text-xs font-semibold text-ink-secondary uppercase tracking-wide mb-3">Xodimlar bo'yicha</p>
+                  <p className="text-xs font-semibold text-ink-secondary uppercase tracking-wide mb-3">{t('dashboardHome.byEmployee')}</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {goalsProgress.byUser.filter(u => u.targetSum > 0 || u.targetCount > 0).map((u, i) => {
                       const sumPct   = u.targetSum   > 0 ? Math.min(u.currentSum   / u.targetSum,   1) : 0;
@@ -329,15 +332,15 @@ export default function DashboardHome() {
                               {u.targetSum > 0 && (
                                 <div className="flex flex-col items-center gap-1 shrink-0">
                                   <DonutProgress pct={sumPct} />
-                                  <span className="text-[10px] text-ink-tertiary">Summa</span>
+                                  <span className="text-[10px] text-ink-tertiary">{t('dashboardHome.donutSum')}</span>
                                   <span className="text-[10px] text-ink-secondary whitespace-nowrap">{fmtSum(u.currentSum)} / {fmtSum(u.targetSum)}</span>
                                 </div>
                               )}
                               {u.targetCount > 0 && (
                                 <div className="flex flex-col items-center gap-1 shrink-0">
                                   <DonutProgress pct={countPct} />
-                                  <span className="text-[10px] text-ink-tertiary">Soni</span>
-                                  <span className="text-[10px] text-ink-secondary whitespace-nowrap">{u.currentCount} / {u.targetCount} ta</span>
+                                  <span className="text-[10px] text-ink-tertiary">{t('dashboardHome.donutCount')}</span>
+                                  <span className="text-[10px] text-ink-secondary whitespace-nowrap">{u.currentCount} / {u.targetCount} {t('dashboardHome.unit')}</span>
                                 </div>
                               )}
                             </div>
@@ -359,15 +362,15 @@ export default function DashboardHome() {
           {dealsByManager.length > 0 && (
             <div className="bg-white rounded-2xl border border-surface-200 overflow-hidden flex flex-col">
               <div className="flex items-center justify-between px-5 py-4 border-b border-surface-100">
-                <h2 className="text-sm font-semibold text-ink">Menejerlar bo'yicha</h2>
+                <h2 className="text-sm font-semibold text-ink">{t('dashboardHome.byManager')}</h2>
                 <div className="flex items-center gap-3">
                   <div className="text-right">
-                    <p className="text-[10px] text-ink-tertiary leading-none mb-0.5">Savdolar</p>
-                    <p className="text-sm font-bold text-ink">{managerTotal.count} ta</p>
+                    <p className="text-[10px] text-ink-tertiary leading-none mb-0.5">{t('dashboardHome.dealsCountLabel')}</p>
+                    <p className="text-sm font-bold text-ink">{managerTotal.count} {t('dashboardHome.unit')}</p>
                   </div>
                   <div className="w-px h-7 bg-surface-200" />
                   <div className="text-right">
-                    <p className="text-[10px] text-ink-tertiary leading-none mb-0.5">Summa</p>
+                    <p className="text-[10px] text-ink-tertiary leading-none mb-0.5">{t('dashboardHome.sumLabel')}</p>
                     <p className="text-sm font-bold text-primary-600">{fmtSum(managerTotal.sum)} UZS</p>
                   </div>
                 </div>
@@ -383,7 +386,7 @@ export default function DashboardHome() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between mb-1">
                           <span className="text-sm font-medium text-ink truncate">{m.name}</span>
-                          <span className="text-xs text-ink-tertiary shrink-0 ml-2">{m.count} ta</span>
+                          <span className="text-xs text-ink-tertiary shrink-0 ml-2">{m.count} {t('dashboardHome.unit')}</span>
                         </div>
                         <div className="h-1.5 bg-surface-100 rounded-full overflow-hidden">
                           <div className="h-full bg-primary-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
@@ -403,16 +406,16 @@ export default function DashboardHome() {
           {/* Pie chart — deal sources */}
           {dealSources.length > 0 && (
             <div className="bg-white rounded-2xl border border-surface-200 p-5 flex flex-col">
-              <h2 className="text-sm font-semibold text-ink mb-5">Savdolar manbai</h2>
+              <h2 className="text-sm font-semibold text-ink mb-5">{t('dashboardHome.dealSources')}</h2>
               <div className="flex-1 flex items-center justify-center gap-6 flex-wrap">
                 <PieChart data={dealSources} size={160} />
                 <div className="flex flex-col gap-2.5">
                   {dealSources.map((d, i) => (
                     <div key={i} className="flex items-center gap-2.5">
                       <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: d.color || '#94a3b8' }} />
-                      <span className="text-sm text-ink-secondary min-w-[70px]">{d.label || d.source || 'Boshqa'}</span>
+                      <span className="text-sm text-ink-secondary min-w-[70px]">{d.label || d.source || t('dashboardHome.other')}</span>
                       <span className="text-sm font-semibold text-ink">{d.pct}%</span>
-                      <span className="text-xs text-ink-tertiary">({d.count} ta)</span>
+                      <span className="text-xs text-ink-tertiary">({d.count} {t('dashboardHome.unit')})</span>
                     </div>
                   ))}
                 </div>

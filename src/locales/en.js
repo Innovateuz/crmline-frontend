@@ -1008,7 +1008,7 @@ export default {
       audit: "Audit log",
     },
     groups: {
-      general: "General", crm: "CRM", channels: "Channels", system: "System",
+      general: "General", crm: "CRM", channels: "Integrations", system: "System",
     },
     branding: {
       title: "Branding",
@@ -1695,6 +1695,18 @@ export default {
     noData: "No data",
   },
 
+  dashboardHome: {
+    loadError: "Failed to load data", retry: "Retry",
+    overdueLabel: "Overdue", overdueSubAlert: "Needs immediate attention", overdueSubOk: "All on time",
+    completedLabel: "Completed", completedSub: "In the final stage",
+    activeLabel: "Active tasks", activeSub: "Need to be done",
+    unassignedLabel: "Unassigned", unassignedSubNoLeads: "Unassigned leads",
+    goalsTitle: "Goals", gaugeSum: "Amount", gaugeDealCount: "Number of deals",
+    byEmployee: "By employee", donutSum: "Amount", donutCount: "Count",
+    byManager: "By manager", dealsCountLabel: "Deals", sumLabel: "Amount",
+    dealSources: "Deal sources", other: "Other", total: "Total", unit: "",
+  },
+
   funnel: {
     newDeal: "New deal",
     addQuick: "Quick add",
@@ -1831,5 +1843,6 @@ export default {
     inbox: "Inbox",
     calls: "Calls",
     reviews: "Reviews",
+    funnels: "Funnels",
   },
 };

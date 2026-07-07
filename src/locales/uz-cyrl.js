@@ -1669,6 +1669,7 @@ export default {
   },
 
   dashboardHome: {
+    dateLocale: "uz-Cyrl-UZ",
     loadError: "Маълумот юкланмади", retry: "Қайта уриниш",
     overdueLabel: "Муддати ўтган", overdueSubAlert: "Дарҳол эътибор керак", overdueSubOk: "Ҳаммаси вақтида",
     completedLabel: "Бажарилган", completedSub: "Охирги босқичдаги",

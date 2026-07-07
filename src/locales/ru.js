@@ -1630,6 +1630,7 @@ export default {
   },
 
   dashboardHome: {
+    dateLocale: "ru-RU",
     loadError: "Не удалось загрузить данные", retry: "Повторить",
     overdueLabel: "Просроченные", overdueSubAlert: "Требует немедленного внимания", overdueSubOk: "Всё в срок",
     completedLabel: "Выполнено", completedSub: "На последнем этапе",

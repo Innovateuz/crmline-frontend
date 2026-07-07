@@ -391,11 +391,26 @@ function TaskModal({ initial, stages, users, allTags, onSave, onClose, saving, r
     setDragY(0);                               // aks holda — qaytib ko'tariladi
   };
 
+  /* iOS: klaviatura yoki brauzer paneli ochilganda — modalni haqiqiy
+     ko'rinadigan hududga (visualViewport) bog'laymiz, aks holda footer
+     (Yaratish/Bekor) klaviatura ortida qolib ketadi (dvh buni hisobga olmaydi) */
+  const [vp, setVp] = useState(null);
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const update = () => setVp({ height: vv.height, top: vv.offsetTop });
+    update();
+    vv.addEventListener('resize', update);
+    vv.addEventListener('scroll', update);
+    return () => { vv.removeEventListener('resize', update); vv.removeEventListener('scroll', update); };
+  }, []);
+
   return (
-    <div className="fixed inset-x-0 top-0 h-[100dvh] z-[80] flex items-end justify-center lg:items-center lg:p-4">
+    <div className="fixed inset-x-0 top-0 h-[100dvh] z-[80] flex items-end justify-center lg:items-center lg:p-4"
+      style={vp ? { height: `${vp.height}px`, top: `${vp.top}px` } : undefined}>
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div
-        className="relative bg-white shadow-modal w-full flex flex-col rounded-t-2xl max-h-[92dvh]
+        className="relative bg-white shadow-modal w-full flex flex-col rounded-t-2xl max-h-full
                    animate-[sheetUp_0.3s_ease-out]
                    lg:rounded-2xl lg:max-w-md lg:max-h-[90dvh] lg:animate-[fadeIn_0.15s_ease-out]"
         style={{

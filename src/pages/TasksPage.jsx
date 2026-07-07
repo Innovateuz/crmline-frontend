@@ -392,7 +392,7 @@ function TaskModal({ initial, stages, users, allTags, onSave, onClose, saving, r
   };
 
   return (
-    <div className="fixed inset-x-0 top-0 h-[100dvh] z-50 flex items-end justify-center lg:items-center lg:p-4">
+    <div className="fixed inset-x-0 top-0 h-[100dvh] z-[80] flex items-end justify-center lg:items-center lg:p-4">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div
         className="relative bg-white shadow-modal w-full flex flex-col rounded-t-2xl max-h-[92dvh]

@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import { useT } from '../utils/translate';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { invalidateContacts } from '../store/contactsSlice';
 import {
   DndContext, DragOverlay, PointerSensor, useSensor, useSensors,
   closestCorners, useDroppable,
@@ -12,7 +13,7 @@ import {
   SortableContext, useSortable, verticalListSortingStrategy, arrayMove,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Plus, X, Loader2, User, Phone, DollarSign, Pencil, Trash2, Search, Clock, Calendar } from 'lucide-react';
+import { Plus, X, Loader2, Check, User, Phone, DollarSign, Pencil, Trash2, Search, Clock, Calendar } from 'lucide-react';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:5002/api';
 
@@ -77,6 +78,13 @@ function DealCard({ deal, isLead, onEdit, onDelete, currency, overlay = false })
         </div>
         {/* Big name */}
         <p className="text-base font-bold text-ink leading-tight mb-2">{deal.title}</p>
+        {/* Value */}
+        {deal.value > 0 && (
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <DollarSign className="w-3 h-3 text-amber-600 shrink-0" />
+            <span className="text-xs font-bold text-amber-700">{fmt(deal.value)} {currency}</span>
+          </div>
+        )}
         {/* Date + time */}
         <div className="flex items-center gap-1.5 text-xs text-ink-tertiary">
           <Calendar className="w-3 h-3 shrink-0" />
@@ -181,6 +189,7 @@ function StageColumn({ stage, deals, onOpen, onDelete, onQuickAdd, currency, isF
         {isFirst ? (
           <span className="text-xs text-ink-tertiary">
             Zayavka: <span className="font-semibold text-amber-600">{deals.length}</span>
+            {total > 0 && <span className="ml-1">• <span className="font-semibold text-amber-600">{fmt(total)} {currency}</span></span>}
           </span>
         ) : (
           <span className="text-xs text-ink-tertiary">
@@ -207,7 +216,7 @@ function StageColumn({ stage, deals, onOpen, onDelete, onQuickAdd, currency, isF
 }
 
 /* ── Deal form modal ── */
-function DealModal({ stageId, stages, contacts, users, deal, isLead, currency, onSave, onClose }) {
+function DealModal({ stageId, stages, contacts, users, deal, isLead, currency, onSave, onClose, onContactCreated }) {
   const t = useT();
   const [title,      setTitle]      = useState(deal?.title || '');
   const [stage,      setStage]      = useState(stageId || deal?.stageId || stages[0]?._id || '');
@@ -219,6 +228,9 @@ function DealModal({ stageId, stages, contacts, users, deal, isLead, currency, o
   const [saving,     setSaving]     = useState(false);
   const [cSearch,    setCSearch]    = useState('');
   const [dealSources, setDealSources] = useState([]);
+  const [showNewContact, setShowNewContact] = useState(false);
+  const [newContact,     setNewContact]     = useState({ name: '', phone: '', email: '' });
+  const [savingContact,  setSavingContact]  = useState(false);
 
   useEffect(() => {
     const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5002/api';
@@ -238,6 +250,34 @@ function DealModal({ stageId, stages, contacts, users, deal, isLead, currency, o
       await onSave({ title: title.trim(), stageId: stage, value: Number(value) || 0, source: source || '', notes, assignedTo: assignedTo || null, contact: contact || null });
       onClose();
     } finally { setSaving(false); }
+  };
+
+  const handleCreateContact = async () => {
+    if (!newContact.name.trim() || savingContact) return;
+    setSavingContact(true);
+    try {
+      const res = await axios.post(`${API}/contacts`, newContact);
+      onContactCreated?.(res.data.contact);
+      setContact(res.data.contact._id);
+      toast.success(t('funnel.contactCreated'));
+      setShowNewContact(false);
+      setNewContact({ name: '', phone: '', email: '' });
+      setCSearch('');
+    } catch (e) {
+      const duplicate = e.response?.data?.duplicate;
+      if (duplicate) {
+        onContactCreated?.(duplicate);
+        setContact(duplicate._id);
+        toast.success(`${t('funnel.contactExists')}: ${duplicate.name}`);
+        setShowNewContact(false);
+        setNewContact({ name: '', phone: '', email: '' });
+        setCSearch('');
+      } else {
+        toast.error(e.response?.data?.message || t('funnel.loadError'));
+      }
+    } finally {
+      setSavingContact(false);
+    }
   };
 
   const isLeadStage = stages.length > 0 && String(stage) === String(stages[0]?._id);
@@ -302,6 +342,34 @@ function DealModal({ stageId, stages, contacts, users, deal, isLead, currency, o
                 </button>
               ))}
             </div>
+
+            {showNewContact ? (
+              <div className="mt-2 bg-surface-50 border border-surface-200 rounded-xl p-3 space-y-2">
+                <input className="input text-xs" placeholder={t('funnel.contactNamePh')}
+                  value={newContact.name} onChange={e => setNewContact(f => ({ ...f, name: e.target.value }))} autoFocus />
+                <input className="input text-xs" placeholder={t('funnel.contactPhonePh')}
+                  value={newContact.phone} onChange={e => setNewContact(f => ({ ...f, phone: e.target.value }))} />
+                <input className="input text-xs" placeholder={t('funnel.contactEmailPh')}
+                  value={newContact.email} onChange={e => setNewContact(f => ({ ...f, email: e.target.value }))} />
+                <div className="flex gap-2 pt-1">
+                  <button type="button" onClick={() => setShowNewContact(false)}
+                    className="flex-1 py-1.5 text-xs rounded-lg bg-surface-100 text-ink-secondary hover:bg-surface-200 transition-colors">
+                    {t('deals.cancel')}
+                  </button>
+                  <button type="button" onClick={handleCreateContact} disabled={!newContact.name.trim() || savingContact}
+                    className="flex-1 py-1.5 text-xs rounded-lg bg-primary-600 text-white hover:bg-primary-700 disabled:opacity-40 transition-colors flex items-center justify-center gap-1">
+                    {savingContact ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                    {t('deals.save')}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button type="button" onClick={() => setShowNewContact(true)}
+                className="mt-1.5 w-full flex items-center justify-center gap-1.5 py-2 rounded-lg border border-dashed border-surface-300 text-xs text-ink-tertiary hover:border-primary-400 hover:text-primary-600 transition-colors">
+                <Plus className="w-3.5 h-3.5" />
+                {t('funnel.createContact')}
+              </button>
+            )}
           </div>
           {/* Assigned to */}
           <div>
@@ -332,6 +400,7 @@ function DealModal({ stageId, stages, contacts, users, deal, isLead, currency, o
 /* ── Main FunnelPage ── */
 export default function FunnelPage({ funnelId }) {
   const navigate  = useNavigate();
+  const dispatch  = useDispatch();
   const t = useT();
   const currency  = useSelector(s => s.auth.user?.organization?.currency || 'UZS');
   const [funnel,      setFunnel]      = useState(null);
@@ -455,6 +524,7 @@ export default function FunnelPage({ funnelId }) {
   };
 
   const handleDeleteDeal = async (dealId) => {
+    if (!window.confirm(t('funnel.deleteConfirm'))) return;
     setDeals(prev => prev.filter(d => d._id !== dealId));
     try {
       await axios.delete(`${API}/funnels/${funnelId}/deals/${dealId}`);
@@ -486,15 +556,34 @@ export default function FunnelPage({ funnelId }) {
     </div>
   );
 
-  const totalValue = deals.reduce((s, d) => s + (d.value || 0), 0);
+  const sumOf = (arr) => arr.reduce((s, d) => s + (d.value || 0), 0);
+  const firstStageId = funnel.stages[0]?._id;
+  const lastStageId  = funnel.stages[funnel.stages.length - 1]?._id;
+  const leadSum     = sumOf(dealsByStage[firstStageId] || []);
+  const dealSum     = sumOf(dealsByStage[lastStageId] || []);
+  const progressSum = funnel.stages.length > 2
+    ? funnel.stages.slice(1, -1).reduce((s, st) => s + sumOf(dealsByStage[st._id] || []), 0)
+    : 0;
 
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="px-6 py-4 border-b border-surface-100 bg-white shrink-0 flex items-center gap-4 min-h-[68px]">
-        {/* Title + Search */}
-        <h1 className="text-lg font-bold text-ink shrink-0">{funnel.name}</h1>
-        <div className="relative flex-1 min-w-0">
+      <div className="px-4 md:px-6 py-3 md:py-4 border-b border-surface-100 bg-white shrink-0 flex flex-col md:flex-row md:items-center gap-3 md:gap-4 md:min-h-[68px]">
+        {/* Title + Action (mobile: same row; desktop: split via order) */}
+        <div className="flex items-center justify-between gap-3 md:contents">
+          <h1 className="text-lg font-bold text-ink shrink-0 md:order-1">{funnel.name}</h1>
+          {funnel.stages.length >= 1 && (
+            <button
+              onClick={() => navigate(`/funnel/${funnelId}/deal/new`)}
+              className="btn-primary btn-md flex items-center gap-2 shrink-0 md:order-4"
+            >
+              <Plus className="w-4 h-4" /> {t('funnel.newLead')}
+            </button>
+          )}
+        </div>
+
+        {/* Search */}
+        <div className="relative flex-1 min-w-0 md:order-2">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-tertiary pointer-events-none" />
           <input
             className="input pl-9 text-sm h-9 w-full"
@@ -509,19 +598,22 @@ export default function FunnelPage({ funnelId }) {
           )}
         </div>
 
-        {/* Stats + Action */}
-        {totalValue > 0 && (
-          <span className="text-sm font-bold text-ink-secondary shrink-0">
-            {deals.length} sdelka · {fmt(totalValue)} {currency}
-          </span>
-        )}
-        {funnel.stages.length >= 1 && (
-          <button
-            onClick={() => navigate(`/funnel/${funnelId}/deal/new`)}
-            className="btn-primary btn-md flex items-center gap-2 shrink-0"
-          >
-            <Plus className="w-4 h-4" /> {t('funnel.newLead')}
-          </button>
+        {/* Stats */}
+        {(leadSum > 0 || progressSum > 0 || dealSum > 0) && (
+          <div className="flex items-center gap-3 shrink-0 text-xs font-semibold overflow-x-auto no-scrollbar md:order-3">
+            <span className="flex items-center gap-1.5 text-amber-600 whitespace-nowrap">
+              <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />
+              Zayavka: {fmt(leadSum)} {currency}
+            </span>
+            <span className="flex items-center gap-1.5 text-blue-600 whitespace-nowrap">
+              <span className="w-2 h-2 rounded-full bg-blue-400 shrink-0" />
+              Jarayonda: {fmt(progressSum)} {currency}
+            </span>
+            <span className="flex items-center gap-1.5 text-green-600 whitespace-nowrap">
+              <span className="w-2 h-2 rounded-full bg-green-500 shrink-0" />
+              Deal: {fmt(dealSum)} {currency}
+            </span>
+          </div>
         )}
       </div>
 
@@ -572,6 +664,7 @@ export default function FunnelPage({ funnelId }) {
           deal={null}
           isLead={funnel.stages[0] && String(quickStageId) === String(funnel.stages[0]._id)}
           currency={currency}
+          onContactCreated={(c) => { setContacts(cur => cur.some(x => x._id === c._id) ? cur : [c, ...cur]); dispatch(invalidateContacts()); }}
           onSave={handleQuickCreate}
           onClose={() => setQuickStageId(null)}
         />

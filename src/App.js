@@ -11,6 +11,7 @@ import RegisterPage from './pages/RegisterPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import ReviewLandingPage from './pages/ReviewLandingPage';
+import LeadFormPage from './pages/LeadFormPage';
 import DashboardPage from './pages/DashboardPage';
 import SettingsPage from './pages/SettingsPage';
 import UserProfilePage from './pages/UserProfilePage';
@@ -102,6 +103,7 @@ function AppInit() {
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password"  element={<ResetPasswordPage />} />
         <Route path="/r/:slug"         element={<ReviewLandingPage />} />
+        <Route path="/f/:slug"         element={<LeadFormPage />} />
         <Route path="/dashboard"       element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
         <Route path="/contacts"            element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
         <Route path="/contacts/new"        element={<PrivateRoute><DashboardPage /></PrivateRoute>} />

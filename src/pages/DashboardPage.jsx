@@ -20,7 +20,7 @@ import { getSocket } from '../utils/socket';
 // Modul darajasida — navigatsiya/remount da reset bo'lmaydi
 const _dismissedCalls = new Set();
 
-function navKeyToPath(key) {
+export function navKeyToPath(key) {
   if (key === 'dashboard') return '/dashboard';
   if (key === 'contacts')  return '/contacts';
   if (key === 'tasks')     return '/tasks';

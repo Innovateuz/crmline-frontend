@@ -8,8 +8,13 @@ import { fetchContacts, invalidateContacts, removeContact } from '../store/conta
 import Pagination from '../components/Pagination';
 import {
   Plus, Search, Pencil, Trash2, Loader2, Users, SlidersHorizontal, Check,
-  Download, Upload, Copy, X, AlertTriangle, ChevronDown, BarChart2,
+  Download, Upload, Copy, X, AlertTriangle, AlertCircle, ChevronDown, BarChart2,
+  ChevronRight, MoreVertical, PhoneCall,
 } from 'lucide-react';
+
+function isReminderOverdue(reminderAt) {
+  return !!reminderAt && new Date(reminderAt) < new Date();
+}
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:5002/api';
 const LS_KEY = 'crm_contacts_columns';
@@ -327,6 +332,7 @@ export default function ContactsPage() {
     catch { return { phone: true, email: true }; }
   });
   const [showColMenu, setShowColMenu] = useState(false);
+  const [showMobileActions, setShowMobileActions] = useState(false);
 
   const searchTimer = useRef(null);
 
@@ -435,12 +441,14 @@ export default function ContactsPage() {
   return (
     <div className="flex flex-col h-full">
       {/* Top bar */}
-      <div className="flex items-center justify-between gap-4 px-6 py-4 border-b border-surface-100 bg-white shrink-0">
-        <div className="flex items-center gap-3">
-          <h1 className="text-xl font-bold text-ink">{t('contacts.title')}</h1>
-          {!loading && total > 0 && <span className="text-xl font-bold text-ink-tertiary">{total}</span>}
+      <div className="flex items-center justify-between gap-3 px-4 lg:px-6 py-3 lg:py-4 border-b border-surface-100 bg-white shrink-0">
+        <div className="flex items-center gap-2 lg:gap-3 min-w-0">
+          <h1 className="text-lg lg:text-xl font-bold text-ink truncate">{t('contacts.title')}</h1>
+          {!loading && total > 0 && <span className="text-lg lg:text-xl font-bold text-ink-tertiary shrink-0">{total}</span>}
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
+
+        {/* Desktop: barcha amallar ko'rinadi */}
+        <div className="hidden md:flex items-center gap-2 flex-wrap">
           <button onClick={() => navigate('/contacts/analytics')}
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium border border-surface-200 text-ink-secondary hover:border-primary-300 hover:text-primary-600 transition-colors">
             <BarChart2 className="w-4 h-4" /> {t('contacts.analytics')}
@@ -465,10 +473,50 @@ export default function ContactsPage() {
             <Plus className="w-4 h-4" /> {t('contacts.newContact')}
           </button>
         </div>
+
+        {/* Mobil: faqat "+" va qolgan amallar "..." menyusida */}
+        <div className="flex md:hidden items-center gap-1.5 shrink-0">
+          <div className="relative">
+            <button onClick={() => setShowMobileActions(v => !v)}
+              className="p-2 rounded-xl border border-surface-200 text-ink-secondary hover:border-surface-300 transition-colors">
+              <MoreVertical className="w-4 h-4" />
+            </button>
+            {showMobileActions && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setShowMobileActions(false)} />
+                <div className="absolute right-0 top-full mt-2 z-20 bg-white border border-surface-100 rounded-xl shadow-xl py-1 w-56">
+                  <button onClick={() => { setShowMobileActions(false); navigate('/contacts/analytics'); }}
+                    className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-ink hover:bg-surface-50 transition-colors">
+                    <BarChart2 className="w-4 h-4 text-ink-tertiary" /> {t('contacts.analytics')}
+                  </button>
+                  <button onClick={() => { setShowMobileActions(false); handleExport(); }}
+                    className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-ink hover:bg-surface-50 transition-colors">
+                    <Download className="w-4 h-4 text-ink-tertiary" /> {t('contacts.export')}
+                  </button>
+                  <button onClick={() => { setShowMobileActions(false); setShowImport(true); }}
+                    className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-ink hover:bg-surface-50 transition-colors">
+                    <Upload className="w-4 h-4 text-ink-tertiary" /> {t('contacts.import')}
+                  </button>
+                  <button onClick={() => { setShowMobileActions(false); setShowDupes(true); }}
+                    className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-ink hover:bg-surface-50 transition-colors">
+                    <Copy className="w-4 h-4 text-ink-tertiary" /> Takroriylar
+                  </button>
+                  <button onClick={() => { setShowMobileActions(false); handleNormalizeAll(); }}
+                    className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-ink hover:bg-surface-50 transition-colors">
+                    <SlidersHorizontal className="w-4 h-4 text-ink-tertiary" /> Raqamlarni normallashtirish
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+          <button onClick={() => navigate('/contacts/new')} className="btn-md btn-primary shrink-0 px-3">
+            <Plus className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       {/* Search + bulk + column settings */}
-      <div className="flex items-center gap-3 px-6 py-3 border-b border-surface-100 bg-white shrink-0 flex-wrap">
+      <div className="flex items-center gap-3 px-4 lg:px-6 py-3 border-b border-surface-100 bg-white shrink-0 flex-wrap">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-tertiary" />
           <input className="input pl-9" placeholder={t('contacts.search')}
@@ -566,7 +614,7 @@ export default function ContactsPage() {
           </div>
         ) : (
           <>
-            <div className="overflow-x-auto">
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-surface-100 bg-surface-50">
@@ -610,9 +658,24 @@ export default function ContactsPage() {
                             {c.contactNumber && <span className="text-xs font-semibold text-ink-tertiary shrink-0">#{c.contactNumber}</span>}
                             <p className="font-medium text-ink truncate">{c.name}</p>
                             {c.blocked && <span className="text-[10px] font-medium text-red-500 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded-full shrink-0">Bloklangan</span>}
+                            {isReminderOverdue(c.reminderAt) && (
+                              <AlertCircle className="w-3.5 h-3.5 text-red-500 shrink-0" title={t('contacts.reminderOverdue')} />
+                            )}
                           </div>
                         </td>
-                        {colVis.phone && <td className="px-4 py-3 whitespace-nowrap"><span className="text-sm text-ink-secondary">{c.phone || <span className="text-ink-disabled">—</span>}</span></td>}
+                        {colVis.phone && (
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            {c.phone ? (
+                              <span className="inline-flex items-center gap-1.5">
+                                <span className="text-sm text-ink-secondary">{c.phone}</span>
+                                <a href={`tel:${c.phone}`} onClick={e => e.stopPropagation()} title="Qo'ng'iroq qilish"
+                                  className="p-1 rounded-lg text-ink-tertiary hover:text-green-600 hover:bg-green-50 transition-colors">
+                                  <PhoneCall className="w-3.5 h-3.5" />
+                                </a>
+                              </span>
+                            ) : <span className="text-ink-disabled">—</span>}
+                          </td>
+                        )}
                         {colVis.email && <td className="px-4 py-3"><span className="text-sm text-ink-secondary truncate max-w-[220px] block">{c.email || <span className="text-ink-disabled">—</span>}</span></td>}
                         {allCustomFields.filter(f => colVis[f.id]).map(field => {
                           const rendered = renderFieldValue(field, c.customFieldValues?.[field.id]);
@@ -641,9 +704,47 @@ export default function ContactsPage() {
               </table>
             </div>
 
+            {/* Mobil kartochka ro'yxati — jadval o'rniga */}
+            <div className="md:hidden divide-y divide-surface-100">
+              {contacts.map((c) => {
+                const isSelected = selected.has(c._id);
+                return (
+                  <div key={c._id}
+                    onClick={() => navigate(`/contacts/${c._id}`)}
+                    className={`flex items-center gap-3 px-4 py-3 active:bg-surface-50 transition-colors ${isSelected ? 'bg-primary-50/60' : ''} ${c.blocked ? 'opacity-60' : ''}`}>
+                    <button onClick={e => toggleOne(c._id, e)}
+                      className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${
+                        isSelected ? 'bg-primary-500 border-primary-500 text-white' : 'border-surface-300'
+                      }`}>
+                      {isSelected && <Check className="w-2.5 h-2.5" />}
+                    </button>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        {c.contactNumber && <span className="text-xs font-semibold text-ink-tertiary shrink-0">#{c.contactNumber}</span>}
+                        <p className="font-medium text-ink truncate">{c.name}</p>
+                        {c.blocked && <span className="text-[10px] font-medium text-red-500 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded-full shrink-0">Bloklangan</span>}
+                        {isReminderOverdue(c.reminderAt) && (
+                          <AlertCircle className="w-3.5 h-3.5 text-red-500 shrink-0" title={t('contacts.reminderOverdue')} />
+                        )}
+                      </div>
+                      {(colVis.phone && c.phone) && <p className="text-xs text-ink-tertiary truncate mt-0.5">{c.phone}</p>}
+                      {(colVis.email && c.email) && <p className="text-xs text-ink-tertiary truncate">{c.email}</p>}
+                    </div>
+                    {c.phone && (
+                      <a href={`tel:${c.phone}`} onClick={e => e.stopPropagation()}
+                        className="p-2 rounded-xl text-green-600 bg-green-50 shrink-0">
+                        <PhoneCall className="w-4 h-4" />
+                      </a>
+                    )}
+                    <ChevronRight className="w-4 h-4 text-ink-disabled shrink-0" />
+                  </div>
+                );
+              })}
+            </div>
+
             {pages > 1 && (
-              <div className="px-6 py-4 border-t border-surface-100">
-                <Pagination page={page} pages={pages} onChange={(p) => load(p)} />
+              <div className="px-4 lg:px-6 py-4 border-t border-surface-100">
+                <Pagination page={page} pages={pages} total={total} limit={30} onPage={(p) => load(p)} />
               </div>
             )}
           </>

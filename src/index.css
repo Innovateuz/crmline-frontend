@@ -5,19 +5,19 @@
 @tailwind utilities;
 
 @layer base {
-  /* Brand palette (default: rose). Overridden per-organization at
+  /* Brand palette (default: #3AA0FA). Overridden per-organization at
      runtime by setting these vars on <html> — see utils/theme.js. */
   :root {
-    --p-50:  253 237 240;
-    --p-100: 250 219 226;
-    --p-200: 245 183 196;
-    --p-300: 240 142 164;
-    --p-400: 233 92 123;
-    --p-500: 229 56 94;
-    --p-600: 225 29 72;
-    --p-700: 185 24 59;
-    --p-800: 149 19 48;
-    --p-900: 117 15 37;
+    --p-50:  239 247 255;
+    --p-100: 223 240 254;
+    --p-200: 192 225 253;
+    --p-300: 157 208 253;
+    --p-400: 113 187 251;
+    --p-500: 82 171 251;
+    --p-600: 58 160 250;
+    --p-700: 48 131 205;
+    --p-800: 38 106 165;
+    --p-900: 30 83 130;
   }
   * {
     @apply border-surface-200;

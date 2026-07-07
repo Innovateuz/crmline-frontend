@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { fetchTasks, invalidateTasks, upsertTask, removeTask as removeTaskAction } from '../store/tasksSlice';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { useT } from '../utils/translate';
+import { mediaDownloadUrl } from '../utils/media';
 import {
   DndContext, DragOverlay, PointerSensor, useSensor, useSensors,
   useDroppable, useDraggable,
@@ -11,7 +12,8 @@ import {
 import {
   Plus, X, Loader2, Check, ChevronDown,
   Calendar, CheckSquare2, Pencil, Trash2,
-  AlertCircle, User, Link2, Search, Filter,
+  AlertCircle, User, UserCheck, Link2, Search, Filter, Eye, Archive, ArchiveRestore,
+  Paperclip, Upload, FileText, Tag,
 } from 'lucide-react';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5002/api';
@@ -115,7 +117,7 @@ function ContactSearch({ contactId, contactName, onChange }) {
 }
 
 /* ─── Draggable Task Card ─────────────────────────────────── */
-function TaskCard({ task, onEdit, onDelete, overlay = false }) {
+function TaskCard({ task, onView, onEdit, onArchive, onDelete, overlay = false }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: task._id });
   const overdue = isOverdue(task.dueDate);
   const pri = PRIORITY_MAP[task.priority] || PRIORITY_MAP.normal;
@@ -136,9 +138,20 @@ function TaskCard({ task, onEdit, onDelete, overlay = false }) {
         </span>
         <div className="flex items-center gap-0.5 shrink-0">
           <button onPointerDown={e => e.stopPropagation()}
+            onClick={e => { e.stopPropagation(); onView(task); }}
+            className="p-1 rounded-md hover:bg-surface-100 text-ink-disabled hover:text-ink-tertiary transition-colors">
+            <Eye className="w-3 h-3" />
+          </button>
+          <button onPointerDown={e => e.stopPropagation()}
             onClick={e => { e.stopPropagation(); onEdit(task); }}
             className="p-1 rounded-md hover:bg-surface-100 text-ink-disabled hover:text-ink-tertiary transition-colors">
             <Pencil className="w-3 h-3" />
+          </button>
+          <button onPointerDown={e => e.stopPropagation()}
+            onClick={e => { e.stopPropagation(); onArchive(task); }}
+            title="Arxivlash"
+            className="p-1 rounded-md hover:bg-surface-100 text-ink-disabled hover:text-ink-tertiary transition-colors">
+            <Archive className="w-3 h-3" />
           </button>
           <button onPointerDown={e => e.stopPropagation()}
             onClick={e => { e.stopPropagation(); onDelete(task._id); }}
@@ -154,10 +167,34 @@ function TaskCard({ task, onEdit, onDelete, overlay = false }) {
         <p className="text-[11px] text-ink-tertiary mt-1 line-clamp-2 leading-relaxed">{task.description}</p>
       )}
 
+      {task.tags?.length > 0 && (
+        <div className="flex flex-wrap gap-1 mt-1.5">
+          {task.tags.map(tag => (
+            <span key={tag} className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-primary-50 text-primary-700">
+              #{tag}
+            </span>
+          ))}
+        </div>
+      )}
+
       {task.contact && (
         <div className="flex items-center gap-1 mt-1.5">
           <Link2 className="w-3 h-3 text-ink-disabled shrink-0" />
           <span className="text-[11px] text-ink-tertiary truncate">{task.contact.name}</span>
+        </div>
+      )}
+
+      {task.createdBy && (
+        <div className="flex items-center gap-1 mt-1.5">
+          <User className="w-3 h-3 text-ink-disabled shrink-0" />
+          <span className="text-[11px] text-ink-tertiary truncate">{t('tasks.createdByPrefix')} {task.createdBy.name}</span>
+        </div>
+      )}
+
+      {task.assignedTo && (
+        <div className="flex items-center gap-1 mt-1.5">
+          <UserCheck className="w-3 h-3 text-ink-disabled shrink-0" />
+          <span className="text-[11px] text-ink-tertiary truncate">{t('tasks.assignedToPrefix')} {task.assignedTo.name}</span>
         </div>
       )}
 
@@ -169,11 +206,27 @@ function TaskCard({ task, onEdit, onDelete, overlay = false }) {
             {fmtDate(task.dueDate)}
           </span>
         )}
-        {task.assignedTo && (
-          <span className="w-5 h-5 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-[9px] font-bold shrink-0 ml-auto"
-            title={task.assignedTo.name}>
-            {initials(task.assignedTo.name)}
+        {task.files?.length > 0 && (
+          <span className="flex items-center gap-1 text-[10px] text-ink-tertiary">
+            <Paperclip className="w-3 h-3" />
+            {task.files.length}
           </span>
+        )}
+        {(task.assignedTo || task.additionalAssignees?.length > 0) && (
+          <div className="flex items-center -space-x-1.5 ml-auto shrink-0">
+            {task.additionalAssignees?.map(u => (
+              <span key={u._id} className="w-5 h-5 rounded-full bg-surface-200 text-ink-secondary flex items-center justify-center text-[9px] font-bold shrink-0 ring-2 ring-white"
+                title={u.name}>
+                {initials(u.name)}
+              </span>
+            ))}
+            {task.assignedTo && (
+              <span className="w-5 h-5 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-[9px] font-bold shrink-0 ring-2 ring-white"
+                title={task.assignedTo.name}>
+                {initials(task.assignedTo.name)}
+              </span>
+            )}
+          </div>
         )}
       </div>
     </div>
@@ -184,7 +237,7 @@ function TaskCard({ task, onEdit, onDelete, overlay = false }) {
 }
 
 /* ─── Droppable Column ────────────────────────────────────── */
-function Column({ stage, tasks, onAdd, onEdit, onDelete }) {
+function Column({ stage, tasks, onAdd, onView, onEdit, onArchive, onDelete }) {
   const { setNodeRef, isOver } = useDroppable({ id: String(stage._id || stage.name) });
   const overdueCount = tasks.filter(t => isOverdue(t.dueDate)).length;
   const t = useT();
@@ -209,15 +262,68 @@ function Column({ stage, tasks, onAdd, onEdit, onDelete }) {
           isOver ? 'bg-primary-50 ring-2 ring-primary-300' : 'bg-surface-100'
         }`}>
         {tasks.map(task => (
-          <TaskCard key={task._id} task={task} onEdit={onEdit} onDelete={onDelete} />
+          <TaskCard key={task._id} task={task} onView={onView} onEdit={onEdit} onArchive={onArchive} onDelete={onDelete} />
         ))}
       </div>
     </div>
   );
 }
 
+/* ─── Tag Input ────────────────────────────────────────────── */
+function TagInput({ tags, allTags, onChange }) {
+  const t = useT();
+  const [input, setInput] = useState('');
+
+  const add = (raw) => {
+    const val = raw.trim();
+    if (!val || tags.includes(val)) return;
+    onChange([...tags, val]);
+    setInput('');
+  };
+  const remove = (val) => onChange(tags.filter(x => x !== val));
+
+  const suggestions = allTags.filter(x => !tags.includes(x) && x.toLowerCase().includes(input.trim().toLowerCase()));
+
+  return (
+    <div>
+      {tags.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mb-1.5">
+          {tags.map(tag => (
+            <span key={tag} className="inline-flex items-center gap-1 text-[11px] font-medium pl-2 pr-1 py-0.5 rounded-full bg-primary-50 text-primary-700 border border-primary-200">
+              #{tag}
+              <button type="button" onClick={() => remove(tag)} className="p-0.5 rounded-full hover:bg-primary-100 hover:text-primary-900">
+                <X className="w-2.5 h-2.5" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+      <input
+        className="input"
+        placeholder={t('tasks.tagsPlaceholder')}
+        value={input}
+        onChange={e => setInput(e.target.value)}
+        onKeyDown={e => {
+          if (e.key === 'Enter') { e.preventDefault(); add(input); }
+          else if (e.key === 'Backspace' && !input && tags.length) remove(tags[tags.length - 1]);
+        }}
+      />
+      {input && suggestions.length > 0 && (
+        <div className="flex flex-wrap gap-1 mt-1.5">
+          {suggestions.slice(0, 6).map(s => (
+            <button key={s} type="button" onClick={() => add(s)}
+              className="text-[11px] px-2 py-0.5 rounded-full border border-dashed border-surface-300 text-ink-tertiary hover:border-primary-300 hover:text-primary-600 transition-colors">
+              + #{s}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ─── Task Modal ──────────────────────────────────────────── */
-function TaskModal({ initial, stages, users, onSave, onClose, saving }) {
+function TaskModal({ initial, stages, users, allTags, onSave, onClose, saving, readOnly = false }) {
   const t = useT();
   const [title,       setTitle]       = useState(initial?.title       || '');
   const [description, setDescription] = useState(initial?.description || '');
@@ -225,18 +331,47 @@ function TaskModal({ initial, stages, users, onSave, onClose, saving }) {
     initial?.stageId ? String(initial.stageId) : (stages[0] ? String(stages[0]._id || stages[0].name) : '')
   );
   const [assignedTo,  setAssignedTo]  = useState(initial?.assignedTo?._id || initial?.assignedTo || '');
+  const [additionalAssignees, setAdditionalAssignees] = useState(
+    (initial?.additionalAssignees || []).map(u => u?._id || u)
+  );
   const [dueDate,     setDueDate]     = useState(initial?.dueDate ? initial.dueDate.slice(0, 10) : '');
   const [priority,    setPriority]    = useState(initial?.priority || 'normal');
   const [contactId,   setContactId]   = useState(initial?.contact?._id || initial?.contact || null);
   const [contactName, setContactName] = useState(initial?.contact?.name || '');
+  const [tags,         setTags]         = useState(initial?.tags || []);
+  const [files,        setFiles]        = useState(initial?.files || []);
+  const [uploadingFile, setUploadingFile] = useState(false);
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingFile(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await axios.post(`${API_URL}/upload/file`, fd);
+      const { url, name, size, type } = res.data;
+      setFiles(prev => [...prev, { name, url, size, type }]);
+    } catch (err) {
+      toast.error(err.response?.data?.message || t('tasks.error'));
+    } finally {
+      setUploadingFile(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleFileRemove = (idx) => setFiles(prev => prev.filter((_, i) => i !== idx));
 
   const handleSave = () => {
     if (!title.trim()) { toast.error(t('tasks.titleRequired')); return; }
     onSave({
       title, description, stageId, priority,
       assignedTo: assignedTo || null,
+      additionalAssignees,
       dueDate:    dueDate    || null,
       contact:    contactId  || null,
+      tags,
+      files,
     });
   };
 
@@ -245,13 +380,22 @@ function TaskModal({ initial, stages, users, onSave, onClose, saving }) {
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div className="relative bg-white rounded-2xl shadow-modal w-full max-w-md flex flex-col max-h-[90dvh]">
         <div className="flex items-center justify-between px-5 py-4 border-b border-surface-100 shrink-0">
-          <h2 className="font-semibold text-ink">{initial?._id ? t('tasks.editTask') : t('tasks.newTask')}</h2>
+          <div>
+            <h2 className="font-semibold text-ink">{readOnly ? t('tasks.viewTask') : initial?._id ? t('tasks.editTask') : t('tasks.newTask')}</h2>
+            {initial?._id && initial?.createdBy && (
+              <p className="text-[11px] text-ink-disabled mt-0.5">
+                {t('tasks.createdByPrefix')} {initial.createdBy.name}
+                {initial.createdAt ? ` · ${fmtDate(initial.createdAt)}` : ''}
+              </p>
+            )}
+          </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-surface-100 text-ink-tertiary">
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        <div className="px-5 py-4 space-y-4 overflow-y-auto flex-1 min-h-0">
+        <div className="px-5 py-4 overflow-y-auto flex-1 min-h-0">
+        <fieldset disabled={readOnly} className="contents space-y-4 border-0 m-0 p-0">
           {/* Title */}
           <div>
             <label className="block text-xs font-medium text-ink-tertiary mb-1">{t('tasks.modalTitle')}</label>
@@ -316,6 +460,31 @@ function TaskModal({ initial, stages, users, onSave, onClose, saving }) {
             </div>
           </div>
 
+          {/* Additional assignees */}
+          {users.length > 0 && (
+            <div>
+              <label className="block text-xs font-medium text-ink-tertiary mb-1">{t('tasks.additionalAssignees')}</label>
+              <div className="flex flex-wrap gap-1.5">
+                {users.map(u => {
+                  const active = additionalAssignees.includes(u._id);
+                  return (
+                    <button key={u._id} type="button"
+                      onClick={() => setAdditionalAssignees(prev =>
+                        prev.includes(u._id) ? prev.filter(id => id !== u._id) : [...prev, u._id]
+                      )}
+                      className={`px-2.5 py-1 text-xs font-medium rounded-full border transition-colors ${
+                        active
+                          ? 'bg-primary-50 border-primary-300 text-primary-700'
+                          : 'bg-surface-50 border-surface-200 text-ink-tertiary hover:border-surface-300'
+                      }`}>
+                      {u.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Contact link */}
           <div>
             <label className="block text-xs font-medium text-ink-tertiary mb-1 flex items-center gap-1">
@@ -327,14 +496,140 @@ function TaskModal({ initial, stages, users, onSave, onClose, saving }) {
               onChange={(id, name) => { setContactId(id); setContactName(name); }}
             />
           </div>
+
+          {/* Tags */}
+          <div>
+            <label className="block text-xs font-medium text-ink-tertiary mb-1">{t('tasks.tags')}</label>
+            <TagInput tags={tags} allTags={allTags} onChange={setTags} />
+          </div>
+
+          {/* Files */}
+          <div>
+            <label className="block text-xs font-medium text-ink-tertiary mb-1 flex items-center gap-1">
+              <Paperclip className="w-3 h-3" /> {t('tasks.files')}
+            </label>
+            <label className={`w-full flex items-center justify-center gap-2 py-2.5 border-2 border-dashed border-surface-200 rounded-xl text-xs transition-colors cursor-pointer ${
+              uploadingFile ? 'opacity-50 pointer-events-none' : 'hover:border-primary-300 hover:text-primary-600 text-ink-tertiary'
+            }`}>
+              {uploadingFile ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+              {uploadingFile ? t('tasks.uploading') : t('tasks.uploadFile')}
+              <input type="file" className="hidden" onChange={handleFileUpload} disabled={uploadingFile} />
+            </label>
+            {files.length > 0 && (
+              <div className="mt-2 space-y-1.5">
+                {files.map((f, i) => (
+                  <div key={i} className="flex items-center gap-2 px-2.5 py-1.5 bg-surface-50 border border-surface-100 rounded-lg group">
+                    <FileText className="w-3.5 h-3.5 text-primary-400 shrink-0" />
+                    <a href={mediaDownloadUrl(f.url)} target="_blank" rel="noreferrer"
+                      className="text-xs text-ink truncate flex-1 hover:underline">
+                      {f.name}
+                    </a>
+                    <button type="button" onClick={() => handleFileRemove(i)}
+                      className="p-0.5 rounded text-ink-disabled hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </fieldset>
         </div>
 
         <div className="flex justify-end gap-2 px-5 py-4 border-t border-surface-100 shrink-0">
-          <button onClick={onClose} className="btn-secondary btn-md">{t('tasks.cancel')}</button>
-          <button onClick={handleSave} disabled={saving} className="btn-primary btn-md flex items-center gap-2">
-            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-            {initial?._id ? t('tasks.save') : t('tasks.create')}
+          <button onClick={onClose} className="btn-secondary btn-md">
+            {readOnly ? t('tasks.close') : t('tasks.cancel')}
           </button>
+          {!readOnly && (
+            <button onClick={handleSave} disabled={saving} className="btn-primary btn-md flex items-center gap-2">
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+              {initial?._id ? t('tasks.save') : t('tasks.create')}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Archive Modal ───────────────────────────────────────── */
+function ArchiveModal({ stages, onClose, onRestored }) {
+  const t = useT();
+  const [tasks,   setTasks]   = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [busyId,  setBusyId]  = useState(null);
+
+  useEffect(() => {
+    axios.get(`${API_URL}/tasks`, { params: { archived: true, limit: 1000 } })
+      .then(r => setTasks(r.data.tasks || []))
+      .catch(() => toast.error(t('tasks.loadError')))
+      .finally(() => setLoading(false));
+  }, [t]);
+
+  const stageName = (id) => stages.find(s => String(s._id || s.name) === String(id))?.name || '—';
+
+  const restore = async (id) => {
+    setBusyId(id);
+    try {
+      await axios.put(`${API_URL}/tasks/${id}`, { archived: false });
+      setTasks(prev => prev.filter(x => x._id !== id));
+      onRestored();
+      toast.success(t('tasks.restored'));
+    } catch { toast.error(t('tasks.error')); }
+    finally { setBusyId(null); }
+  };
+
+  const remove = async (id) => {
+    if (!window.confirm(t('tasks.deleteConfirm'))) return;
+    setBusyId(id);
+    try {
+      await axios.delete(`${API_URL}/tasks/${id}`);
+      setTasks(prev => prev.filter(x => x._id !== id));
+      toast.success(t('tasks.deleted'));
+    } catch { toast.error(t('tasks.error')); }
+    finally { setBusyId(null); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-modal w-full max-w-lg max-h-[80dvh] flex flex-col">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-surface-100 shrink-0">
+          <h2 className="font-semibold text-ink flex items-center gap-2">
+            <Archive className="w-4 h-4" /> {t('tasks.archive')}
+          </h2>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-surface-100 text-ink-tertiary">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="flex-1 min-h-0 overflow-y-auto px-5 py-3">
+          {loading ? (
+            <div className="flex items-center justify-center py-10">
+              <Loader2 className="w-6 h-6 animate-spin text-primary-400" />
+            </div>
+          ) : tasks.length === 0 ? (
+            <p className="text-sm text-ink-tertiary text-center py-10">{t('tasks.archiveEmpty')}</p>
+          ) : (
+            <div className="space-y-2">
+              {tasks.map(task => (
+                <div key={task._id} className="flex items-center gap-3 p-3 border border-surface-100 rounded-xl">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-ink truncate">{task.title}</p>
+                    <p className="text-xs text-ink-tertiary truncate">{stageName(task.stageId)}</p>
+                  </div>
+                  <button onClick={() => restore(task._id)} disabled={busyId === task._id}
+                    title={t('tasks.restore')}
+                    className="p-1.5 rounded-lg text-ink-tertiary hover:bg-primary-50 hover:text-primary-600 transition-colors">
+                    <ArchiveRestore className="w-4 h-4" />
+                  </button>
+                  <button onClick={() => remove(task._id)} disabled={busyId === task._id}
+                    className="p-1.5 rounded-lg text-ink-tertiary hover:bg-red-50 hover:text-red-500 transition-colors">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -343,7 +638,7 @@ function TaskModal({ initial, stages, users, onSave, onClose, saving }) {
 
 /* ─── Main Page ───────────────────────────────────────────── */
 export default function TasksPage() {
-  const meId    = useSelector(s => s.auth.user?._id);
+  const meId    = useSelector(s => s.auth.user?._id || s.auth.user?.id);
   const dispatch = useDispatch();
   const t = useT();
   const { tasks, stages, users, loading, total: tasksTotal } = useSelector(s => s.tasks);
@@ -351,12 +646,20 @@ export default function TasksPage() {
   const [saving,   setSaving]   = useState(false);
   const [modal,    setModal]    = useState(null);
   const [activeId, setActiveId] = useState(null);
+  const [showArchive, setShowArchive] = useState(false);
 
   // Filters
   const [filterSearch,   setFilterSearch]   = useState('');
   const [filterPriority, setFilterPriority] = useState('');
   const [filterAssignee, setFilterAssignee] = useState('');
+  const [filterTags,     setFilterTags]     = useState([]);
+  const [filterCreatedByMe, setFilterCreatedByMe] = useState(false);
   const [showFilters,    setShowFilters]    = useState(false);
+
+  const toggleFilterTag = (tag) =>
+    setFilterTags(cur => cur.includes(tag) ? cur.filter(x => x !== tag) : [...cur, tag]);
+
+  const allTags = useMemo(() => [...new Set(tasks.flatMap(tk => tk.tags || []))], [tasks]);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
@@ -378,7 +681,11 @@ export default function TasksPage() {
       .filter(t => !filterSearch   || t.title.toLowerCase().includes(filterSearch.toLowerCase())
                                    || t.description?.toLowerCase().includes(filterSearch.toLowerCase()))
       .filter(t => !filterPriority || t.priority === filterPriority)
-      .filter(t => !filterAssignee || String(t.assignedTo?._id || t.assignedTo || '') === filterAssignee);
+      .filter(t => !filterAssignee
+        || String(t.assignedTo?._id || t.assignedTo || '') === filterAssignee
+        || (t.additionalAssignees || []).some(u => String(u?._id || u) === filterAssignee))
+      .filter(t => filterTags.length === 0 || filterTags.every(tag => t.tags?.includes(tag)))
+      .filter(t => !filterCreatedByMe || String(t.createdBy?._id || t.createdBy || '') === String(meId));
 
   const activeTask = activeId ? tasks.find(t => t._id === activeId) : null;
 
@@ -402,6 +709,7 @@ export default function TasksPage() {
   };
 
   const openCreate = (stage) => setModal({ stageId: stageKey(stage) });
+  const openView   = (task)  => setModal({ task, readOnly: true });
   const openEdit   = (task)  => setModal({ task });
   const closeModal = ()      => setModal(null);
 
@@ -442,8 +750,20 @@ export default function TasksPage() {
     }
   };
 
+  const handleArchive = async (task) => {
+    dispatch(removeTaskAction(task._id));
+    try {
+      await axios.put(`${API_URL}/tasks/${task._id}`, { archived: true });
+      toast.success(t('tasks.archived'));
+    } catch {
+      toast.error(t('tasks.error'));
+      dispatch(invalidateTasks());
+      load();
+    }
+  };
+
   const totalOverdue = tasks.filter(t => isOverdue(t.dueDate)).length;
-  const hasFilters = filterSearch || filterPriority || filterAssignee;
+  const hasFilters = filterSearch || filterPriority || filterAssignee || filterTags.length > 0 || filterCreatedByMe;
 
   if (loading) {
     return (
@@ -468,25 +788,47 @@ export default function TasksPage() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="shrink-0 px-6 py-3 border-b border-surface-200 bg-white">
-        <div className="flex items-center gap-3 flex-wrap">
-          <CheckSquare2 className="w-5 h-5 text-primary-600 shrink-0" />
-          <h1 className="font-bold text-ink">{t('tasks.title')}</h1>
-          <span className="text-xs text-ink-disabled bg-surface-100 rounded-full px-2 py-0.5">{tasks.length}</span>
-          {totalOverdue > 0 && (
-            <span className="flex items-center gap-1 text-xs text-red-500 bg-red-50 rounded-full px-2 py-0.5 font-medium">
-              <AlertCircle className="w-3 h-3" />
-              {totalOverdue} {t('tasks.overdue')}
-            </span>
-          )}
-          {tasksTotal > tasks.length && (
-            <span className="flex items-center gap-1 text-xs text-amber-600 bg-amber-50 rounded-full px-2 py-0.5 font-medium">
-              <AlertCircle className="w-3 h-3" />
-              {t('tasks.totalNote').replace('{total}', tasksTotal).replace('{shown}', tasks.length)}
-            </span>
-          )}
+      <div className="shrink-0 px-4 lg:px-6 py-3 border-b border-surface-200 bg-white">
+        <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-3">
+          <div className="flex items-center gap-3 flex-wrap min-w-0">
+            <CheckSquare2 className="w-5 h-5 text-primary-600 shrink-0" />
+            <h1 className="font-bold text-ink">{t('tasks.title')}</h1>
+            <span className="text-xs text-ink-disabled bg-surface-100 rounded-full px-2 py-0.5">{tasks.length}</span>
+            {totalOverdue > 0 && (
+              <span className="flex items-center gap-1 text-xs text-red-500 bg-red-50 rounded-full px-2 py-0.5 font-medium">
+                <AlertCircle className="w-3 h-3" />
+                {totalOverdue} {t('tasks.overdue')}
+              </span>
+            )}
+            {tasksTotal > tasks.length && (
+              <span className="flex items-center gap-1 text-xs text-amber-600 bg-amber-50 rounded-full px-2 py-0.5 font-medium">
+                <AlertCircle className="w-3 h-3" />
+                {t('tasks.totalNote').replace('{total}', tasksTotal).replace('{shown}', tasks.length)}
+              </span>
+            )}
+          </div>
 
-          <div className="ml-auto flex items-center gap-2">
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar md:overflow-visible md:flex-wrap md:ml-auto -mx-4 px-4 md:mx-0 md:px-0">
+            {/* Quick filters: assigned to me / created by me */}
+            <button
+              onClick={() => setFilterAssignee(v => v === meId ? '' : meId)}
+              className={`px-3 py-1.5 rounded-xl text-sm font-medium border transition-colors whitespace-nowrap ${
+                filterAssignee === meId
+                  ? 'bg-primary-50 border-primary-300 text-primary-700'
+                  : 'bg-surface-50 border-surface-200 text-ink-secondary hover:bg-surface-100'
+              }`}>
+              {t('tasks.assignedToMe')}
+            </button>
+            <button
+              onClick={() => setFilterCreatedByMe(v => !v)}
+              className={`px-3 py-1.5 rounded-xl text-sm font-medium border transition-colors whitespace-nowrap ${
+                filterCreatedByMe
+                  ? 'bg-primary-50 border-primary-300 text-primary-700'
+                  : 'bg-surface-50 border-surface-200 text-ink-secondary hover:bg-surface-100'
+              }`}>
+              {t('tasks.createdByMe')}
+            </button>
+
             {/* Search */}
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-ink-disabled" />
@@ -507,17 +849,22 @@ export default function TasksPage() {
             {/* Filter toggle */}
             <button onClick={() => setShowFilters(v => !v)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium border transition-colors ${
-                showFilters || (filterPriority || filterAssignee)
+                showFilters || (filterPriority || filterAssignee || filterTags.length > 0)
                   ? 'bg-primary-50 border-primary-300 text-primary-700'
                   : 'bg-surface-50 border-surface-200 text-ink-secondary hover:bg-surface-100'
               }`}>
               <Filter className="w-3.5 h-3.5" />
               {t('tasks.filter')}
-              {(filterPriority || filterAssignee) && (
+              {(filterPriority || filterAssignee || filterTags.length > 0) && (
                 <span className="w-4 h-4 rounded-full bg-primary-600 text-white text-[9px] font-bold flex items-center justify-center">
-                  {(filterPriority ? 1 : 0) + (filterAssignee ? 1 : 0)}
+                  {(filterPriority ? 1 : 0) + (filterAssignee ? 1 : 0) + filterTags.length}
                 </span>
               )}
+            </button>
+
+            <button onClick={() => setShowArchive(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium border bg-surface-50 border-surface-200 text-ink-secondary hover:bg-surface-100 transition-colors">
+              <Archive className="w-3.5 h-3.5" /> {t('tasks.archive')}
             </button>
 
             <button onClick={() => openCreate(stages[0])} className="btn-primary btn-md flex items-center gap-2">
@@ -557,8 +904,25 @@ export default function TasksPage() {
               <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-ink-disabled pointer-events-none" />
             </div>
 
+            {/* Tag filter */}
+            {allTags.length > 0 && (
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <Tag className="w-3.5 h-3.5 text-ink-disabled shrink-0" />
+                {allTags.map(tag => (
+                  <button key={tag} onClick={() => toggleFilterTag(tag)}
+                    className={`text-[11px] font-medium px-2 py-0.5 rounded-full border transition-colors ${
+                      filterTags.includes(tag)
+                        ? 'bg-primary-600 border-primary-600 text-white'
+                        : 'bg-surface-50 border-surface-200 text-ink-tertiary hover:border-primary-300 hover:text-primary-600'
+                    }`}>
+                    #{tag}
+                  </button>
+                ))}
+              </div>
+            )}
+
             {hasFilters && (
-              <button onClick={() => { setFilterSearch(''); setFilterPriority(''); setFilterAssignee(''); }}
+              <button onClick={() => { setFilterSearch(''); setFilterPriority(''); setFilterAssignee(''); setFilterTags([]); setFilterCreatedByMe(false); }}
                 className="text-xs text-ink-tertiary hover:text-red-500 flex items-center gap-1 transition-colors">
                 <X className="w-3 h-3" /> {t('tasks.clearFilters')}
               </button>
@@ -573,11 +937,11 @@ export default function TasksPage() {
           <div className="flex gap-4 h-full px-6 py-5 items-stretch">
             {stages.map(stage => (
               <Column key={stageKey(stage)} stage={stage} tasks={tasksForStage(stage)}
-                onAdd={openCreate} onEdit={openEdit} onDelete={handleDelete} />
+                onAdd={openCreate} onView={openView} onEdit={openEdit} onArchive={handleArchive} onDelete={handleDelete} />
             ))}
           </div>
           <DragOverlay>
-            {activeTask && <TaskCard task={activeTask} onEdit={() => {}} onDelete={() => {}} overlay />}
+            {activeTask && <TaskCard task={activeTask} onView={() => {}} onEdit={() => {}} onArchive={() => {}} onDelete={() => {}} overlay />}
           </DragOverlay>
         </DndContext>
       </div>
@@ -587,9 +951,19 @@ export default function TasksPage() {
           initial={modal.task || { stageId: modal.stageId }}
           stages={stages}
           users={users}
+          allTags={allTags}
           onSave={handleSave}
           onClose={closeModal}
           saving={saving}
+          readOnly={!!modal.readOnly}
+        />
+      )}
+
+      {showArchive && (
+        <ArchiveModal
+          stages={stages}
+          onClose={() => setShowArchive(false)}
+          onRestored={() => dispatch(invalidateTasks())}
         />
       )}
     </div>

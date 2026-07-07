@@ -18,6 +18,7 @@ import {
   Pencil, Trash2, KeyRound, ShieldCheck, SlidersHorizontal, History,
   Palette, Upload, Check, Building2, Building, RotateCcw, AlertTriangle, Eye, EyeOff,
   GripVertical, Archive, Kanban, Layers, Target, ChevronUp, GripHorizontal, MessageSquare, Mail, Bell, BellOff,
+  ClipboardList, Copy, Link2, ToggleLeft, ToggleRight, LayoutGrid,
 } from 'lucide-react';
 import { subscribeToPush, unsubscribeFromPush } from '../utils/swRegister';
 import { addFunnel, updateFunnel as updateFunnelStore, removeFunnel, fetchFunnels } from '../store/funnelSlice';
@@ -28,9 +29,11 @@ const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5002/api';
 
 const TABS = [
   { key: 'branding',    icon: Palette,          label: 'Brending'         },
+  { key: 'modules',     icon: LayoutGrid,       label: 'Menyu'            },
   { key: 'funnels',     icon: Kanban,           label: 'Varonkalar'       },
   { key: 'tasks',       icon: SlidersHorizontal,label: 'Vazifalar'        },
-  { key: 'deal-sources',icon: Layers,           label: 'Souda manbalari' },
+  { key: 'deal-sources',icon: Layers,           label: 'Savdo manbalari' },
+  { key: 'lead-forms',  icon: ClipboardList,    label: 'Formalar'        },
   { key: 'goals',       icon: Target,           label: 'Maqsadlar'       },
   { key: 'integrations',icon: Archive,          label: 'Integratsiyalar'  },
   { key: 'inbox',       icon: MessageSquare,    label: 'Inbox'            },
@@ -38,6 +41,15 @@ const TABS = [
   { key: 'users',       icon: Users,            label: 'Foydalanuvchilar' },
   { key: 'roles',       icon: ShieldCheck,      label: 'Rollar'           },
   { key: 'audit',       icon: History,          label: 'Audit jurnali'    },
+];
+
+// Sozlamalar 2 qatlamli: modul (guruh) → shu modulning sub-tablari.
+// Har bir TABS kaliti aynan bitta guruhga tegishli bo'lishi kerak.
+const TAB_GROUPS = [
+  { key: 'general',  icon: Palette,       label: 'Umumiy',   tabs: ['branding', 'modules'] },
+  { key: 'crm',      icon: Kanban,        label: 'CRM',      tabs: ['funnels', 'tasks', 'deal-sources', 'lead-forms', 'goals'] },
+  { key: 'channels', icon: MessageSquare, label: 'Integratsiyalar', tabs: ['inbox', 'atc', 'integrations'] },
+  { key: 'system',   icon: ShieldCheck,   label: 'Tizim',    tabs: ['users', 'roles', 'audit'] },
 ];
 
 // Biznes egasiga ko'rinmasin — faqat URL orqali (?tab=general / ?tab=branding) ochiladi.
@@ -61,6 +73,8 @@ const TRASH_KIND = {
 };
 
 const BRAND_PRESETS = ['#059669', '#2563eb', '#4f46e5', '#7c3aed', '#db2777', '#dc2626', '#ea580c', '#0891b2', '#0d9488', '#475569'];
+// Vaqtincha yopilgan — faqat logo yuklash qoladi, brend rangini o'zgartirish kerak emas (hozircha).
+const SHOW_BRAND_COLOR_PICKER = false;
 
 const CURRENCIES = [
   { code: 'UZS', symbol: "so'm", label: "O'zbek so'mi" },
@@ -100,6 +114,7 @@ function BrandingTab() {
   const [saving, setSaving]     = useState(false);
   const [uploading, setUploading] = useState(false);
   const [dragLogo, setDragLogo] = useState(false);
+  const [section, setSection] = useState('asosiy');
   const fileRef = useRef(null);
   const uploadLogoRef = useRef(null);
 
@@ -169,6 +184,12 @@ function BrandingTab() {
 
   if (!loaded) return <div className="flex items-center justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-ink-tertiary" /></div>;
 
+  const BRANDING_SECTIONS = [
+    { key: 'asosiy',   label: 'Asosiy' },
+    { key: 'aloqa',    label: 'Aloqa ma\'lumotlari' },
+    { key: 'korinish', label: "Ko'rinish" },
+  ];
+
   return (
     <div className="space-y-6 max-w-2xl">
       <div>
@@ -176,148 +197,167 @@ function BrandingTab() {
         <p className="text-ink-tertiary text-sm mt-0.5">{t('settings.branding.subtitle')}</p>
       </div>
 
-      {/* Name */}
-      <div>
-        <label className="block text-sm font-medium text-ink mb-1.5">{t('settings.branding.orgName')}</label>
-        <input className="input max-w-sm" value={name} onChange={e => setName(e.target.value)} placeholder={t('settings.branding.orgNamePlaceholder')} />
+      {/* Ichki sub-tablar */}
+      <div className="flex gap-1 bg-surface-100 p-1 rounded-xl overflow-x-auto max-w-md">
+        {BRANDING_SECTIONS.map(s => (
+          <button key={s.key} type="button" onClick={() => setSection(s.key)}
+            className={`flex-1 px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${section === s.key ? 'bg-white text-ink shadow-sm' : 'text-ink-tertiary hover:text-ink'}`}>
+            {s.label}
+          </button>
+        ))}
       </div>
 
-      {/* Contact info */}
-      <div className="space-y-3">
-        <p className="text-sm font-semibold text-ink">Tashkilot ma'lumotlari</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-medium text-ink-secondary mb-1">Direktor ism familiyasi</label>
-            <input className="input" value={directorName} onChange={e => setDirectorName(e.target.value)} placeholder="Masalan: Aliyev Jasur Ahmadovich" />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-ink-secondary mb-1">Office raqami</label>
-            <input className="input" value={officePhone} onChange={e => setOfficePhone(e.target.value)} placeholder="+998 71 200 00 00" />
-          </div>
-        </div>
+      {/* ══ ASOSIY: nomi + valyuta ══ */}
+      {section === 'asosiy' && <>
+        {/* Name */}
         <div>
-          <label className="block text-xs font-medium text-ink-secondary mb-1">Manzil</label>
-          <input className="input" value={address} onChange={e => setAddress(e.target.value)} placeholder="Masalan: Toshkent sh., Chilonzor t., 12-uy" />
+          <label className="block text-sm font-medium text-ink mb-1.5">{t('settings.branding.orgName')}</label>
+          <input className="input max-w-sm" value={name} onChange={e => setName(e.target.value)} placeholder={t('settings.branding.orgNamePlaceholder')} />
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div>
-            <label className="block text-xs font-medium text-ink-secondary mb-1">Web sayt</label>
-            <input className="input" value={website} onChange={e => setWebsite(e.target.value)} placeholder="https://example.com" />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-ink-secondary mb-1">Instagram</label>
-            <input className="input" value={instagram} onChange={e => setInstagram(e.target.value)} placeholder="@username yoki to'liq link" />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-ink-secondary mb-1">Telegram</label>
-            <input className="input" value={telegram} onChange={e => setTelegram(e.target.value)} placeholder="@username yoki +998..." />
-          </div>
-        </div>
-      </div>
 
-      {/* Currency */}
-      <div>
-        <label className="block text-sm font-medium text-ink mb-1.5">Asosiy valyuta</label>
-        <p className="text-xs text-ink-tertiary mb-3">Barcha sdelka va lidlar shu valyutada ko'rsatiladi.</p>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          {CURRENCIES.map(c => (
-            <button
-              key={c.code}
-              type="button"
-              onClick={() => setCurrency(c.code)}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border-2 text-left transition-colors ${
-                currency === c.code
-                  ? 'border-primary-500 bg-primary-50'
-                  : 'border-surface-200 hover:border-surface-300 bg-white'
+        {/* Currency */}
+        <div>
+          <label className="block text-sm font-medium text-ink mb-1.5">Asosiy valyuta</label>
+          <p className="text-xs text-ink-tertiary mb-3">Barcha sdelka va lidlar shu valyutada ko'rsatiladi.</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {CURRENCIES.map(c => (
+              <button
+                key={c.code}
+                type="button"
+                onClick={() => setCurrency(c.code)}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border-2 text-left transition-colors ${
+                  currency === c.code
+                    ? 'border-primary-500 bg-primary-50'
+                    : 'border-surface-200 hover:border-surface-300 bg-white'
+                }`}
+              >
+                <span className={`text-base font-bold w-8 shrink-0 text-center ${currency === c.code ? 'text-primary-600' : 'text-ink-tertiary'}`}>
+                  {c.symbol}
+                </span>
+                <div className="min-w-0">
+                  <div className={`text-xs font-semibold leading-none ${currency === c.code ? 'text-primary-700' : 'text-ink'}`}>{c.code}</div>
+                  <div className="text-xs text-ink-tertiary mt-0.5 truncate">{c.label}</div>
+                </div>
+                {currency === c.code && <Check className="w-3.5 h-3.5 text-primary-600 ml-auto shrink-0" />}
+              </button>
+            ))}
+          </div>
+        </div>
+      </>}
+
+      {/* ══ ALOQA: direktor, manzil, telefon, ijtimoiy tarmoqlar ══ */}
+      {section === 'aloqa' && <>
+        <div className="space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-ink-secondary mb-1">Direktor ism familiyasi</label>
+              <input className="input" value={directorName} onChange={e => setDirectorName(e.target.value)} placeholder="Masalan: Aliyev Jasur Ahmadovich" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-ink-secondary mb-1">Office raqami</label>
+              <input className="input" value={officePhone} onChange={e => setOfficePhone(e.target.value)} placeholder="+998 71 200 00 00" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-ink-secondary mb-1">Manzil</label>
+            <input className="input" value={address} onChange={e => setAddress(e.target.value)} placeholder="Masalan: Toshkent sh., Chilonzor t., 12-uy" />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-ink-secondary mb-1">Web sayt</label>
+              <input className="input" value={website} onChange={e => setWebsite(e.target.value)} placeholder="https://example.com" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-ink-secondary mb-1">Instagram</label>
+              <input className="input" value={instagram} onChange={e => setInstagram(e.target.value)} placeholder="@username yoki to'liq link" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-ink-secondary mb-1">Telegram</label>
+              <input className="input" value={telegram} onChange={e => setTelegram(e.target.value)} placeholder="@username yoki +998..." />
+            </div>
+          </div>
+        </div>
+      </>}
+
+      {/* ══ KO'RINISH: logo, brend rangi, preview ══ */}
+      {section === 'korinish' && <>
+        {/* Logo */}
+        <div>
+          <label className="block text-sm font-medium text-ink mb-1.5">{t('settings.branding.logo')}</label>
+          <div className="flex items-center gap-4">
+            <div
+              onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setDragLogo(true); }}
+              onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setDragLogo(true); }}
+              onDragLeave={(e) => { e.stopPropagation(); if (!e.currentTarget.contains(e.relatedTarget)) setDragLogo(false); }}
+              onDrop={(e) => { e.preventDefault(); e.stopPropagation(); setDragLogo(false); const f = e.dataTransfer.files?.[0]; if (f) uploadLogo(f); }}
+              onClick={() => fileRef.current?.click()}
+              className={`w-16 h-16 rounded-2xl flex items-center justify-center overflow-hidden shrink-0 cursor-pointer transition-all ${
+                dragLogo ? 'ring-2 ring-primary-400 ring-offset-2 bg-primary-50' : 'bg-surface-100'
               }`}
             >
-              <span className={`text-base font-bold w-8 shrink-0 text-center ${currency === c.code ? 'text-primary-600' : 'text-ink-tertiary'}`}>
-                {c.symbol}
-              </span>
-              <div className="min-w-0">
-                <div className={`text-xs font-semibold leading-none ${currency === c.code ? 'text-primary-700' : 'text-ink'}`}>{c.code}</div>
-                <div className="text-xs text-ink-tertiary mt-0.5 truncate">{c.label}</div>
-              </div>
-              {currency === c.code && <Check className="w-3.5 h-3.5 text-primary-600 ml-auto shrink-0" />}
-            </button>
-          ))}
+              {logo ? <img src={mediaUrl(logo)} alt="logo" className="w-full h-full object-cover" /> : <Building2 className={`w-7 h-7 ${dragLogo ? 'text-primary-500' : 'text-ink-disabled'}`} />}
+            </div>
+            <div className="flex items-center gap-2">
+              <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={e => uploadLogo(e.target.files?.[0])} />
+              <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading} className="btn-secondary btn-md flex items-center gap-2">
+                {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />} {t('settings.branding.upload')}
+              </button>
+              {logo && <button type="button" onClick={() => setLogo('')} className="btn-secondary btn-md text-red-600">{t('settings.branding.removeLogo')}</button>}
+            </div>
+          </div>
         </div>
-      </div>
 
-      {/* Logo */}
-      <div>
-        <label className="block text-sm font-medium text-ink mb-1.5">{t('settings.branding.logo')}</label>
-        <div className="flex items-center gap-4">
-          <div
-            onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setDragLogo(true); }}
-            onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setDragLogo(true); }}
-            onDragLeave={(e) => { e.stopPropagation(); if (!e.currentTarget.contains(e.relatedTarget)) setDragLogo(false); }}
-            onDrop={(e) => { e.preventDefault(); e.stopPropagation(); setDragLogo(false); const f = e.dataTransfer.files?.[0]; if (f) uploadLogo(f); }}
-            onClick={() => fileRef.current?.click()}
-            className={`w-16 h-16 rounded-2xl flex items-center justify-center overflow-hidden shrink-0 cursor-pointer transition-all ${
-              dragLogo ? 'ring-2 ring-primary-400 ring-offset-2 bg-primary-50' : 'bg-surface-100'
-            }`}
-          >
-            {logo ? <img src={mediaUrl(logo)} alt="logo" className="w-full h-full object-cover" /> : <Building2 className={`w-7 h-7 ${dragLogo ? 'text-primary-500' : 'text-ink-disabled'}`} />}
+        {/* Brand color — vaqtincha yopilgan */}
+        {SHOW_BRAND_COLOR_PICKER && <>
+        <div>
+          <label className="block text-sm font-medium text-ink mb-2">{t('settings.branding.brandColor')}</label>
+          <div className="flex flex-wrap items-center gap-2 mb-3">
+            <button type="button" onClick={() => setColor('')} title={t('settings.branding.defaultGreen')}
+              className={`w-8 h-8 rounded-full border-2 flex items-center justify-center ${!color ? 'border-ink' : 'border-transparent'}`}
+              style={{ backgroundColor: '#059669' }}>
+              {!color && <Check className="w-4 h-4 text-white" />}
+            </button>
+            <div className="w-px h-6 bg-surface-200 mx-1" />
+            {BRAND_PRESETS.map(c => (
+              <button key={c} type="button" onClick={() => setColor(c)}
+                className={`w-8 h-8 rounded-full border-2 flex items-center justify-center ${color.toLowerCase() === c ? 'border-ink' : 'border-transparent'}`}
+                style={{ backgroundColor: c }}>
+                {color.toLowerCase() === c && <Check className="w-4 h-4 text-white" />}
+              </button>
+            ))}
           </div>
           <div className="flex items-center gap-2">
-            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={e => uploadLogo(e.target.files?.[0])} />
-            <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading} className="btn-secondary btn-md flex items-center gap-2">
-              {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />} {t('settings.branding.upload')}
-            </button>
-            {logo && <button type="button" onClick={() => setLogo('')} className="btn-secondary btn-md text-red-600">{t('settings.branding.removeLogo')}</button>}
+            <input type="color" value={color || '#059669'} onChange={e => setColor(e.target.value)} className="w-10 h-10 rounded-lg border border-surface-200 cursor-pointer bg-white p-0.5" />
+            <input className="input font-mono w-32" value={color} onChange={e => setColor(e.target.value)} placeholder="#059669" maxLength={7} />
+            <span className="text-xs text-ink-tertiary">{color ? t('settings.branding.customColor') : t('settings.branding.defaultGreen')}</span>
           </div>
         </div>
-      </div>
 
-      {/* Brand color */}
-      <div>
-        <label className="block text-sm font-medium text-ink mb-2">{t('settings.branding.brandColor')}</label>
-        <div className="flex flex-wrap items-center gap-2 mb-3">
-          <button type="button" onClick={() => setColor('')} title={t('settings.branding.defaultGreen')}
-            className={`w-8 h-8 rounded-full border-2 flex items-center justify-center ${!color ? 'border-ink' : 'border-transparent'}`}
-            style={{ backgroundColor: '#059669' }}>
-            {!color && <Check className="w-4 h-4 text-white" />}
+        {/* Sidebar/topbar asl rang opsiyasi */}
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="font-medium text-ink text-sm">{t('settings.branding.solidTitle')}</p>
+            <p className="text-xs text-ink-tertiary mt-1 leading-relaxed">{t('settings.branding.solidHint')}</p>
+          </div>
+          <button type="button" onClick={() => setSolid(s => !s)} disabled={saving}
+            className={`relative shrink-0 w-11 h-6 rounded-full transition-colors ${solid ? 'bg-primary-600' : 'bg-surface-200'} disabled:opacity-60`}>
+            <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${solid ? 'translate-x-5' : ''}`} />
           </button>
-          <div className="w-px h-6 bg-surface-200 mx-1" />
-          {BRAND_PRESETS.map(c => (
-            <button key={c} type="button" onClick={() => setColor(c)}
-              className={`w-8 h-8 rounded-full border-2 flex items-center justify-center ${color.toLowerCase() === c ? 'border-ink' : 'border-transparent'}`}
-              style={{ backgroundColor: c }}>
-              {color.toLowerCase() === c && <Check className="w-4 h-4 text-white" />}
-            </button>
-          ))}
         </div>
-        <div className="flex items-center gap-2">
-          <input type="color" value={color || '#059669'} onChange={e => setColor(e.target.value)} className="w-10 h-10 rounded-lg border border-surface-200 cursor-pointer bg-white p-0.5" />
-          <input className="input font-mono w-32" value={color} onChange={e => setColor(e.target.value)} placeholder="#059669" maxLength={7} />
-          <span className="text-xs text-ink-tertiary">{color ? t('settings.branding.customColor') : t('settings.branding.defaultGreen')}</span>
-        </div>
-      </div>
+        </>}
 
-      {/* Sidebar/topbar asl rang opsiyasi */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="font-medium text-ink text-sm">{t('settings.branding.solidTitle')}</p>
-          <p className="text-xs text-ink-tertiary mt-1 leading-relaxed">{t('settings.branding.solidHint')}</p>
+        {/* Preview */}
+        <div className="card card-body">
+          <p className="text-xs font-semibold text-ink-tertiary uppercase tracking-wide mb-3">{t('settings.branding.preview')}</p>
+          <div className="flex items-center gap-3 flex-wrap">
+            <button className="btn-primary btn-md">{t('settings.branding.primaryBtn')}</button>
+            <span className="badge" style={{ backgroundColor: 'rgb(var(--p-50))', color: 'rgb(var(--p-700))' }}>{t('settings.branding.badge')}</span>
+            <span className="text-primary-600 font-semibold">{t('settings.branding.linkText')}</span>
+            <div className="w-8 h-8 rounded-lg bg-primary-600" />
+            <div className="w-8 h-8 rounded-lg bg-primary-800" />
+          </div>
         </div>
-        <button type="button" onClick={() => setSolid(s => !s)} disabled={saving}
-          className={`relative shrink-0 w-11 h-6 rounded-full transition-colors ${solid ? 'bg-primary-600' : 'bg-surface-200'} disabled:opacity-60`}>
-          <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${solid ? 'translate-x-5' : ''}`} />
-        </button>
-      </div>
-
-      {/* Preview */}
-      <div className="card card-body">
-        <p className="text-xs font-semibold text-ink-tertiary uppercase tracking-wide mb-3">{t('settings.branding.preview')}</p>
-        <div className="flex items-center gap-3 flex-wrap">
-          <button className="btn-primary btn-md">{t('settings.branding.primaryBtn')}</button>
-          <span className="badge" style={{ backgroundColor: 'rgb(var(--p-50))', color: 'rgb(var(--p-700))' }}>{t('settings.branding.badge')}</span>
-          <span className="text-primary-600 font-semibold">{t('settings.branding.linkText')}</span>
-          <div className="w-8 h-8 rounded-lg bg-primary-600" />
-          <div className="w-8 h-8 rounded-lg bg-primary-800" />
-        </div>
-      </div>
+      </>}
 
       <div className="flex justify-end">
         <button onClick={save} disabled={saving} className="btn-primary btn-md flex items-center gap-2">
@@ -538,15 +578,26 @@ function FunnelsTab() {
 /* ─── TasksTab ───────────────────────────────────────────── */
 function TasksTab() {
   const [stages,  setStages]  = useState([]);
+  const [tasks,   setTasks]   = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving,  setSaving]  = useState(false);
 
   useEffect(() => {
-    axios.get(`${API_URL}/organization/task-stages`)
-      .then(r => setStages(r.data.stages || []))
+    Promise.all([
+      axios.get(`${API_URL}/organization/task-stages`),
+      axios.get(`${API_URL}/tasks`, { params: { limit: 1000 } }),
+    ])
+      .then(([stagesRes, tasksRes]) => {
+        setStages(stagesRes.data.stages || []);
+        setTasks(tasksRes.data.tasks || []);
+      })
       .catch(() => toast.error('Yuklanishda xato'))
       .finally(() => setLoading(false));
   }, []);
+
+  const doneStageIds = new Set(stages.filter(s => s.isDone).map(s => String(s._id || s.name)));
+  const doneCount    = tasks.filter(t => doneStageIds.has(String(t.stageId))).length;
+  const pendingCount = tasks.length - doneCount;
 
   const genId = () => Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 6);
 
@@ -584,9 +635,22 @@ function TasksTab() {
       <div className="flex items-center justify-between">
         <div>
           <h3 className="font-semibold text-ink">Vazifalar bosqichlari</h3>
-          <p className="text-sm text-ink-tertiary mt-0.5">Kanban ustunlarini sozlang</p>
+          <p className="text-sm text-ink-tertiary mt-0.5">Kanban ustunlarini sozlang. "Bajarilgan" belgisi qo'yilgan bosqichdagi vazifalar yakunlangan hisoblanadi.</p>
         </div>
       </div>
+
+      {doneStageIds.size > 0 && (
+        <div className="flex items-center gap-4 px-4 py-3 bg-surface-50 rounded-xl border border-surface-100">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-green-500 shrink-0" />
+            <span className="text-sm text-ink-secondary">Bajarilgan: <span className="font-semibold text-ink">{doneCount}</span></span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
+            <span className="text-sm text-ink-secondary">Yakunlanmagan: <span className="font-semibold text-ink">{pendingCount}</span></span>
+          </div>
+        </div>
+      )}
 
       <div className="space-y-2">
         {stages.map((s, i) => (
@@ -603,6 +667,15 @@ function TasksTab() {
               value={s.name}
               onChange={e => updateStage(i, 'name', e.target.value)}
             />
+            <label className="flex items-center gap-1.5 shrink-0 px-2 py-1 rounded-lg hover:bg-surface-50 cursor-pointer" title="Bajarilgan bosqich">
+              <input
+                type="checkbox"
+                className="accent-green-600 w-3.5 h-3.5 rounded"
+                checked={!!s.isDone}
+                onChange={e => updateStage(i, 'isDone', e.target.checked)}
+              />
+              <span className="text-xs text-ink-tertiary whitespace-nowrap">Bajarilgan</span>
+            </label>
             <button onClick={() => moveStage(i, -1)} disabled={i === 0}
               className="p-1.5 rounded-lg hover:bg-surface-100 text-ink-disabled hover:text-ink-tertiary disabled:opacity-30 transition-colors">
               <ChevronUp className="w-3.5 h-3.5" />
@@ -671,8 +744,8 @@ function DealSourcesTab() {
   return (
     <div className="space-y-5 max-w-lg">
       <div>
-        <h3 className="font-semibold text-ink">Soudalar manbalari</h3>
-        <p className="text-sm text-ink-tertiary mt-0.5">Souda qo'shishda tanlash mumkin bo'lgan manbalar</p>
+        <h3 className="font-semibold text-ink">Savdolar manbalari</h3>
+        <p className="text-sm text-ink-tertiary mt-0.5">Savdo qo'shishda tanlash mumkin bo'lgan manbalar</p>
       </div>
 
       <div className="space-y-2">
@@ -709,6 +782,480 @@ function DealSourcesTab() {
           Saqlash
         </button>
       </div>
+    </div>
+  );
+}
+
+/* ─── Lead Forms ─────────────────────────────────────────── */
+const FORM_FIELD_TYPES = [
+  { value: 'text',        label: 'Matn' },
+  { value: 'textarea',    label: 'Katta matn' },
+  { value: 'number',      label: 'Son' },
+  { value: 'phone',       label: 'Telefon' },
+  { value: 'email',       label: 'Email' },
+  { value: 'url',         label: 'URL' },
+  { value: 'date',        label: 'Sana' },
+  { value: 'boolean',     label: "Ha / Yo'q" },
+  { value: 'dropdown',    label: 'Dropdown (1 ta)' },
+  { value: 'multiselect', label: "Dropdown (ko'p)" },
+];
+const FORM_NEEDS_OPTIONS = ['dropdown', 'multiselect'];
+const leadFormUid = () => Math.random().toString(36).slice(2, 10);
+const publicFormUrl = (slug) => `${window.location.origin}/f/${slug}`;
+const formQrUrl = (slug, size = 220) =>
+  `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(publicFormUrl(slug))}`;
+
+function LeadFormModal({ initial, funnels, onClose, onSaved }) {
+  const isEdit = Boolean(initial?._id);
+  const [name,     setName]     = useState(initial?.name || '');
+  const [headline, setHeadline] = useState(initial?.headline || "Biz bilan bog'laning");
+  const [subtext,  setSubtext]  = useState(initial?.subtext || '');
+  const [color,    setColor]    = useState(initial?.color || '');
+  const [funnelId, setFunnelId] = useState(initial?.funnel?._id || initial?.funnel || funnels[0]?._id || '');
+  const [stageId,  setStageId]  = useState(initial?.stageId || '');
+  const [fields,   setFields]   = useState(initial?.fields || []);
+  const [saving,   setSaving]   = useState(false);
+
+  const [addingField, setAddingField] = useState(false);
+  const [newField,    setNewField]    = useState({ key: '', type: 'text', options: [] });
+  const [newOption,   setNewOption]   = useState('');
+
+  const selectedFunnel = funnels.find(f => String(f._id) === String(funnelId));
+  const stages = selectedFunnel?.stages || [];
+
+  useEffect(() => {
+    if (!stageId && stages.length > 0) setStageId(String(stages[0]._id));
+  }, [stages, stageId]);
+
+  const removeField = (id) => setFields(prev => prev.filter(f => f.id !== id));
+
+  const confirmAddField = () => {
+    const key = newField.key.trim();
+    if (!key) return;
+    if (FORM_NEEDS_OPTIONS.includes(newField.type) && newField.options.length === 0) return;
+    setFields(prev => [...prev, {
+      id: leadFormUid(), key, type: newField.type, required: false,
+      ...(FORM_NEEDS_OPTIONS.includes(newField.type) ? { options: newField.options } : {}),
+    }]);
+    setNewField({ key: '', type: 'text', options: [] });
+    setNewOption('');
+    setAddingField(false);
+  };
+
+  const toggleRequired = (id) => setFields(prev => prev.map(f => f.id === id ? { ...f, required: !f.required } : f));
+
+  const submit = async () => {
+    if (!name.trim()) return toast.error('Forma nomi kiritilishi shart');
+    if (!funnelId)     return toast.error('Voronka tanlanishi shart');
+    if (!stageId)       return toast.error('Bosqich tanlanishi shart');
+    setSaving(true);
+    const payload = { name: name.trim(), headline, subtext, color, funnel: funnelId, stageId, fields };
+    try {
+      if (isEdit) await axios.put(`${API_URL}/lead-forms/${initial._id}`, payload);
+      else await axios.post(`${API_URL}/lead-forms`, payload);
+      toast.success(isEdit ? 'Forma yangilandi' : 'Forma yaratildi');
+      onSaved();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Xato yuz berdi');
+    } finally { setSaving(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-modal w-full max-w-lg max-h-[90dvh] flex flex-col">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-surface-100 shrink-0">
+          <h3 className="font-semibold text-ink">{isEdit ? 'Formani tahrirlash' : 'Yangi forma'}</h3>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-ink-tertiary hover:bg-surface-100"><X className="w-4 h-4" /></button>
+        </div>
+
+        <div className="p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
+          <div>
+            <label className="block text-sm font-medium text-ink mb-1.5">Forma nomi</label>
+            <input className="input" value={name} onChange={e => setName(e.target.value)}
+              placeholder="Masalan: Sayt aloqa formasi" autoFocus />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-ink mb-1.5">Voronka</label>
+              <select className="input" value={funnelId} onChange={e => { setFunnelId(e.target.value); setStageId(''); }}>
+                {funnels.map(f => <option key={f._id} value={f._id}>{f.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-ink mb-1.5">Bosqich</label>
+              <select className="input" value={stageId} onChange={e => setStageId(e.target.value)}>
+                {stages.map(s => <option key={s._id} value={String(s._id)}>{s.name}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-ink mb-1.5">Sarlavha (forma sahifasida)</label>
+            <input className="input" value={headline} onChange={e => setHeadline(e.target.value)} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-ink mb-1.5">Qo'shimcha izoh</label>
+            <textarea className="input resize-none" rows={2} value={subtext} onChange={e => setSubtext(e.target.value)}
+              placeholder="Ixtiyoriy..." />
+          </div>
+
+          {/* Forma rangi */}
+          <div>
+            <label className="block text-sm font-medium text-ink mb-1.5">Forma rangi</label>
+            <div className="flex flex-wrap items-center gap-2 mb-2">
+              <button type="button" onClick={() => setColor('')} title="Tashkilot brend rangi"
+                className={`w-8 h-8 rounded-full border-2 flex items-center justify-center bg-gradient-to-br from-primary-500 to-primary-700 ${!color ? 'border-ink' : 'border-transparent'}`}>
+                {!color && <Check className="w-4 h-4 text-white" />}
+              </button>
+              <div className="w-px h-6 bg-surface-200 mx-1" />
+              {BRAND_PRESETS.map(c => (
+                <button key={c} type="button" onClick={() => setColor(c)}
+                  className={`w-8 h-8 rounded-full border-2 flex items-center justify-center ${color.toLowerCase() === c ? 'border-ink' : 'border-transparent'}`}
+                  style={{ backgroundColor: c }}>
+                  {color.toLowerCase() === c && <Check className="w-4 h-4 text-white" />}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-2">
+              <input type="color" value={color || '#16a34a'} onChange={e => setColor(e.target.value)}
+                className="w-10 h-10 rounded-lg border border-surface-200 cursor-pointer bg-white p-0.5" />
+              <input className="input font-mono w-32" value={color} onChange={e => setColor(e.target.value)} placeholder="#16a34a" maxLength={7} />
+              <span className="text-xs text-ink-tertiary">{color ? 'Maxsus rang' : 'Tashkilot brend rangi'}</span>
+            </div>
+          </div>
+
+          {/* Fixed fields note */}
+          <div className="flex items-center gap-2 px-3 py-2 bg-surface-50 rounded-lg text-xs text-ink-tertiary">
+            <ClipboardList className="w-3.5 h-3.5 shrink-0" />
+            Har bir formada <span className="font-medium text-ink">Ism</span> va <span className="font-medium text-ink">Telefon</span> maydonlari doim bo'ladi (majburiy).
+          </div>
+
+          {/* Extra fields */}
+          <div>
+            <p className="text-xs font-semibold text-ink-tertiary uppercase tracking-wider mb-2">Qo'shimcha savollar</p>
+            <div className="space-y-1">
+              {fields.map(field => (
+                <div key={field.id} className="flex items-center gap-3 py-2 border-b border-surface-50 group/field">
+                  <span className="flex-1 text-sm text-ink">{field.key}</span>
+                  <span className="text-xs text-ink-tertiary bg-surface-100 px-2 py-0.5 rounded-full shrink-0">
+                    {FORM_FIELD_TYPES.find(t => t.value === field.type)?.label}
+                  </span>
+                  <label className="flex items-center gap-1 text-[11px] text-ink-tertiary shrink-0 cursor-pointer">
+                    <input type="checkbox" className="accent-primary-600 w-3.5 h-3.5" checked={!!field.required}
+                      onChange={() => toggleRequired(field.id)} />
+                    Majburiy
+                  </label>
+                  <button onClick={() => removeField(field.id)}
+                    className="shrink-0 opacity-0 group-hover/field:opacity-100 p-1 rounded text-ink-tertiary hover:text-red-500 transition-all">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+              {fields.length === 0 && !addingField && (
+                <p className="text-xs text-ink-tertiary py-2">Hali qo'shimcha savol yo'q</p>
+              )}
+
+              {addingField ? (
+                <div className="pt-3 space-y-2.5">
+                  <div className="flex gap-2">
+                    <input autoFocus className="input flex-1 text-sm" placeholder="Savol matni..."
+                      value={newField.key} onChange={e => setNewField(f => ({ ...f, key: e.target.value }))}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' && !FORM_NEEDS_OPTIONS.includes(newField.type)) confirmAddField();
+                        if (e.key === 'Escape') { setAddingField(false); setNewField({ key: '', type: 'text', options: [] }); setNewOption(''); }
+                      }} />
+                    <div className="relative w-36 shrink-0">
+                      <select className="input appearance-none pr-7 text-sm" value={newField.type}
+                        onChange={e => setNewField(f => ({ ...f, type: e.target.value, options: [] }))}>
+                        {FORM_FIELD_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                      </select>
+                      <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-ink-tertiary pointer-events-none" />
+                    </div>
+                  </div>
+
+                  {FORM_NEEDS_OPTIONS.includes(newField.type) && (
+                    <div className="pl-1 space-y-1.5">
+                      <p className="text-xs text-ink-tertiary">Variantlar {newField.options.length === 0 && <span className="text-red-400">(kamida 1 ta)</span>}</p>
+                      {newField.options.map((opt, i) => (
+                        <div key={i} className="flex items-center gap-2">
+                          <span className="flex-1 text-sm text-ink bg-surface-50 px-2.5 py-1 rounded-lg">{opt}</span>
+                          <button onClick={() => setNewField(f => ({ ...f, options: f.options.filter((_, j) => j !== i) }))}
+                            className="p-1 text-ink-tertiary hover:text-red-500 transition-colors">
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                      <div className="flex gap-2">
+                        <input className="input flex-1 text-sm" placeholder="Variant nomi..."
+                          value={newOption} onChange={e => setNewOption(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              if (newOption.trim()) { setNewField(f => ({ ...f, options: [...f.options, newOption.trim()] })); setNewOption(''); }
+                            }
+                          }} />
+                        <button onClick={() => {
+                          if (newOption.trim()) { setNewField(f => ({ ...f, options: [...f.options, newOption.trim()] })); setNewOption(''); }
+                        }} className="btn-sm btn-secondary shrink-0">
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex gap-2">
+                    <button onClick={confirmAddField} className="btn-sm btn-primary flex-1">
+                      <Check className="w-3.5 h-3.5" /> Qo'shish
+                    </button>
+                    <button onClick={() => { setAddingField(false); setNewField({ key: '', type: 'text', options: [] }); setNewOption(''); }}
+                      className="btn-sm btn-secondary flex-1">
+                      Bekor
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button onClick={() => setAddingField(true)}
+                  className="mt-2 flex items-center gap-1.5 text-xs text-ink-tertiary hover:text-primary-600 transition-colors py-2">
+                  <Plus className="w-3.5 h-3.5" /> Savol qo'shish
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-2 px-6 py-4 border-t border-surface-100 shrink-0">
+          <button onClick={onClose} className="btn-secondary btn-md">Bekor</button>
+          <button onClick={submit} disabled={saving} className="btn-primary btn-md flex items-center gap-2">
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+            Saqlash
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LeadFormsTab() {
+  const [forms,   setForms]   = useState([]);
+  const [funnels, setFunnels] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [modal,   setModal]   = useState(null);
+  const [delModal, setDelModal] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const load = async () => {
+    try {
+      const [formsRes, funnelsRes] = await Promise.all([
+        axios.get(`${API_URL}/lead-forms`),
+        axios.get(`${API_URL}/funnels`),
+      ]);
+      setForms(formsRes.data.forms || []);
+      setFunnels(funnelsRes.data.funnels || []);
+    } catch { toast.error('Yuklashda xato'); }
+    finally { setLoading(false); }
+  };
+  useEffect(() => { load(); }, []);
+
+  const copyLink = (slug) => {
+    navigator.clipboard.writeText(publicFormUrl(slug))
+      .then(() => toast.success('Havola nusxalandi'))
+      .catch(() => toast.error('Nusxalab bo\'lmadi'));
+  };
+
+  const toggleActive = async (form) => {
+    try {
+      await axios.put(`${API_URL}/lead-forms/${form._id}`, { active: !form.active });
+      setForms(prev => prev.map(f => f._id === form._id ? { ...f, active: !f.active } : f));
+    } catch { toast.error('Xato'); }
+  };
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      await axios.delete(`${API_URL}/lead-forms/${delModal._id}`);
+      setForms(prev => prev.filter(f => f._id !== delModal._id));
+      toast.success("Forma o'chirildi");
+      setDelModal(null);
+    } catch { toast.error('Xato'); }
+    finally { setDeleting(false); }
+  };
+
+  if (loading) return <div className="py-10 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto text-primary-400" /></div>;
+
+  return (
+    <div className="space-y-5 max-w-2xl">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="font-semibold text-ink">Lid formalar</h3>
+          <p className="text-sm text-ink-tertiary mt-0.5">Saytga/ijtimoiy tarmoqlarga joylashtiring — to'ldirilgan arizalar tanlangan voronkaga tushadi.</p>
+        </div>
+        <button onClick={() => setModal({ initial: null })} className="btn-primary btn-md flex items-center gap-2 shrink-0">
+          <Plus className="w-4 h-4" /> Yangi forma
+        </button>
+      </div>
+
+      {funnels.length === 0 && (
+        <p className="text-sm text-ink-tertiary">Avval Varonkalar bo'limida voronka yarating.</p>
+      )}
+
+      <div className="space-y-2">
+        {forms.map(form => (
+          <div key={form._id} className="flex items-center gap-3 p-3 border border-surface-200 rounded-xl">
+            <img src={formQrUrl(form.slug, 64)} alt="QR" className="w-12 h-12 rounded-lg border border-surface-100 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-medium text-ink truncate">{form.name}</p>
+                {!form.active && (
+                  <span className="text-[10px] font-medium text-ink-tertiary bg-surface-100 px-1.5 py-0.5 rounded-full shrink-0">Nofaol</span>
+                )}
+              </div>
+              <p className="text-xs text-ink-tertiary truncate">{form.funnel?.name || '—'} · {form.submitCount || 0} ta ariza</p>
+              <button onClick={() => copyLink(form.slug)}
+                className="flex items-center gap-1 text-[11px] text-primary-600 hover:text-primary-700 mt-0.5">
+                <Link2 className="w-3 h-3" /> {publicFormUrl(form.slug)} <Copy className="w-3 h-3" />
+              </button>
+            </div>
+            <div className="flex items-center gap-1 shrink-0">
+              <button onClick={() => toggleActive(form)} title={form.active ? "O'chirish" : 'Yoqish'}
+                className="p-1.5 rounded-lg text-ink-tertiary hover:bg-surface-100 hover:text-ink transition-colors">
+                {form.active ? <ToggleRight className="w-4 h-4 text-green-600" /> : <ToggleLeft className="w-4 h-4" />}
+              </button>
+              <button onClick={() => setModal({ initial: form })}
+                className="p-1.5 rounded-lg text-ink-tertiary hover:bg-surface-100 hover:text-ink transition-colors">
+                <Pencil className="w-3.5 h-3.5" />
+              </button>
+              <button onClick={() => setDelModal(form)}
+                className="p-1.5 rounded-lg text-ink-tertiary hover:bg-red-50 hover:text-red-500 transition-colors">
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        ))}
+        {forms.length === 0 && (
+          <p className="text-sm text-ink-tertiary py-4 text-center">Hali forma yo'q</p>
+        )}
+      </div>
+
+      {modal && (
+        <LeadFormModal initial={modal.initial} funnels={funnels}
+          onClose={() => setModal(null)}
+          onSaved={() => { setModal(null); load(); }} />
+      )}
+
+      {delModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-[340px]">
+            <p className="text-base font-semibold text-ink mb-1">Formani o'chirish</p>
+            <p className="text-sm text-ink-tertiary mb-5">
+              <span className="font-medium text-ink">{delModal.name}</span> formasi o'chiriladi. Havola ishlamay qoladi.
+            </p>
+            <div className="flex gap-2">
+              <button onClick={() => setDelModal(null)} className="btn-md btn-secondary flex-1">Bekor</button>
+              <button onClick={handleDelete} disabled={deleting}
+                className="btn-md flex-1 bg-red-500 hover:bg-red-600 text-white rounded-xl font-medium transition-colors">
+                O'chirish
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── ModulesTab — top bar/sidebar'da qaysi modullar ko'rinsin ──── */
+function ModulesTab() {
+  const t = useT();
+  const dispatch = useDispatch();
+  const [loaded,  setLoaded]  = useState(false);
+  const [saving,  setSaving]  = useState(false);
+  const [navOrder, setNavOrder] = useState([]);
+  const [navHidden, setNavHidden] = useState([]);
+  const [navHiddenSaved, setNavHiddenSaved] = useState([]);
+  const [savingModules, setSavingModules] = useState(false);
+
+  useEffect(() => {
+    axios.get(`${API_URL}/organization`).then(res => {
+      const s = res.data.organization?.settings || {};
+      setNavOrder(s.navOrder?.length ? s.navOrder : NAV_ITEMS.map(i => i.key));
+      const hm = Array.isArray(s.hiddenModules) ? s.hiddenModules : [];
+      setNavHidden(hm);
+      setNavHiddenSaved(hm);
+    }).catch(() => toast.error(t('settings.general.error')))
+      .finally(() => setLoaded(true));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const syncSettings = (org) => {
+    if (org?.settings) dispatch(setOrganization({ settings: org.settings }));
+  };
+
+  const toggleNavHidden = (key, item) => {
+    setNavHidden(prev => {
+      if (prev.includes(key)) return prev.filter(k => k !== key);
+      const next = [...prev, key];
+      if (item?.children) item.children.forEach(c => { if (!next.includes(c.key)) next.push(c.key); });
+      return next;
+    });
+  };
+
+  const saveNavHidden = async () => {
+    setSavingModules(true);
+    const prev = navHiddenSaved;
+    try {
+      const res = await axios.put(`${API_URL}/organization/settings`, { hiddenModules: navHidden });
+      syncSettings(res.data.organization);
+      setNavHiddenSaved(navHidden);
+      toast.success(t('settings.general.saved'));
+    } catch { setNavHidden(prev); setNavHiddenSaved(prev); toast.error(t('settings.general.error')); }
+    finally { setSavingModules(false); }
+  };
+
+  if (!loaded) return <div className="py-10 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto text-primary-400" /></div>;
+
+  return (
+    <div className="space-y-5 max-w-2xl">
+      <div>
+        <h3 className="font-semibold text-ink">Modullar ko'rinishi</h3>
+        <p className="text-sm text-ink-tertiary mt-0.5">Yuqori panel va menyuda qaysi modullar ko'rinsin yoki ko'rinmasin — bu barcha foydalanuvchilarga tegishli.</p>
+      </div>
+      <div className="bg-white rounded-xl border border-surface-200 shadow-card overflow-hidden">
+        {NAV_ITEMS.map((item, itemIdx, arr) => {
+          const isHidden = navHidden.includes(item.key);
+          const isLast   = itemIdx === arr.length - 1;
+          return (
+            <div key={item.key} className={!isLast ? 'border-b border-surface-100' : ''}>
+              <div className={`flex items-center gap-3 px-4 py-3 transition-colors ${isHidden ? 'bg-surface-50' : 'bg-white'}`}>
+                <item.icon className={`w-4 h-4 shrink-0 ${isHidden ? 'text-ink-disabled' : 'text-ink-secondary'}`} />
+                <span className={`flex-1 text-sm font-medium ${isHidden ? 'text-ink-disabled line-through' : 'text-ink'}`}>
+                  {t('nav.' + item.key)}
+                </span>
+                <button type="button" disabled={savingModules}
+                  onClick={() => toggleNavHidden(item.key, item)}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${isHidden
+                    ? 'bg-surface-100 text-ink-tertiary hover:bg-surface-200'
+                    : 'bg-primary-50 text-primary-700 hover:bg-primary-100'}`}>
+                  {isHidden ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  {isHidden ? 'Yashirin' : "Ko'rinadi"}
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {JSON.stringify(navHidden.slice().sort()) !== JSON.stringify(navHiddenSaved.slice().sort()) && (
+        <div className="flex justify-end">
+          <button onClick={saveNavHidden} disabled={savingModules} className="btn-primary btn-md flex items-center gap-2">
+            {savingModules ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+            Saqlash
+          </button>
+        </div>
+      )}
+
+      <NavOrderSection navOrder={navOrder} setNavOrder={setNavOrder} saving={saving} setSaving={setSaving} syncSettings={syncSettings} t={t} />
     </div>
   );
 }
@@ -775,7 +1322,7 @@ function GoalsTab() {
     <div className="space-y-6 max-w-xl">
       <div>
         <h3 className="font-semibold text-ink">Maqsadlar (Цели)</h3>
-        <p className="text-sm text-ink-tertiary mt-0.5">Jami va xodimlar bo'yicha souda maqsadlarini belgilang</p>
+        <p className="text-sm text-ink-tertiary mt-0.5">Jami va xodimlar bo'yicha savdo maqsadlarini belgilang</p>
       </div>
 
       {/* Jami maqsad */}
@@ -788,7 +1335,7 @@ function GoalsTab() {
               value={totalSum} onChange={e => setTotalSum(e.target.value)} />
           </div>
           <div>
-            <label className="block text-xs font-medium text-ink mb-1">Soudalar soni</label>
+            <label className="block text-xs font-medium text-ink mb-1">Savdolar soni</label>
             <input className="input" type="number" min="0" placeholder="0"
               value={totalCount} onChange={e => setTotalCount(e.target.value)} />
           </div>
@@ -889,6 +1436,7 @@ function IntegrationsTab() {
   const [emailTestRes,  setEmailTestRes]  = useState(null);
   const [showImapPass,  setShowImapPass]  = useState(false);
   const [showSmtpPass,  setShowSmtpPass]  = useState(false);
+  const [section,       setSection]       = useState('telegram');
 
   useEffect(() => {
     Promise.all([
@@ -1101,6 +1649,13 @@ function IntegrationsTab() {
 
   if (loading) return <div className="py-10 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto text-primary-400" /></div>;
 
+  const INTEGRATION_SECTIONS = [
+    { key: 'telegram', label: 'Telegram' },
+    { key: 'social',   label: 'Ijtimoiy tarmoqlar' },
+    { key: 'email',    label: 'Email' },
+    { key: 'push',     label: 'Bildirishnomalar' },
+  ];
+
   return (
     <div className="space-y-6 max-w-lg">
       <div>
@@ -1108,7 +1663,18 @@ function IntegrationsTab() {
         <p className="text-sm text-ink-tertiary mt-0.5">Tashqi kanallarni CRM ga ulang</p>
       </div>
 
-      {/* Telegram */}
+      {/* Ichki sub-tablar */}
+      <div className="flex gap-1 bg-surface-100 p-1 rounded-xl overflow-x-auto max-w-md no-scrollbar">
+        {INTEGRATION_SECTIONS.map(s => (
+          <button key={s.key} type="button" onClick={() => setSection(s.key)}
+            className={`flex-1 px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${section === s.key ? 'bg-white text-ink shadow-sm' : 'text-ink-tertiary hover:text-ink'}`}>
+            {s.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ══ TELEGRAM ══ */}
+      {section === 'telegram' && <>
       <div className="bg-white border border-surface-200 rounded-2xl overflow-hidden">
         <div className="flex items-center gap-3 px-5 py-4 border-b border-surface-100">
           <div className="w-9 h-9 rounded-xl bg-[#e8f4fb] flex items-center justify-center shrink-0">
@@ -1221,7 +1787,10 @@ function IntegrationsTab() {
           </button>
         </div>
       </div>
+      </>}
 
+      {/* ══ IJTIMOIY TARMOQLAR: Instagram + Facebook + WhatsApp ══ */}
+      {section === 'social' && <>
       {/* Instagram DM */}
       <div className="bg-white border border-surface-200 rounded-2xl overflow-hidden">
         <div className="flex items-center gap-3 px-5 py-4 border-b border-surface-100">
@@ -1287,7 +1856,10 @@ function IntegrationsTab() {
           )}
         </div>
       </div>
+      </>}
 
+      {/* ══ EMAIL ══ */}
+      {section === 'email' && <>
       {/* Email / IMAP+SMTP */}
       <div className="bg-white border border-surface-200 rounded-2xl overflow-hidden">
         <div className="flex items-center gap-3 px-5 py-4 border-b border-surface-100">
@@ -1415,6 +1987,10 @@ function IntegrationsTab() {
         </div>
       </div>
 
+      </>}
+
+      {/* ══ PUSH BILDIRISHNOMALAR ══ */}
+      {section === 'push' && <>
       {/* Push Notifications card */}
       <div className="bg-white border border-surface-200 rounded-2xl px-5 py-4">
         <div className="flex items-center gap-3 mb-3">
@@ -1459,7 +2035,10 @@ function IntegrationsTab() {
           </div>
         )}
       </div>
+      </>}
 
+      {/* ══ IJTIMOIY TARMOQLAR (davomi): Facebook + WhatsApp ══ */}
+      {section === 'social' && <>
       {/* Facebook Messenger */}
       <div className="bg-white border border-surface-200 rounded-2xl overflow-hidden">
         <div className="px-5 py-4 flex items-center gap-3 border-b border-surface-100">
@@ -1566,6 +2145,7 @@ function IntegrationsTab() {
           )}
         </div>
       </div>
+      </>}
     </div>
   );
 }
@@ -4872,6 +5452,18 @@ function TrashTab() {
 const ROLE_ACTIONS = ['view', 'create', 'edit', 'delete'];
 // Leaf nav keys (childless top-level items + every child) — actions apply here.
 const NAV_LEAVES = NAV_ITEMS.flatMap(i => (i.children ? i.children.map(c => c.key) : [i.key]));
+// Modules an admin can toggle per custom role. Decoupled from NAV_ITEMS (the
+// actual navigation bar) so this catalog can include modules like `funnels`
+// that aren't rendered as a fixed nav button (funnels are per-id routes).
+const ROLE_MODULES = [
+  { key: 'dashboard' },
+  { key: 'contacts' },
+  { key: 'tasks' },
+  { key: 'inbox' },
+  { key: 'calls' },
+  { key: 'reviews' },
+  { key: 'funnels' },
+];
 
 function RoleModal({ initial, onClose, onSaved }) {
   const t = useT();
@@ -4978,7 +5570,7 @@ function RoleModal({ initial, onClose, onSaved }) {
                 <span className="flex-1">{t('roles.module')}</span>
                 {ROLE_ACTIONS.map(a => <span key={a} className="w-12 text-center">{t('roles.action' + a[0].toUpperCase() + a.slice(1))}</span>)}
               </div>
-              {NAV_ITEMS.map(item => {
+              {ROLE_MODULES.map(item => {
                 const locked = item.key === 'dashboard';
                 if (!item.children) {
                   const checked = hasModule(item.key) || locked;
@@ -5022,23 +5614,6 @@ function RoleModal({ initial, onClose, onSaved }) {
                               </span>
                             ))}
                           </div>
-                          {child.key === 'production-orders' && checked && (
-                            <div className="pl-10 pr-3 py-2 flex flex-wrap gap-x-5 gap-y-2 bg-amber-50/50 border-t border-amber-100">
-                              <span className="w-full text-[11px] font-medium text-amber-700">{t('roles.prodSubActionsLabel')}</span>
-                              <label className="flex items-center gap-1.5 cursor-pointer">
-                                <input type="checkbox" className="accent-primary-600 w-3.5 h-3.5 rounded"
-                                  checked={actionOn('production-orders', 'editOutputs')}
-                                  onChange={() => toggleAction('production-orders', 'editOutputs')} />
-                                <span className="text-xs text-ink-secondary">{t('roles.prodEditOutputs')}</span>
-                              </label>
-                              <label className="flex items-center gap-1.5 cursor-pointer">
-                                <input type="checkbox" className="accent-primary-600 w-3.5 h-3.5 rounded"
-                                  checked={actionOn('production-orders', 'editComponents')}
-                                  onChange={() => toggleAction('production-orders', 'editComponents')} />
-                                <span className="text-xs text-ink-secondary">{t('roles.prodEditComponents')}</span>
-                              </label>
-                            </div>
-                          )}
                         </React.Fragment>
                       );
                     })}
@@ -5453,6 +6028,9 @@ export default function SettingsPage() {
   const [tab, setTab] = useState(initialTab);
   // Strip'da ko'rinadigan tablar: yashirinlardan tashqari + (URL orqali ochilgan bo'lsa) joriy yashirin tab.
   const visibleTabs = TABS.filter(x => !HIDDEN_TAB_KEYS.includes(x.key) || x.key === tab);
+  // Joriy tab qaysi guruhga tegishli bo'lsa — shu guruh faol; sub-tab strip shu guruh ichidagilarga cheklanadi.
+  const activeGroup = TAB_GROUPS.find(g => g.tabs.includes(tab)) || TAB_GROUPS[0];
+  const subTabs = visibleTabs.filter(x => activeGroup.tabs.includes(x.key));
   const activeTabRef = useRef(null);
 
   // Mobilda scroll-tab: faol tabni avtomatik ko'rinadigan joyga surish.
@@ -5464,6 +6042,7 @@ export default function SettingsPage() {
     <div className="min-h-screen bg-surface-50 flex flex-col">
       <TopBar
         onAccountSettings={() => navigate('/dashboard')}
+        showNav={false}
         left={
           <>
             <button
@@ -5479,10 +6058,34 @@ export default function SettingsPage() {
         }
       />
 
-      {/* Tabs — mobilda gorizontal scroll bo'ladigan strip, desktopda o'zgarmaydi */}
+      {/* Modullar (guruhlar) — birinchi qatlam */}
+      <div className="bg-primary-800/[0.04] border-b border-surface-200 px-4 lg:px-6">
+        <div className="flex gap-1.5 overflow-x-auto no-scrollbar py-2">
+          {TAB_GROUPS.map(g => {
+            const isActive = activeGroup.key === g.key;
+            const GIcon = g.icon;
+            return (
+              <button
+                key={g.key}
+                onClick={() => { if (!isActive) setTab(g.tabs[0]); }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium transition-colors shrink-0 whitespace-nowrap ${
+                  isActive
+                    ? 'bg-primary-600 text-white shadow-sm'
+                    : 'text-ink-secondary hover:bg-white hover:text-ink'
+                }`}
+              >
+                <GIcon className="w-4 h-4 shrink-0" />
+                {t('settings.groups.' + g.key)}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Sub-tablar — ikkinchi qatlam, faqat faol guruhga tegishlilari */}
       <div className="bg-white border-b border-surface-200 px-4 lg:px-6">
         <div className="flex gap-1 overflow-x-auto no-scrollbar">
-          {visibleTabs.map(({ key, icon: Icon, label }) => (
+          {subTabs.map(({ key, icon: Icon, label }) => (
             <button
               key={key}
               ref={tab === key ? activeTabRef : null}
@@ -5503,9 +6106,11 @@ export default function SettingsPage() {
       {/* Content — mobil: p-4, desktop: p-6 (o'zgarmadi) */}
       <main className="flex-1 p-4 lg:p-6 max-w-5xl w-full safe-bottom [--safe-pad:1rem] lg:[--safe-pad:1.5rem]">
         {tab === 'branding'   && <BrandingTab />}
+        {tab === 'modules'    && <ModulesTab />}
         {tab === 'funnels'    && <FunnelsTab />}
         {tab === 'tasks'         && <TasksTab />}
         {tab === 'deal-sources'  && <DealSourcesTab />}
+        {tab === 'lead-forms'    && <LeadFormsTab />}
         {tab === 'goals'         && <GoalsTab />}
         {tab === 'integrations'  && <IntegrationsTab />}
         {tab === 'inbox'         && <QuickReplyTab />}

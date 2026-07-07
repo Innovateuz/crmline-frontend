@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { setTotalUnread } from '../store/inboxSlice';
+import { invalidateContacts } from '../store/contactsSlice';
 import { useT } from '../utils/translate';
 import axios from 'axios';
 import toast from 'react-hot-toast';
@@ -673,6 +674,7 @@ export default function InboxPage() {
         toast.success('Bu kontakt allaqachon mavjud');
       } else {
         toast.success('Kontakt yaratildi');
+        dispatch(invalidateContacts());
       }
       // Reload contact info to show linked contact
       const info = await axios.get(`${API_URL}/inbox/${activeConvId}/contact-info`);

@@ -65,9 +65,9 @@ export function applyTheme(brandColor, solid = false) {
 }
 
 // Mobil/PWA status-bar rangini (meta theme-color) berilgan RGB ga moslaydi.
-// Default — rose 700 (#b9183b), index.html dagi qiymatga mos.
+// Default — brand 700 (#3083cd), index.html dagi qiymatga mos.
 function setThemeColorMeta(rgb) {
   const meta = document.querySelector('meta[name="theme-color"]');
   if (!meta) return;
-  meta.setAttribute('content', rgb ? `rgb(${rgb.join(' ')})` : '#b9183b');
+  meta.setAttribute('content', rgb ? `rgb(${rgb.join(' ')})` : '#3083cd');
 }

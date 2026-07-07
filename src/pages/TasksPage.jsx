@@ -243,7 +243,7 @@ function TaskModal({ initial, stages, users, onSave, onClose, saving }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-modal w-full max-w-md flex flex-col max-h-[90vh]">
+      <div className="relative bg-white rounded-2xl shadow-modal w-full max-w-md flex flex-col max-h-[90dvh]">
         <div className="flex items-center justify-between px-5 py-4 border-b border-surface-100 shrink-0">
           <h2 className="font-semibold text-ink">{initial?._id ? t('tasks.editTask') : t('tasks.newTask')}</h2>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-surface-100 text-ink-tertiary">
@@ -251,7 +251,7 @@ function TaskModal({ initial, stages, users, onSave, onClose, saving }) {
           </button>
         </div>
 
-        <div className="px-5 py-4 space-y-4 overflow-y-auto">
+        <div className="px-5 py-4 space-y-4 overflow-y-auto flex-1 min-h-0">
           {/* Title */}
           <div>
             <label className="block text-xs font-medium text-ink-tertiary mb-1">{t('tasks.modalTitle')}</label>

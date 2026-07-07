@@ -245,14 +245,14 @@ function DealModal({ stageId, stages, contacts, users, deal, isLead, currency, o
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-modal w-full max-w-md flex flex-col max-h-[90vh]">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-surface-100">
+      <div className="relative bg-white rounded-2xl shadow-modal w-full max-w-md flex flex-col max-h-[90dvh]">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-surface-100 shrink-0">
           <h2 className="font-semibold text-ink">
             {deal ? t('funnel.edit') : (isLeadStage ? t('funnel.newLead') : t('funnel.newDeal'))}
           </h2>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-surface-100 text-ink-tertiary"><X className="w-4 h-4" /></button>
         </div>
-        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+        <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-4">
           {/* Title */}
           <div>
             <label className="block text-xs font-medium text-ink mb-1">
@@ -317,7 +317,7 @@ function DealModal({ stageId, stages, contacts, users, deal, isLead, currency, o
             <textarea className="input resize-none text-sm" rows={2} placeholder={t('funnel.notesPlaceholder')} value={notes} onChange={e => setNotes(e.target.value)} />
           </div>
         </div>
-        <div className="flex justify-end gap-2 px-5 py-4 border-t border-surface-100">
+        <div className="flex justify-end gap-2 px-5 py-4 border-t border-surface-100 shrink-0">
           <button onClick={onClose} className="btn-secondary btn-md">{t('deals.cancel')}</button>
           <button onClick={submit} disabled={saving} className="btn-primary btn-md flex items-center gap-2">
             {saving && <Loader2 className="w-4 h-4 animate-spin" />}

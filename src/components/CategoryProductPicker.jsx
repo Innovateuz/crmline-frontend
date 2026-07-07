@@ -121,7 +121,7 @@ export default function CategoryProductPicker({ products, categories = [], value
       {open && createPortal(
         <div className="fixed inset-0 z-[80] flex items-center justify-center p-4" onMouseDown={close}>
           <div className="absolute inset-0 bg-black/40" />
-          <div className="relative bg-white rounded-2xl shadow-modal w-full max-w-2xl max-h-[80vh] flex flex-col"
+          <div className="relative bg-white rounded-2xl shadow-modal w-full max-w-2xl max-h-[80dvh] flex flex-col"
             onMouseDown={e => e.stopPropagation()}>
             {/* Header + qidiruv */}
             <div className="px-4 py-3 border-b border-surface-100 flex items-center gap-2 shrink-0">
@@ -161,7 +161,7 @@ export default function CategoryProductPicker({ products, categories = [], value
             )}
 
             {/* Body */}
-            <div className="overflow-y-auto p-3 flex-1">
+            <div className="overflow-y-auto p-3 flex-1 min-h-0">
               {flat ? (
                 (searchHits || list).length === 0 ? (
                   <p className="text-center text-sm text-ink-tertiary py-10">{t('picker.notFound')}</p>

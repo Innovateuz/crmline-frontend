@@ -375,11 +375,40 @@ function TaskModal({ initial, stages, users, allTags, onSave, onClose, saving, r
     });
   };
 
+  /* ── Mobil bottom-sheet: pastga surib yopish (swipe-to-dismiss) ── */
+  const [dragY,    setDragY]    = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const startYRef = useRef(0);
+
+  const onDragStart = (e) => { startYRef.current = e.touches[0].clientY; setDragging(true); };
+  const onDragMove  = (e) => {
+    const dy = e.touches[0].clientY - startYRef.current;
+    setDragY(dy > 0 ? dy : 0);
+  };
+  const onDragEnd   = () => {
+    setDragging(false);
+    if (dragY > 110) { onClose(); return; }   // yetarlicha pastga surilsa — yopiladi
+    setDragY(0);                               // aks holda — qaytib ko'tariladi
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-end justify-center lg:items-center lg:p-4">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-modal w-full max-w-md flex flex-col max-h-[90dvh]">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-surface-100 shrink-0">
+      <div
+        className="relative bg-white shadow-modal w-full flex flex-col rounded-t-2xl max-h-[92dvh]
+                   animate-[sheetUp_0.3s_ease-out]
+                   lg:rounded-2xl lg:max-w-md lg:max-h-[90dvh] lg:animate-[fadeIn_0.15s_ease-out]"
+        style={{
+          transform:  dragY ? `translateY(${dragY}px)` : undefined,
+          transition: dragging ? 'none' : 'transform 0.25s cubic-bezier(0.32,0.72,0,1)',
+        }}>
+        {/* Drag handle — faqat mobil, pastga surib yopiladi */}
+        <div className="lg:hidden pt-2.5 pb-1 flex justify-center shrink-0 touch-none cursor-grab active:cursor-grabbing"
+          onTouchStart={onDragStart} onTouchMove={onDragMove} onTouchEnd={onDragEnd}>
+          <div className="w-10 h-1.5 rounded-full bg-surface-300" />
+        </div>
+        <div className="flex items-center justify-between px-5 pt-2 pb-4 lg:py-4 border-b border-surface-100 shrink-0 touch-none"
+          onTouchStart={onDragStart} onTouchMove={onDragMove} onTouchEnd={onDragEnd}>
           <div>
             <h2 className="font-semibold text-ink">{readOnly ? t('tasks.viewTask') : initial?._id ? t('tasks.editTask') : t('tasks.newTask')}</h2>
             {initial?._id && initial?.createdBy && (
@@ -536,7 +565,7 @@ function TaskModal({ initial, stages, users, allTags, onSave, onClose, saving, r
         </fieldset>
         </div>
 
-        <div className="flex justify-end gap-2 px-5 py-4 border-t border-surface-100 shrink-0">
+        <div className="flex justify-end gap-2 px-5 pt-4 pb-[calc(1rem_+_env(safe-area-inset-bottom))] lg:pb-4 border-t border-surface-100 shrink-0">
           <button onClick={onClose} className="btn-secondary btn-md">
             {readOnly ? t('tasks.close') : t('tasks.cancel')}
           </button>

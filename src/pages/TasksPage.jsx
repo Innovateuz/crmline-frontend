@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 import { useT } from '../utils/translate';
 import { mediaDownloadUrl } from '../utils/media';
 import {
-  DndContext, DragOverlay, PointerSensor, useSensor, useSensors,
+  DndContext, DragOverlay, MouseSensor, TouchSensor, useSensor, useSensors,
   useDroppable, useDraggable,
 } from '@dnd-kit/core';
 import {
@@ -233,7 +233,7 @@ function TaskCard({ task, onView, onEdit, onArchive, onDelete, overlay = false }
   );
 
   if (overlay) return card;
-  return <div ref={setNodeRef} {...listeners} {...attributes}>{card}</div>;
+  return <div ref={setNodeRef} {...listeners} {...attributes} className="touch-pan-y">{card}</div>;
 }
 
 /* ─── Droppable Column ────────────────────────────────────── */
@@ -690,7 +690,12 @@ export default function TasksPage() {
 
   const allTags = useMemo(() => [...new Set(tasks.flatMap(tk => tk.tags || []))], [tasks]);
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+  const sensors = useSensors(
+    // Desktop: sichqoncha bilan 6px surilsa drag boshlanadi
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    // Telefon: bosib turib (200ms) drag; tez swipe — ustun scroll bo'ladi
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 6 } }),
+  );
 
   const load = useCallback(async () => {
     try {

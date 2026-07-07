@@ -552,8 +552,8 @@ export default function DealDetailPage({ funnelId, dealId }) {
     <div className="flex flex-col h-full">
 
       {/* ── Top bar ── */}
-      <div className="flex items-center justify-between gap-3 lg:gap-4 px-4 lg:px-6 py-3 lg:py-4 border-b border-surface-100 bg-white shrink-0">
-        <div className="flex items-center gap-3 min-w-0">
+      <div className="flex flex-wrap lg:flex-nowrap items-center justify-between gap-x-3 gap-y-2 lg:gap-4 px-4 lg:px-6 py-3 lg:py-4 border-b border-surface-100 bg-white shrink-0">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
           <button onClick={() => navigate(`/funnel/${funnelId}`)}
             className="p-2 rounded-lg text-ink-tertiary hover:text-ink hover:bg-surface-100 transition-colors shrink-0">
             <ArrowLeft className="w-5 h-5" />
@@ -569,7 +569,7 @@ export default function DealDetailPage({ funnelId, dealId }) {
             <span className="text-xs font-medium bg-amber-50 text-amber-600 border border-amber-200 px-2 py-0.5 rounded-full shrink-0">Zayavka</span>
           )}
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 shrink-0 w-full lg:w-auto justify-end">
           {/* F-12: won/lost status badge + buttons */}
           {!isNew && dealStatus === 'won' && (
             <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-xl">

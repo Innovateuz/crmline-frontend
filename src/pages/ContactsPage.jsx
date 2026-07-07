@@ -117,7 +117,7 @@ function ImportModal({ onClose, onDone }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-modal w-full max-w-2xl flex flex-col max-h-[85vh]">
+      <div className="relative bg-white rounded-2xl shadow-modal w-full max-w-2xl flex flex-col max-h-[85dvh]">
         <div className="flex items-center justify-between px-5 py-4 border-b border-surface-100 shrink-0">
           <h2 className="font-semibold text-ink flex items-center gap-2">
             <Upload className="w-4 h-4 text-primary-600" /> CSV import
@@ -139,7 +139,7 @@ function ImportModal({ onClose, onDone }) {
           </div>
         ) : (
           <>
-            <div className="px-5 py-4 space-y-4 overflow-y-auto flex-1">
+            <div className="px-5 py-4 space-y-4 overflow-y-auto flex-1 min-h-0">
               {/* Format hint */}
               <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-700">
                 <p className="font-semibold mb-1">CSV fayl formati:</p>
@@ -242,7 +242,7 @@ function DuplicatesModal({ onClose, onMerged }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-modal w-full max-w-xl flex flex-col max-h-[85vh]">
+      <div className="relative bg-white rounded-2xl shadow-modal w-full max-w-xl flex flex-col max-h-[85dvh]">
         <div className="flex items-center justify-between px-5 py-4 border-b border-surface-100 shrink-0">
           <h2 className="font-semibold text-ink flex items-center gap-2">
             <Copy className="w-4 h-4 text-amber-500" /> Takroriy kontaktlar
@@ -250,7 +250,7 @@ function DuplicatesModal({ onClose, onMerged }) {
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-surface-100 text-ink-tertiary"><X className="w-4 h-4" /></button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3">
           {loading ? (
             <div className="flex items-center justify-center py-12"><Loader2 className="w-5 h-5 animate-spin text-primary-400" /></div>
           ) : groups.length === 0 ? (

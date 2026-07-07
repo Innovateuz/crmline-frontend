@@ -107,7 +107,7 @@ export default function BottomNav() {
         <div className="lg:hidden fixed inset-0 z-50 flex items-end" onClick={() => setShowFunnelPicker(false)}>
           <div className="absolute inset-0 bg-black/40" />
           <div onClick={e => e.stopPropagation()}
-            className="relative w-full bg-white rounded-t-2xl shadow-modal max-h-[70vh] overflow-y-auto safe-bottom">
+            className="relative w-full bg-white rounded-t-2xl shadow-modal max-h-[70dvh] overflow-y-auto safe-bottom">
             <div className="px-5 py-4 border-b border-surface-100">
               <p className="font-semibold text-ink">{t('bottomNav.funnels')}</p>
             </div>

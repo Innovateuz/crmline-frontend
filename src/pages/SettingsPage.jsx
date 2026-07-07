@@ -495,15 +495,15 @@ function FunnelsTab() {
       {showCreate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/40" onClick={closeForm} />
-          <div className="relative bg-white rounded-2xl shadow-modal w-full max-w-lg max-h-[90vh] flex flex-col">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-surface-100">
+          <div className="relative bg-white rounded-2xl shadow-modal w-full max-w-lg max-h-[90dvh] flex flex-col">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-surface-100 shrink-0">
               <h2 className="font-semibold text-ink">{editId ? 'Varonkani tahrirlash' : 'Yangi varonka'}</h2>
               <button onClick={closeForm} className="p-1.5 rounded-lg hover:bg-surface-100 text-ink-tertiary">
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+            <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-5">
               {/* Name */}
               <div>
                 <label className="block text-sm font-medium text-ink mb-1.5">Varonka nomi</label>
@@ -561,7 +561,7 @@ function FunnelsTab() {
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 px-5 py-4 border-t border-surface-100">
+            <div className="flex justify-end gap-2 px-5 py-4 border-t border-surface-100 shrink-0">
               <button onClick={closeForm} className="btn-secondary btn-md">Bekor</button>
               <button onClick={save} disabled={saving} className="btn-primary btn-md flex items-center gap-2">
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
@@ -863,13 +863,13 @@ function LeadFormModal({ initial, funnels, onClose, onSaved }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-modal w-full max-w-lg max-h-[90vh] flex flex-col">
+      <div className="relative bg-white rounded-2xl shadow-modal w-full max-w-lg max-h-[90dvh] flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-surface-100 shrink-0">
           <h3 className="font-semibold text-ink">{isEdit ? 'Formani tahrirlash' : 'Yangi forma'}</h3>
           <button onClick={onClose} className="p-1.5 rounded-lg text-ink-tertiary hover:bg-surface-100"><X className="w-4 h-4" /></button>
         </div>
 
-        <div className="p-6 space-y-4 overflow-y-auto">
+        <div className="p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
           <div>
             <label className="block text-sm font-medium text-ink mb-1.5">Forma nomi</label>
             <input className="input" value={name} onChange={e => setName(e.target.value)}
@@ -3636,14 +3636,14 @@ function Modal({ title, onClose, children, wide }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className={`relative bg-white rounded-2xl shadow-modal w-full ${wide ? 'max-w-2xl' : 'max-w-md'} mx-4 max-h-[90vh] flex flex-col`}>
+      <div className={`relative bg-white rounded-2xl shadow-modal w-full ${wide ? 'max-w-2xl' : 'max-w-md'} mx-4 max-h-[90dvh] flex flex-col`}>
         <div className="flex items-center justify-between px-6 pt-6 pb-4 shrink-0 border-b border-surface-100">
           <h3 className="font-semibold text-ink">{title}</h3>
           <button onClick={onClose} className="text-ink-tertiary hover:text-ink transition-colors">
             <X className="w-4 h-4" />
           </button>
         </div>
-        <div className="overflow-y-auto px-6 py-5">
+        <div className="overflow-y-auto px-6 py-5 flex-1 min-h-0">
           {children}
         </div>
       </div>
@@ -5548,13 +5548,13 @@ function RoleModal({ initial, onClose, onSaved }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-modal w-full max-w-2xl max-h-[90vh] flex flex-col">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-surface-100">
+      <div className="relative bg-white rounded-2xl shadow-modal w-full max-w-2xl max-h-[90dvh] flex flex-col">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-surface-100 shrink-0">
           <h3 className="font-semibold text-ink">{isEdit ? t('roles.editRole') : t('roles.addRole')}</h3>
           <button onClick={onClose} className="p-1.5 rounded-lg text-ink-tertiary hover:bg-surface-100"><X className="w-4 h-4" /></button>
         </div>
 
-        <form onSubmit={submit} className="p-6 space-y-5 overflow-y-auto">
+        <form onSubmit={submit} className="p-6 space-y-5 overflow-y-auto flex-1 min-h-0">
           <div>
             <label className="block text-sm font-medium text-ink mb-1.5">{t('roles.name')}</label>
             <input className="input max-w-sm" value={name} onChange={e => setName(e.target.value)}

@@ -378,7 +378,7 @@ function TaskModal({ initial, stages, users, allTags, onSave, onClose, saving, r
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-modal w-full max-w-md flex flex-col max-h-[90vh]">
+      <div className="relative bg-white rounded-2xl shadow-modal w-full max-w-md flex flex-col max-h-[90dvh]">
         <div className="flex items-center justify-between px-5 py-4 border-b border-surface-100 shrink-0">
           <div>
             <h2 className="font-semibold text-ink">{readOnly ? t('tasks.viewTask') : initial?._id ? t('tasks.editTask') : t('tasks.newTask')}</h2>
@@ -394,7 +394,7 @@ function TaskModal({ initial, stages, users, allTags, onSave, onClose, saving, r
           </button>
         </div>
 
-        <div className="px-5 py-4 overflow-y-auto">
+        <div className="px-5 py-4 overflow-y-auto flex-1 min-h-0">
         <fieldset disabled={readOnly} className="contents space-y-4 border-0 m-0 p-0">
           {/* Title */}
           <div>
@@ -593,7 +593,7 @@ function ArchiveModal({ stages, onClose, onRestored }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-modal w-full max-w-lg max-h-[80vh] flex flex-col">
+      <div className="relative bg-white rounded-2xl shadow-modal w-full max-w-lg max-h-[80dvh] flex flex-col">
         <div className="flex items-center justify-between px-5 py-4 border-b border-surface-100 shrink-0">
           <h2 className="font-semibold text-ink flex items-center gap-2">
             <Archive className="w-4 h-4" /> {t('tasks.archive')}
@@ -602,7 +602,7 @@ function ArchiveModal({ stages, onClose, onRestored }) {
             <X className="w-4 h-4" />
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto px-5 py-3">
+        <div className="flex-1 min-h-0 overflow-y-auto px-5 py-3">
           {loading ? (
             <div className="flex items-center justify-center py-10">
               <Loader2 className="w-6 h-6 animate-spin text-primary-400" />

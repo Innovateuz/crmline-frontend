@@ -552,7 +552,7 @@ export default function DealDetailPage({ funnelId, dealId }) {
     <div className="flex flex-col h-full">
 
       {/* ── Top bar ── */}
-      <div className="flex items-center justify-between gap-4 px-6 py-4 border-b border-surface-100 bg-white shrink-0">
+      <div className="flex items-center justify-between gap-3 lg:gap-4 px-4 lg:px-6 py-3 lg:py-4 border-b border-surface-100 bg-white shrink-0">
         <div className="flex items-center gap-3 min-w-0">
           <button onClick={() => navigate(`/funnel/${funnelId}`)}
             className="p-2 rounded-lg text-ink-tertiary hover:text-ink hover:bg-surface-100 transition-colors shrink-0">
@@ -682,11 +682,11 @@ export default function DealDetailPage({ funnelId, dealId }) {
         </div>
       )}
 
-      {/* ── 2-column body ── */}
-      <div className="flex flex-1 overflow-hidden">
+      {/* ── 2-column body (telefonda vertikal stack, desktopda yonma-yon) ── */}
+      <div className="flex flex-col lg:flex-row flex-1 overflow-y-auto lg:overflow-hidden">
 
         {/* ── LEFT ── */}
-        <div className="w-[460px] xl:w-[520px] shrink-0 border-r border-surface-100 flex flex-col bg-white">
+        <div className="w-full lg:w-[460px] xl:w-[520px] lg:shrink-0 border-b lg:border-b-0 lg:border-r border-surface-100 flex flex-col bg-white">
 
           {/* Title */}
           <div className="px-5 pt-5 pb-4 border-b border-surface-100 shrink-0">
@@ -716,7 +716,7 @@ export default function DealDetailPage({ funnelId, dealId }) {
           </div>
 
           {/* Tab body */}
-          <div className="flex-1 overflow-y-auto px-5 py-4">
+          <div className="lg:flex-1 lg:min-h-0 lg:overflow-y-auto px-5 py-4">
 
             {/* ─── Asosiy tab ─── */}
             {tab === 'main' && (
@@ -1231,13 +1231,13 @@ export default function DealDetailPage({ funnelId, dealId }) {
           </div>
         </div>
 
-        {/* ── RIGHT: Activity feed ── */}
-        <div className="flex-1 flex flex-col min-w-0 bg-surface-50">
+        {/* ── RIGHT: Activity feed (telefonda pastda joylashadi) ── */}
+        <div className="w-full lg:flex-1 flex flex-col lg:min-w-0 bg-surface-50">
           <div className="px-5 py-3 border-b border-surface-100 bg-white shrink-0">
             <p className="text-sm font-semibold text-ink">{t('contactForm.tabActivity')}</p>
             <p className="text-xs text-ink-tertiary mt-0.5">{t('deals.activitySub')}</p>
           </div>
-          <div className="flex-1 overflow-y-auto px-5 py-4">
+          <div className="min-h-[40vh] lg:min-h-0 lg:flex-1 lg:overflow-y-auto px-5 py-4">
             {isNew ? (
               <div className="flex flex-col items-center justify-center h-full text-center">
                 <div className="w-14 h-14 bg-white border border-surface-100 rounded-2xl flex items-center justify-center mb-3">

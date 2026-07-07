@@ -6,7 +6,7 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import { invalidateContacts } from '../store/contactsSlice';
 import {
-  DndContext, DragOverlay, PointerSensor, useSensor, useSensors,
+  DndContext, DragOverlay, MouseSensor, TouchSensor, useSensor, useSensors,
   closestCorners, useDroppable,
 } from '@dnd-kit/core';
 import {
@@ -153,7 +153,7 @@ function DealCard({ deal, isLead, onEdit, onDelete, currency, overlay = false })
 
   if (overlay) return card;
   return (
-    <div ref={setNodeRef} style={style} className="touch-none">
+    <div ref={setNodeRef} style={style} className="touch-pan-y">
       <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing"
         onClick={e => {
           // Only navigate if it wasn't a real drag (distance constraint handles this, but
@@ -416,7 +416,12 @@ export default function FunnelPage({ funnelId }) {
   const [users,         setUsers]         = useState([]);
   const [quickStageId,  setQuickStageId]  = useState(null); // null = closed
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+  const sensors = useSensors(
+    // Desktop: sichqoncha bilan 5px surilsa drag boshlanadi
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+    // Telefon: bosib turib (200ms) drag; tez swipe — ro'yxat scroll bo'ladi
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 6 } }),
+  );
 
   const load = useCallback(async () => {
     if (!funnelId) return;

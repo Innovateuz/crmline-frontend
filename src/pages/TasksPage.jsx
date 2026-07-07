@@ -391,14 +391,19 @@ function TaskModal({ initial, stages, users, allTags, onSave, onClose, saving, r
     setDragY(0);                               // aks holda — qaytib ko'tariladi
   };
 
-  /* iOS: klaviatura yoki brauzer paneli ochilganda — modalni haqiqiy
-     ko'rinadigan hududga (visualViewport) bog'laymiz, aks holda footer
-     (Yaratish/Bekor) klaviatura ortida qolib ketadi (dvh buni hisobga olmaydi) */
+  /* iOS: klaviatura OCHILGANDA modalni ko'rinadigan hududga (visualViewport)
+     bog'laymiz — footer klaviatura ustida qoladi. Klaviatura YOPIQ bo'lsa
+     esa 100svh (CSS) ishlaydi — u pastki brauzer paneli uchun joy qoldiradi,
+     shu bois tugmalar panel ortiga tushmaydi. */
   const [vp, setVp] = useState(null);
   useEffect(() => {
     const vv = window.visualViewport;
     if (!vv) return;
-    const update = () => setVp({ height: vv.height, top: vv.offsetTop });
+    const update = () => {
+      // ko'rinadigan balandlik oyna balandligidan >120px kichik bo'lsa — klaviatura ochiq
+      const keyboardOpen = window.innerHeight - vv.height > 120;
+      setVp(keyboardOpen ? { height: vv.height, top: vv.offsetTop } : null);
+    };
     update();
     vv.addEventListener('resize', update);
     vv.addEventListener('scroll', update);
@@ -406,7 +411,7 @@ function TaskModal({ initial, stages, users, allTags, onSave, onClose, saving, r
   }, []);
 
   return (
-    <div className="fixed inset-x-0 top-0 h-[100dvh] z-[80] flex items-end justify-center lg:items-center lg:p-4"
+    <div className="fixed inset-x-0 top-0 h-[100svh] z-[80] flex items-end justify-center lg:items-center lg:p-4"
       style={vp ? { height: `${vp.height}px`, top: `${vp.top}px` } : undefined}>
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div
@@ -444,7 +449,8 @@ function TaskModal({ initial, stages, users, allTags, onSave, onClose, saving, r
           <div>
             <label className="block text-xs font-medium text-ink-tertiary mb-1">{t('tasks.modalTitle')}</label>
             <input className="input" placeholder={t('tasks.titlePlaceholder')}
-              value={title} onChange={e => setTitle(e.target.value)} autoFocus
+              value={title} onChange={e => setTitle(e.target.value)}
+              autoFocus={typeof window !== 'undefined' && window.innerWidth >= 1024}
               onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSave()} />
           </div>
 

@@ -27,7 +27,13 @@ export default function DateTimePicker({ value, onChange, className = '', disabl
     ? `${pad(d)}/${pad(m + 1)}/${y}`
     : `${pad(d)}/${pad(m + 1)}/${y} ${pad(hh)}:${pad(mi)}`;
   const t = useT();
-  const locale = t('dashboardHome.dateLocale') || 'uz-UZ';
+  // Yaroqsiz/topilmagan locale tag (masalan tarjima kaliti) toLocaleDateString'ni
+  // crash qildirmasin — tekshirib, xato bo'lsa uz-UZ'ga qaytamiz.
+  const locale = (() => {
+    const tag = t('dashboardHome.dateLocale');
+    try { new Intl.DateTimeFormat(tag); return tag; }
+    catch { return 'uz-UZ'; }
+  })();
   const btnRef = useRef(null);
   const panelRef = useRef(null);
   const [open, setOpen] = useState(false);

@@ -1706,6 +1706,7 @@ export default {
   },
 
   dashboardHome: {
+    dateLocale: "uz-UZ",
     loadError: "Ma'lumot yuklanmadi", retry: "Qayta urinish",
     overdueLabel: "Muddati o'tgan", overdueSubAlert: "Darhol e'tibor kerak", overdueSubOk: "Hammasi vaqtida",
     completedLabel: "Bajarilgan", completedSub: "Oxirgi bosqichdagi",

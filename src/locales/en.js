@@ -1696,6 +1696,7 @@ export default {
   },
 
   dashboardHome: {
+    dateLocale: "en-US",
     loadError: "Failed to load data", retry: "Retry",
     overdueLabel: "Overdue", overdueSubAlert: "Needs immediate attention", overdueSubOk: "All on time",
     completedLabel: "Completed", completedSub: "In the final stage",

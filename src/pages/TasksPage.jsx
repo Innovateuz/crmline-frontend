@@ -4,7 +4,7 @@ import { fetchTasks, invalidateTasks, upsertTask, removeTask as removeTaskAction
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { useT } from '../utils/translate';
-import { mediaDownloadUrl } from '../utils/media';
+import { mediaUrl, mediaDownloadUrl } from '../utils/media';
 import {
   DndContext, DragOverlay, MouseSensor, TouchSensor, useSensor, useSensors,
   useDroppable, useDraggable,
@@ -13,8 +13,12 @@ import {
   Plus, X, Loader2, Check, ChevronDown,
   Calendar, CheckSquare2, Pencil, Trash2,
   AlertCircle, User, UserCheck, Link2, Search, Filter, Eye, Archive, ArchiveRestore,
-  Paperclip, Upload, FileText, Tag,
+  Paperclip, Upload, FileText, Tag, Download,
 } from 'lucide-react';
+
+const isImageFile = (f) =>
+  (f?.type || '').startsWith('image/') ||
+  /\.(png|jpe?g|gif|webp|bmp|svg|heic|heif|avif)$/i.test(f?.name || '');
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5002/api';
 
@@ -341,6 +345,7 @@ function TaskModal({ initial, stages, users, allTags, onSave, onClose, saving, r
   const [tags,         setTags]         = useState(initial?.tags || []);
   const [files,        setFiles]        = useState(initial?.files || []);
   const [uploadingFile, setUploadingFile] = useState(false);
+  const [imgPreview,   setImgPreview]   = useState(null);  // sahifa ichida rasm ko'rish
 
   const handleFileUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -411,6 +416,7 @@ function TaskModal({ initial, stages, users, allTags, onSave, onClose, saving, r
   }, []);
 
   return (
+    <>
     <div className="fixed inset-x-0 top-0 h-[100svh] z-[80] flex items-end justify-center lg:items-center lg:p-4"
       style={vp ? { height: `${vp.height}px`, top: `${vp.top}px` } : undefined}>
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
@@ -569,11 +575,24 @@ function TaskModal({ initial, stages, users, allTags, onSave, onClose, saving, r
               <div className="mt-2 space-y-1.5">
                 {files.map((f, i) => (
                   <div key={i} className="flex items-center gap-2 px-2.5 py-1.5 bg-surface-50 border border-surface-100 rounded-lg group">
-                    <FileText className="w-3.5 h-3.5 text-primary-400 shrink-0" />
-                    <a href={mediaDownloadUrl(f.url)} target="_blank" rel="noreferrer"
-                      className="text-xs text-ink truncate flex-1 hover:underline">
-                      {f.name}
-                    </a>
+                    {isImageFile(f) ? (
+                      // Rasm — sahifa ichida (lightbox) ochiladi, yuklab olinmaydi.
+                      // <a> ishlatamiz: readOnly fieldset uni o'chirib qo'ymaydi.
+                      <a href={mediaUrl(f.url)} onClick={e => { e.preventDefault(); setImgPreview(f); }}
+                        className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer">
+                        <img src={mediaUrl(f.url)} alt="" loading="lazy"
+                          className="w-7 h-7 rounded object-cover shrink-0 bg-surface-100 border border-surface-200" />
+                        <span className="text-xs text-ink truncate hover:underline">{f.name}</span>
+                      </a>
+                    ) : (
+                      <>
+                        <FileText className="w-3.5 h-3.5 text-primary-400 shrink-0" />
+                        <a href={mediaUrl(f.url)} target="_blank" rel="noreferrer"
+                          className="text-xs text-ink truncate flex-1 hover:underline">
+                          {f.name}
+                        </a>
+                      </>
+                    )}
                     <button type="button" onClick={() => handleFileRemove(i)}
                       className="p-0.5 rounded text-ink-disabled hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                       <X className="w-3 h-3" />
@@ -599,6 +618,31 @@ function TaskModal({ initial, stages, users, allTags, onSave, onClose, saving, r
         </div>
       </div>
     </div>
+
+    {/* ── Rasm ko'rish (lightbox) — sahifa ichida, yuklab olinmaydi ── */}
+    {imgPreview && (
+      <div className="fixed inset-0 z-[95] flex items-center justify-center bg-black/80 p-4"
+        onClick={() => setImgPreview(null)}>
+        <img src={mediaUrl(imgPreview.url)} alt={imgPreview.name}
+          onClick={e => e.stopPropagation()}
+          className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" />
+        <div className="absolute top-4 right-4 flex items-center gap-2">
+          <a href={mediaDownloadUrl(imgPreview.url)} download={imgPreview.name}
+            onClick={e => e.stopPropagation()}
+            className="w-10 h-10 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center backdrop-blur transition-colors">
+            <Download className="w-5 h-5" />
+          </a>
+          <button type="button" onClick={() => setImgPreview(null)}
+            className="w-10 h-10 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center backdrop-blur transition-colors">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <p className="absolute bottom-4 left-1/2 -translate-x-1/2 max-w-[80%] truncate text-xs text-white/80 bg-black/40 px-3 py-1.5 rounded-full">
+          {imgPreview.name}
+        </p>
+      </div>
+    )}
+    </>
   );
 }
 

@@ -104,7 +104,7 @@ function BrandingTab() {
   const [directorName, setDirectorName] = useState('');
   const [officePhone,  setOfficePhone]  = useState('');
   const [website,      setWebsite]      = useState('');
-  const [instagram,    setInstagram]    = useState('');
+  const [instagramHandle, setInstagramHandle] = useState('');
   const [telegram,     setTelegram]     = useState('');
   const [currency, setCurrency] = useState('UZS');
   const [color, setColor] = useState('');   // '' = default green
@@ -120,7 +120,7 @@ function BrandingTab() {
 
   useEffect(() => {
     axios.get(`${API_URL}/organization`)
-      .then(r => { const o = r.data.organization || {}; setName(o.name || ''); setAddress(o.address || ''); setDirectorName(o.directorName || ''); setOfficePhone(o.officePhone || ''); setWebsite(o.website || ''); setInstagram(o.instagram || ''); setTelegram(o.telegram || ''); setCurrency(o.currency || 'UZS'); setColor(o.brandColor || ''); setSolid(!!o.brandSolid); setLogo(o.logo || ''); })
+      .then(r => { const o = r.data.organization || {}; setName(o.name || ''); setAddress(o.address || ''); setDirectorName(o.directorName || ''); setOfficePhone(o.officePhone || ''); setWebsite(o.website || ''); setInstagramHandle(o.instagramHandle || ''); setTelegram(o.telegram || ''); setCurrency(o.currency || 'UZS'); setColor(o.brandColor || ''); setSolid(!!o.brandSolid); setLogo(o.logo || ''); })
       .catch(() => {})
       .finally(() => setLoaded(true));
   }, []);
@@ -165,7 +165,7 @@ function BrandingTab() {
         directorName: directorName.trim(),
         officePhone: officePhone.trim(),
         website: website.trim(),
-        instagram: instagram.trim(),
+        instagramHandle: instagramHandle.trim(),
         telegram: telegram.trim(),
         currency,
         brandColor: color || null,
@@ -269,7 +269,7 @@ function BrandingTab() {
             </div>
             <div>
               <label className="block text-xs font-medium text-ink-secondary mb-1">Instagram</label>
-              <input className="input" value={instagram} onChange={e => setInstagram(e.target.value)} placeholder="@username yoki to'liq link" />
+              <input className="input" value={instagramHandle} onChange={e => setInstagramHandle(e.target.value)} placeholder="@username yoki to'liq link" />
             </div>
             <div>
               <label className="block text-xs font-medium text-ink-secondary mb-1">Telegram</label>

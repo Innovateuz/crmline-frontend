@@ -5,6 +5,7 @@ import { useT } from '../utils/translate';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { invalidateContacts } from '../store/contactsSlice';
+import { getSocket } from '../utils/socket';
 import {
   DndContext, DragOverlay, MouseSensor, TouchSensor, useSensor, useSensors,
   closestCorners, useDroppable,
@@ -13,7 +14,7 @@ import {
   SortableContext, useSortable, verticalListSortingStrategy, arrayMove,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Plus, X, Loader2, Check, User, Phone, DollarSign, Pencil, Trash2, Search, Clock, Calendar } from 'lucide-react';
+import { Plus, X, Loader2, Check, User, Phone, DollarSign, Pencil, Trash2, Search, Clock, Calendar, Layers } from 'lucide-react';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:5002/api';
 
@@ -44,7 +45,8 @@ function initials(name) {
 }
 
 /* ── Deal card (draggable) ── */
-function DealCard({ deal, isLead, onEdit, onDelete, currency, overlay = false }) {
+function DealCard({ deal, isLead, onEdit, onDelete, onMove, currency, overlay = false }) {
+  const t = useT();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: deal._id });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 };
 
@@ -56,6 +58,12 @@ function DealCard({ deal, isLead, onEdit, onDelete, currency, overlay = false })
         onClick={e => { e.stopPropagation(); e.preventDefault(); onEdit(deal); }}
         className="p-1 rounded hover:bg-surface-100 text-ink-tertiary hover:text-ink transition-colors">
         <Pencil className="w-3 h-3" />
+      </button>
+      <button
+        onClick={e => { e.stopPropagation(); e.preventDefault(); onMove(deal); }}
+        title={t('deals.moveToFunnel')}
+        className="p-1 rounded hover:bg-primary-50 text-ink-tertiary hover:text-primary-600 transition-colors">
+        <Layers className="w-3 h-3" />
       </button>
       <button
         onClick={e => { e.stopPropagation(); e.preventDefault(); onDelete(deal._id); }}
@@ -167,7 +175,7 @@ function DealCard({ deal, isLead, onEdit, onDelete, currency, overlay = false })
 }
 
 /* ── Stage column (droppable) ── */
-function StageColumn({ stage, deals, onOpen, onDelete, onQuickAdd, currency, isFirst }) {
+function StageColumn({ stage, deals, onOpen, onDelete, onMove, onQuickAdd, currency, isFirst }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage._id });
   const total = deals.reduce((s, d) => s + (d.value || 0), 0);
 
@@ -206,7 +214,7 @@ function StageColumn({ stage, deals, onOpen, onDelete, onQuickAdd, currency, isF
       >
         <SortableContext items={deals.map(d => d._id)} strategy={verticalListSortingStrategy}>
           {deals.map(deal => (
-            <DealCard key={deal._id} deal={deal} isLead={isFirst} currency={currency} onEdit={() => onOpen(deal._id)} onDelete={onDelete} />
+            <DealCard key={deal._id} deal={deal} isLead={isFirst} currency={currency} onEdit={() => onOpen(deal._id)} onDelete={onDelete} onMove={onMove} />
           ))}
         </SortableContext>
       </div>
@@ -403,6 +411,7 @@ export default function FunnelPage({ funnelId }) {
   const dispatch  = useDispatch();
   const t = useT();
   const currency  = useSelector(s => s.auth.user?.organization?.currency || 'UZS');
+  const allFunnels = useSelector(s => s.funnels.list);
   const [funnel,      setFunnel]      = useState(null);
   const [deals,       setDeals]       = useState([]);
   const [loading,     setLoading]     = useState(true);
@@ -410,6 +419,12 @@ export default function FunnelPage({ funnelId }) {
   const [search,      setSearch]      = useState('');
   const [pendingMove, setPendingMove] = useState(null);
   const [moveValue,   setMoveValue]   = useState('');
+
+  // Boshqa varonkaga o'tkazish (kartochkadagi tugma)
+  const [moveDeal,          setMoveDeal]          = useState(null); // qaysi deal o'tkazilyapti
+  const [moveFunnelId,      setMoveFunnelId]      = useState('');
+  const [moveStageId,       setMoveStageId]       = useState('');
+  const [movingFunnel,      setMovingFunnel]      = useState(false);
 
   // F-13: quick-add modal
   const [contacts,      setContacts]      = useState([]);
@@ -444,6 +459,40 @@ export default function FunnelPage({ funnelId }) {
   }, [funnelId]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Real-time sync: boshqa foydalanuvchi lid qo'shsa/o'zgartirsa/o'chirsa yoki
+  // varonka bosqichlarini tahrirlasa — sahifa avtomatik yangilanadi (refresh shart emas).
+  useEffect(() => {
+    if (!funnelId) return;
+    const socket = getSocket();
+    const sameFunnel = (fid) => String(fid) === String(funnelId);
+    const onDealCreated = ({ funnelId: fid, deal }) => {
+      if (!sameFunnel(fid)) return;
+      setDeals(prev => prev.some(d => d._id === deal._id) ? prev : [...prev, deal]);
+    };
+    const onDealUpdated = ({ funnelId: fid, deal }) => {
+      if (!sameFunnel(fid)) return;
+      setDeals(prev => prev.map(d => d._id === deal._id ? deal : d));
+    };
+    const onDealDeleted = ({ funnelId: fid, dealId }) => {
+      if (!sameFunnel(fid)) return;
+      setDeals(prev => prev.filter(d => d._id !== dealId));
+    };
+    const onFunnelUpdated = ({ funnel: f }) => {
+      if (!sameFunnel(f._id)) return;
+      setFunnel(f);
+    };
+    socket.on('deal:created',   onDealCreated);
+    socket.on('deal:updated',   onDealUpdated);
+    socket.on('deal:deleted',   onDealDeleted);
+    socket.on('funnel:updated', onFunnelUpdated);
+    return () => {
+      socket.off('deal:created',   onDealCreated);
+      socket.off('deal:updated',   onDealUpdated);
+      socket.off('deal:deleted',   onDealDeleted);
+      socket.off('funnel:updated', onFunnelUpdated);
+    };
+  }, [funnelId]);
 
   /* Search filter */
   const q = search.trim().toLowerCase();
@@ -536,6 +585,33 @@ export default function FunnelPage({ funnelId }) {
     } catch {
       toast.error('Xato');
       load();
+    }
+  };
+
+  // Boshqa varonkaga o'tkazish
+  const moveTargetFunnels = allFunnels.filter(f => String(f._id) !== String(funnelId));
+  const moveTargetFunnel  = moveTargetFunnels.find(f => String(f._id) === String(moveFunnelId));
+
+  const openMoveModal = (deal) => {
+    setMoveDeal(deal);
+    setMoveFunnelId('');
+    setMoveStageId('');
+  };
+
+  const handleMoveFunnel = async () => {
+    if (!moveDeal || !moveFunnelId || !moveStageId) return;
+    setMovingFunnel(true);
+    try {
+      await axios.post(`${API}/funnels/${funnelId}/deals/${moveDeal._id}/move`, {
+        targetFunnelId: moveFunnelId, targetStageId: moveStageId,
+      });
+      setDeals(prev => prev.filter(d => d._id !== moveDeal._id));
+      toast.success(t('deals.moveSuccess'));
+      setMoveDeal(null);
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Xato');
+    } finally {
+      setMovingFunnel(false);
     }
   };
 
@@ -641,6 +717,7 @@ export default function FunnelPage({ funnelId }) {
                   isFirst={idx === 0}
                   onOpen={(dealId) => navigate(`/funnel/${funnelId}/deal/${dealId}`)}
                   onDelete={handleDeleteDeal}
+                  onMove={openMoveModal}
                   onQuickAdd={setQuickStageId}
                 />
               ))}
@@ -652,7 +729,7 @@ export default function FunnelPage({ funnelId }) {
                 deal={activeDeal}
                 isLead={funnel.stages[0] && String(activeDeal.stageId) === String(funnel.stages[0]._id)}
                 currency={currency}
-                onEdit={() => {}} onDelete={() => {}} overlay
+                onEdit={() => {}} onDelete={() => {}} onMove={() => {}} overlay
               />
             )}
           </DragOverlay>
@@ -702,6 +779,51 @@ export default function FunnelPage({ funnelId }) {
             <div className="flex gap-2">
               <button onClick={cancelMove} className="btn-secondary btn-md flex-1">{t('funnel.moveCancel')}</button>
               <button onClick={confirmMove} className="btn-primary btn-md flex-1">{t('funnel.moveSave')}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Boshqa varonkaga o'tkazish modal */}
+      {moveDeal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
+            <p className="text-base font-semibold text-ink mb-1">{t('deals.moveToFunnel')}</p>
+            <p className="text-sm text-ink-tertiary mb-4">
+              <span className="font-medium text-ink">{moveDeal.title}</span>
+            </p>
+
+            <label className="block text-xs font-medium text-ink-secondary mb-1">{t('deals.moveFunnelLabel')}</label>
+            <select
+              className="input w-full mb-3"
+              value={moveFunnelId}
+              onChange={e => { setMoveFunnelId(e.target.value); setMoveStageId(''); }}
+            >
+              <option value="">{t('deals.moveFunnelPlaceholder')}</option>
+              {moveTargetFunnels.map(f => <option key={f._id} value={f._id}>{f.name}</option>)}
+            </select>
+
+            <label className="block text-xs font-medium text-ink-secondary mb-1">{t('deals.stage')}</label>
+            <select
+              className="input w-full mb-5"
+              value={moveStageId}
+              onChange={e => setMoveStageId(e.target.value)}
+              disabled={!moveTargetFunnel}
+            >
+              <option value="">{t('deals.moveStagePlaceholder')}</option>
+              {(moveTargetFunnel?.stages || []).map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
+            </select>
+
+            <div className="flex gap-2">
+              <button onClick={() => setMoveDeal(null)} className="btn-md btn-secondary flex-1">{t('deals.cancel')}</button>
+              <button
+                onClick={handleMoveFunnel}
+                disabled={!moveFunnelId || !moveStageId || movingFunnel}
+                className="btn-md btn-primary flex-1 flex items-center justify-center gap-2"
+              >
+                {movingFunnel && <Loader2 className="w-4 h-4 animate-spin" />}
+                {t('deals.moveSubmit')}
+              </button>
             </div>
           </div>
         </div>

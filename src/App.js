@@ -5,7 +5,8 @@ import { Toaster } from 'react-hot-toast';
 import store from './store';
 import { getMe, setInitialized } from './store/authSlice';
 import { applyTheme } from './utils/theme';
-import { connectSocket } from './utils/socket';
+import { connectSocket, getSocket } from './utils/socket';
+import { addFunnel, updateFunnel as updateFunnelInList, removeFunnel } from './store/funnelSlice';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
@@ -77,6 +78,24 @@ function AppInit() {
   useEffect(() => {
     if (orgId) connectSocket(orgId);
   }, [orgId]);
+
+  // Real-time sync: boshqa foydalanuvchi varonka (funnel) qo'shsa/o'zgartirsa/o'chirsa —
+  // sidebar navigatsiyasi avtomatik yangilanadi.
+  useEffect(() => {
+    if (!orgId) return;
+    const socket = getSocket();
+    const onCreated = ({ funnel }) => dispatch(addFunnel(funnel));
+    const onUpdated = ({ funnel }) => dispatch(updateFunnelInList(funnel));
+    const onDeleted = ({ funnelId }) => dispatch(removeFunnel(funnelId));
+    socket.on('funnel:created', onCreated);
+    socket.on('funnel:updated', onUpdated);
+    socket.on('funnel:deleted', onDeleted);
+    return () => {
+      socket.off('funnel:created', onCreated);
+      socket.off('funnel:updated', onUpdated);
+      socket.off('funnel:deleted', onDeleted);
+    };
+  }, [orgId, dispatch]);
 
   // Push notification subscription — faqat bir marta, ruxsat so'ragandan keyin
   useEffect(() => {

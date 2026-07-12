@@ -6,6 +6,7 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import { invalidateContacts, removeContact } from '../store/contactsSlice';
 import DateTimePicker from '../components/DateTimePicker';
+import { getSocket } from '../utils/socket';
 import {
   ArrowLeft, Loader2, Send, MessageSquare,
   Trash2, Pencil, Plus, X, Check, ChevronDown, Upload, FileText,
@@ -442,6 +443,27 @@ export default function ContactFormPage() {
   }, [id, isEdit]);
 
   useEffect(() => { loadActivities(); }, [loadActivities]);
+
+  // Real-time sync: boshqa foydalanuvchi shu kontaktga izoh qo'shsa/o'chirsa —
+  // bu yerda ochib turgan odamda ham darhol ko'rinadi.
+  useEffect(() => {
+    if (!isEdit) return;
+    const socket = getSocket();
+    const onActivityCreated = ({ contactId, activity }) => {
+      if (String(contactId) !== String(id)) return;
+      setActivities(prev => prev.some(a => a._id === activity._id) ? prev : [...prev, activity]);
+    };
+    const onActivityDeleted = ({ contactId, activityId }) => {
+      if (String(contactId) !== String(id)) return;
+      setActivities(prev => prev.filter(a => a._id !== activityId));
+    };
+    socket.on('contact:activity-created', onActivityCreated);
+    socket.on('contact:activity-deleted', onActivityDeleted);
+    return () => {
+      socket.off('contact:activity-created', onActivityCreated);
+      socket.off('contact:activity-deleted', onActivityDeleted);
+    };
+  }, [id, isEdit]);
 
   useEffect(() => {
     setContactCalls([]);

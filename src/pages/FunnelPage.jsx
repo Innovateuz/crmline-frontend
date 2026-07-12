@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { useT } from '../utils/translate';
@@ -14,7 +14,7 @@ import {
   SortableContext, useSortable, verticalListSortingStrategy, arrayMove,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Plus, X, Loader2, Check, User, Phone, DollarSign, Pencil, Trash2, Search, Clock, Calendar, Layers } from 'lucide-react';
+import { Plus, X, Loader2, Check, User, Phone, DollarSign, Pencil, Trash2, Search, Clock, Calendar, Download, Upload, Layers } from 'lucide-react';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:5002/api';
 
@@ -406,6 +406,113 @@ function DealModal({ stageId, stages, contacts, users, deal, isLead, currency, o
 }
 
 /* ── Main FunnelPage ── */
+/* ── Import leads modal (.xlsx) ── */
+function ImportLeadsModal({ funnelId, funnelName, onClose, onDone }) {
+  const t = useT();
+  const [file,      setFile]      = useState(null);
+  const [importing, setImporting] = useState(false);
+  const [result,    setResult]    = useState(null);
+  const fileRef = useRef(null);
+
+  const pickFile = (f) => {
+    if (!f) return;
+    if (!/\.xlsx$/i.test(f.name)) { toast.error(t('funnel.onlyXlsx')); return; }
+    setFile(f);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    pickFile(e.dataTransfer.files?.[0]);
+  };
+
+  const handleImport = async () => {
+    if (!file) return;
+    setImporting(true);
+    const fd = new FormData();
+    fd.append('file', file);
+    try {
+      const res = await axios.post(`${API}/funnels/${funnelId}/deals/import`, fd,
+        { headers: { 'Content-Type': 'multipart/form-data' } });
+      setResult(res.data);
+      onDone();
+    } catch (e) {
+      toast.error(e.response?.data?.message || t('funnel.importError'));
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-modal w-full max-w-lg flex flex-col max-h-[85dvh]">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-surface-100 shrink-0">
+          <h2 className="font-semibold text-ink flex items-center gap-2">
+            <Upload className="w-4 h-4 text-primary-600" /> {t('funnel.importTitle')}
+          </h2>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-surface-100 text-ink-tertiary"><X className="w-4 h-4" /></button>
+        </div>
+
+        {result ? (
+          <div className="p-6 text-center">
+            <div className="w-14 h-14 rounded-2xl bg-emerald-50 flex items-center justify-center mx-auto mb-4">
+              <Check className="w-7 h-7 text-emerald-600" />
+            </div>
+            <p className="text-lg font-bold text-ink mb-1">{t('funnel.importDone')}</p>
+            <p className="text-sm text-ink-secondary">
+              <span className="text-emerald-600 font-semibold">{result.created}</span> {t('funnel.importCreated')},{' '}
+              <span className="text-ink-tertiary">{result.skipped}</span> {t('funnel.importSkipped')}
+            </p>
+            <button onClick={onClose} className="btn-primary btn-md mt-6">{t('funnel.close')}</button>
+          </div>
+        ) : (
+          <>
+            <div className="px-5 py-4 space-y-4 overflow-y-auto flex-1 min-h-0">
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-700">
+                <p className="font-semibold mb-1">{t('funnel.importFormat')}</p>
+                <code className="font-mono">Sarlavha, Bosqich, Kontakt, Telefon, Manba, Qiymat, Status, Izoh</code>
+                <p className="mt-1 text-amber-600">{t('funnel.importHint')}</p>
+              </div>
+
+              {!file ? (
+                <div
+                  onDrop={handleDrop}
+                  onDragOver={e => e.preventDefault()}
+                  onClick={() => fileRef.current?.click()}
+                  className="border-2 border-dashed border-surface-300 rounded-2xl p-10 text-center cursor-pointer hover:border-primary-400 hover:bg-primary-50/30 transition-colors"
+                >
+                  <Upload className="w-8 h-8 text-ink-disabled mx-auto mb-2" />
+                  <p className="text-sm font-medium text-ink-secondary">{t('funnel.dropXlsx')}</p>
+                  <p className="text-xs text-ink-tertiary mt-1">{t('funnel.orClick')}</p>
+                  <input ref={fileRef} type="file"
+                    accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    className="hidden" onChange={e => pickFile(e.target.files?.[0])} />
+                </div>
+              ) : (
+                <div className="flex items-center justify-between border border-surface-200 rounded-xl px-4 py-3">
+                  <p className="text-sm font-medium text-ink truncate">{file.name}</p>
+                  <button onClick={() => setFile(null)} className="text-xs text-ink-disabled hover:text-red-500 flex items-center gap-1 shrink-0">
+                    <X className="w-3 h-3" /> {t('funnel.clear')}
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2 px-5 py-4 border-t border-surface-100 shrink-0">
+              <button onClick={onClose} className="btn-secondary btn-md">{t('funnel.cancel')}</button>
+              <button onClick={handleImport} disabled={!file || importing}
+                className="btn-primary btn-md flex items-center gap-2">
+                {importing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                {t('funnel.importBtn')}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function FunnelPage({ funnelId }) {
   const navigate  = useNavigate();
   const dispatch  = useDispatch();
@@ -430,6 +537,8 @@ export default function FunnelPage({ funnelId }) {
   const [contacts,      setContacts]      = useState([]);
   const [users,         setUsers]         = useState([]);
   const [quickStageId,  setQuickStageId]  = useState(null); // null = closed
+  const [showImport,    setShowImport]    = useState(false);
+  const [exporting,     setExporting]     = useState(false);
 
   const sensors = useSensors(
     // Desktop: sichqoncha bilan 5px surilsa drag boshlanadi
@@ -459,6 +568,27 @@ export default function FunnelPage({ funnelId }) {
   }, [funnelId]);
 
   useEffect(() => { load(); }, [load]);
+
+  /* Excel eksport */
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const res = await axios.get(`${API}/funnels/${funnelId}/deals/export`, { responseType: 'blob' });
+      const url = URL.createObjectURL(new Blob([res.data], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${(funnel?.name || 'leadlar').replace(/[^\wЀ-ӿ\- ]+/g, '').trim() || 'leadlar'}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success(t('funnel.exportDone'));
+    } catch {
+      toast.error(t('funnel.exportError'));
+    } finally {
+      setExporting(false);
+    }
+  };
 
   // Real-time sync: boshqa foydalanuvchi lid qo'shsa/o'zgartirsa/o'chirsa yoki
   // varonka bosqichlarini tahrirlasa — sahifa avtomatik yangilanadi (refresh shart emas).
@@ -653,14 +783,33 @@ export default function FunnelPage({ funnelId }) {
         {/* Title + Action (mobile: same row; desktop: split via order) */}
         <div className="flex items-center justify-between gap-3 md:contents">
           <h1 className="text-lg font-bold text-ink shrink-0 md:order-1">{funnel.name}</h1>
-          {funnel.stages.length >= 1 && (
+          <div className="flex items-center gap-2 shrink-0 md:order-4">
             <button
-              onClick={() => navigate(`/funnel/${funnelId}/deal/new`)}
-              className="btn-primary btn-md flex items-center gap-2 shrink-0 md:order-4"
+              onClick={handleExport}
+              disabled={exporting}
+              title={t('funnel.export')}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium border border-surface-200 text-ink-secondary hover:border-surface-300 hover:text-ink transition-colors disabled:opacity-60"
             >
-              <Plus className="w-4 h-4" /> {t('funnel.newLead')}
+              {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+              <span className="hidden sm:inline">{t('funnel.export')}</span>
             </button>
-          )}
+            <button
+              onClick={() => setShowImport(true)}
+              title={t('funnel.import')}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium border border-surface-200 text-ink-secondary hover:border-surface-300 hover:text-ink transition-colors"
+            >
+              <Upload className="w-4 h-4" />
+              <span className="hidden sm:inline">{t('funnel.import')}</span>
+            </button>
+            {funnel.stages.length >= 1 && (
+              <button
+                onClick={() => navigate(`/funnel/${funnelId}/deal/new`)}
+                className="btn-primary btn-md flex items-center gap-2 shrink-0"
+              >
+                <Plus className="w-4 h-4" /> <span className="hidden sm:inline">{t('funnel.newLead')}</span>
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Search */}
@@ -734,6 +883,16 @@ export default function FunnelPage({ funnelId }) {
             )}
           </DragOverlay>
         </DndContext>
+      )}
+
+      {/* Excel import modal */}
+      {showImport && (
+        <ImportLeadsModal
+          funnelId={funnelId}
+          funnelName={funnel.name}
+          onClose={() => setShowImport(false)}
+          onDone={load}
+        />
       )}
 
       {/* F-13: Quick-add deal modal */}

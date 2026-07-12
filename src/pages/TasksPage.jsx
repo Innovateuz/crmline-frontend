@@ -5,6 +5,7 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import { useT } from '../utils/translate';
 import { mediaUrl, mediaDownloadUrl } from '../utils/media';
+import { getSocket } from '../utils/socket';
 import {
   DndContext, DragOverlay, MouseSensor, TouchSensor, useSensor, useSensors,
   useDroppable, useDraggable,
@@ -771,6 +772,23 @@ export default function TasksPage() {
   }, [dispatch]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Real-time sync: boshqa foydalanuvchi task qo'shsa/o'zgartirsa/o'chirsa —
+  // board avtomatik yangilanadi (refresh shart emas).
+  useEffect(() => {
+    const socket = getSocket();
+    const onCreated = ({ task }) => dispatch(upsertTask(task));
+    const onUpdated = ({ task }) => dispatch(upsertTask(task));
+    const onDeleted = ({ taskId }) => dispatch(removeTaskAction(taskId));
+    socket.on('task:created', onCreated);
+    socket.on('task:updated', onUpdated);
+    socket.on('task:deleted', onDeleted);
+    return () => {
+      socket.off('task:created', onCreated);
+      socket.off('task:updated', onUpdated);
+      socket.off('task:deleted', onDeleted);
+    };
+  }, [dispatch]);
 
   const stageKey = (s) => String(s._id || s.name);
 

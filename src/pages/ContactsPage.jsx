@@ -6,6 +6,7 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import { fetchContacts, invalidateContacts, removeContact } from '../store/contactsSlice';
 import Pagination from '../components/Pagination';
+import { getSocket } from '../utils/socket';
 import {
   Plus, Search, Pencil, Trash2, Loader2, Users, SlidersHorizontal, Check,
   Download, Upload, Copy, X, AlertTriangle, AlertCircle, ChevronDown, BarChart2,
@@ -371,6 +372,23 @@ export default function ContactsPage() {
   }, [dispatch, search, paramKey, lastFetch]);
 
   useEffect(() => { load(1); }, []); // eslint-disable-line
+
+  // Real-time sync: boshqa foydalanuvchi kontakt qo'shsa/o'zgartirsa/o'chirsa —
+  // ro'yxat avtomatik yangilanadi (refresh shart emas).
+  useEffect(() => {
+    const socket = getSocket();
+    const refresh = () => { dispatch(invalidateContacts()); load(page); };
+    socket.on('contact:created',      refresh);
+    socket.on('contact:updated',      refresh);
+    socket.on('contact:deleted',      refresh);
+    socket.on('contact:bulk-deleted', refresh);
+    return () => {
+      socket.off('contact:created',      refresh);
+      socket.off('contact:updated',      refresh);
+      socket.off('contact:deleted',      refresh);
+      socket.off('contact:bulk-deleted', refresh);
+    };
+  }, [dispatch, load, page]);
 
   const handleSearch = (val) => {
     setSearch(val);

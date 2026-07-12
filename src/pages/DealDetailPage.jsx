@@ -11,6 +11,7 @@ import {
   User, DollarSign, Kanban, Phone, Trophy, XCircle, RotateCcw,
   Mail, AlertCircle, ExternalLink, Layers,
 } from 'lucide-react';
+import { getSocket } from '../utils/socket';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:5002/api';
 
@@ -187,6 +188,7 @@ export default function DealDetailPage({ funnelId, dealId }) {
   const t = useT();
   const currency  = useSelector(s => s.auth.user?.organization?.currency || 'UZS');
   const meId      = useSelector(s => s.auth.user?._id || s.auth.user?.id);
+  const allFunnels = useSelector(s => s.funnels.list);
   const isNew     = dealId === 'new';
 
   // Core data
@@ -228,6 +230,12 @@ export default function DealDetailPage({ funnelId, dealId }) {
   const [contactSearch,      setContactSearch]      = useState('');
   const [confirmDelete,      setConfirmDelete]      = useState(false);
   const [showMenu,           setShowMenu]           = useState(false);
+
+  // Boshqa varonkaga o'tkazish
+  const [showMoveFunnel,     setShowMoveFunnel]     = useState(false);
+  const [moveFunnelId,       setMoveFunnelId]       = useState('');
+  const [moveStageId,        setMoveStageId]        = useState('');
+  const [moving,             setMoving]             = useState(false);
 
   // Files
   const [files,        setFiles]        = useState([]);
@@ -353,6 +361,27 @@ export default function DealDetailPage({ funnelId, dealId }) {
   useEffect(() => { loadActivities(); }, [loadActivities]);
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [activities]);
 
+  // Real-time sync: boshqa foydalanuvchi shu sdelkaga izoh qo'shsa/o'chirsa
+  // yoki bosqichini o'zgartirsa — bu yerda ochib turgan odamda ham darhol ko'rinadi.
+  useEffect(() => {
+    if (isNew) return;
+    const socket = getSocket();
+    const onActivityCreated = ({ dealId: did, activity }) => {
+      if (String(did) !== String(dealId)) return;
+      setActivities(prev => prev.some(a => a._id === activity._id) ? prev : [...prev, activity]);
+    };
+    const onActivityDeleted = ({ dealId: did, activityId }) => {
+      if (String(did) !== String(dealId)) return;
+      setActivities(prev => prev.filter(a => a._id !== activityId));
+    };
+    socket.on('deal:activity-created', onActivityCreated);
+    socket.on('deal:activity-deleted', onActivityDeleted);
+    return () => {
+      socket.off('deal:activity-created', onActivityCreated);
+      socket.off('deal:activity-deleted', onActivityDeleted);
+    };
+  }, [dealId, isNew]);
+
   // Biriktirilgan kontaktning to'liq ma'lumotini tortib olish (200 talik ro'yxatga tayanmasdan)
   useEffect(() => {
     if (!contact) { setLinkedContact(null); return; }
@@ -443,6 +472,34 @@ export default function DealDetailPage({ funnelId, dealId }) {
       navigate(`/funnel/${funnelId}`);
     } catch {
       toast.error(t('deals.loadError'));
+    }
+  };
+
+  // ── Boshqa varonkaga o'tkazish ───────────────────────────────────────────
+  const moveTargetFunnels = allFunnels.filter(f => String(f._id) !== String(funnelId));
+  const moveTargetFunnel  = moveTargetFunnels.find(f => String(f._id) === String(moveFunnelId));
+
+  const openMoveFunnel = () => {
+    setShowMenu(false);
+    setMoveFunnelId('');
+    setMoveStageId('');
+    setShowMoveFunnel(true);
+  };
+
+  const handleMoveFunnel = async () => {
+    if (!moveFunnelId || !moveStageId) return;
+    setMoving(true);
+    try {
+      const res = await axios.post(`${API}/funnels/${funnelId}/deals/${dealId}/move`, {
+        targetFunnelId: moveFunnelId, targetStageId: moveStageId,
+      });
+      toast.success(t('deals.moveSuccess'));
+      setShowMoveFunnel(false);
+      navigate(`/funnel/${moveFunnelId}/deal/${res.data.deal._id}`, { replace: true });
+    } catch (e) {
+      toast.error(e.response?.data?.message || t('deals.loadError'));
+    } finally {
+      setMoving(false);
     }
   };
 
@@ -617,7 +674,13 @@ export default function DealDetailPage({ funnelId, dealId }) {
               {showMenu && (
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
-                  <div className="absolute right-0 top-full mt-1 z-20 bg-white border border-surface-100 rounded-xl shadow-lg py-1 min-w-[160px]">
+                  <div className="absolute right-0 top-full mt-1 z-20 bg-white border border-surface-100 rounded-xl shadow-lg py-1 min-w-[220px]">
+                    {moveTargetFunnels.length > 0 && (
+                      <button onClick={openMoveFunnel}
+                        className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-ink hover:bg-surface-100 transition-colors">
+                        <Layers className="w-4 h-4" /> {t('deals.moveToFunnel')}
+                      </button>
+                    )}
                     <button onClick={() => { setShowMenu(false); setConfirmDelete(true); }}
                       className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors">
                       <Trash2 className="w-4 h-4" /> {t('deals.delete')}
@@ -677,6 +740,48 @@ export default function DealDetailPage({ funnelId, dealId }) {
             <div className="flex gap-2">
               <button onClick={() => setConfirmDelete(false)} className="btn-md btn-secondary flex-1">{t('deals.cancel')}</button>
               <button onClick={handleDelete} className="btn-md flex-1 bg-red-500 hover:bg-red-600 text-white rounded-xl font-medium transition-colors">{t('deals.delete')}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Boshqa varonkaga o'tkazish modal ── */}
+      {showMoveFunnel && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
+            <p className="text-base font-semibold text-ink mb-4">{t('deals.moveToFunnel')}</p>
+
+            <label className="block text-xs font-medium text-ink-secondary mb-1">{t('deals.moveFunnelLabel')}</label>
+            <select
+              className="input w-full mb-3"
+              value={moveFunnelId}
+              onChange={e => { setMoveFunnelId(e.target.value); setMoveStageId(''); }}
+            >
+              <option value="">{t('deals.moveFunnelPlaceholder')}</option>
+              {moveTargetFunnels.map(f => <option key={f._id} value={f._id}>{f.name}</option>)}
+            </select>
+
+            <label className="block text-xs font-medium text-ink-secondary mb-1">{t('deals.stage')}</label>
+            <select
+              className="input w-full mb-5"
+              value={moveStageId}
+              onChange={e => setMoveStageId(e.target.value)}
+              disabled={!moveTargetFunnel}
+            >
+              <option value="">{t('deals.moveStagePlaceholder')}</option>
+              {(moveTargetFunnel?.stages || []).map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
+            </select>
+
+            <div className="flex gap-2">
+              <button onClick={() => setShowMoveFunnel(false)} className="btn-md btn-secondary flex-1">{t('deals.cancel')}</button>
+              <button
+                onClick={handleMoveFunnel}
+                disabled={!moveFunnelId || !moveStageId || moving}
+                className="btn-md btn-primary flex-1 flex items-center justify-center gap-2"
+              >
+                {moving && <Loader2 className="w-4 h-4 animate-spin" />}
+                {t('deals.moveSubmit')}
+              </button>
             </div>
           </div>
         </div>

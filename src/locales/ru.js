@@ -1685,6 +1685,8 @@ export default {
     importSkipped: "пропущено",
     importFormat: "Столбцы Excel (.xlsx):",
     importHint: "Первая строка — названия столбцов. Обязателен только столбец «Sarlavha».",
+    downloadTemplate: "Скачать шаблон",
+    templateError: "Не удалось скачать шаблон",
     importBtn: "Импортировать",
     importError: "Ошибка импорта",
     onlyXlsx: "Принимается только файл .xlsx",

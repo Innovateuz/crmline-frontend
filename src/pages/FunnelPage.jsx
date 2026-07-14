@@ -411,8 +411,28 @@ function ImportLeadsModal({ funnelId, funnelName, onClose, onDone }) {
   const t = useT();
   const [file,      setFile]      = useState(null);
   const [importing, setImporting] = useState(false);
+  const [tplLoading, setTplLoading] = useState(false);
   const [result,    setResult]    = useState(null);
   const fileRef = useRef(null);
+
+  const handleTemplate = async () => {
+    setTplLoading(true);
+    try {
+      const res = await axios.get(`${API}/funnels/${funnelId}/deals/template`, { responseType: 'blob' });
+      const url = URL.createObjectURL(new Blob([res.data], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'leadlar-shablon.xlsx';
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error(t('funnel.templateError'));
+    } finally {
+      setTplLoading(false);
+    }
+  };
 
   const pickFile = (f) => {
     if (!f) return;
@@ -472,6 +492,11 @@ function ImportLeadsModal({ funnelId, funnelName, onClose, onDone }) {
                 <p className="font-semibold mb-1">{t('funnel.importFormat')}</p>
                 <code className="font-mono">Sarlavha, Bosqich, Kontakt, Telefon, Manba, Qiymat, Status, Izoh</code>
                 <p className="mt-1 text-amber-600">{t('funnel.importHint')}</p>
+                <button onClick={handleTemplate} disabled={tplLoading}
+                  className="mt-2 inline-flex items-center gap-1.5 font-semibold text-amber-800 underline underline-offset-2 hover:text-amber-900 disabled:opacity-50">
+                  {tplLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+                  {t('funnel.downloadTemplate')}
+                </button>
               </div>
 
               {!file ? (

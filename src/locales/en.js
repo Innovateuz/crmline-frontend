@@ -1751,6 +1751,8 @@ export default {
     importSkipped: "skipped",
     importFormat: "Excel (.xlsx) columns:",
     importHint: "First row — column names. Only the «Sarlavha» column is required.",
+    downloadTemplate: "Download template",
+    templateError: "Failed to download template",
     importBtn: "Import",
     importError: "Import error",
     onlyXlsx: "Only .xlsx files are accepted",

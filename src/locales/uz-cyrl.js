@@ -1724,6 +1724,8 @@ export default {
     importSkipped: "та ўтказиб юборилди",
     importFormat: "Excel (.xlsx) устунлари:",
     importHint: "Биринчи қатор — устун номлари. Фақат «Sarlavha» устуни мажбурий.",
+    downloadTemplate: "Шаблонни юклаб олиш",
+    templateError: "Шаблонни юклаб бўлмади",
     importBtn: "Импорт қилиш",
     importError: "Импорт хатоси",
     onlyXlsx: "Фақат .xlsx файл қабул қилинади",

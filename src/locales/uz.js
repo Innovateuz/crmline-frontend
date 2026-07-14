@@ -1761,6 +1761,8 @@ export default {
     importSkipped: "ta o'tkazib yuborildi",
     importFormat: "Excel (.xlsx) ustunlari:",
     importHint: "Birinchi qator — ustun nomlari. Faqat «Sarlavha» ustuni majburiy.",
+    downloadTemplate: "Shablonni yuklab olish",
+    templateError: "Shablonni yuklab bo'lmadi",
     importBtn: "Import qilish",
     importError: "Import xatosi",
     onlyXlsx: "Faqat .xlsx fayl qabul qilinadi",

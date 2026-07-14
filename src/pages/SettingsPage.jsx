@@ -1395,6 +1395,11 @@ function IntegrationsTab() {
   const [waForm,       setWaForm]       = useState({ phoneNumberId: '', wabaId: '', accessToken: '', displayPhoneNumber: '' });
   const [waSaving,     setWaSaving]     = useState(false);
 
+  // Telegram user profillari (MTProto) — telefon → kod → (2FA parol)
+  const [tgAccounts,   setTgAccounts]   = useState([]);
+  const [tgModal,      setTgModal]      = useState(null);   // null | { step, phone, loginKey, code, password }
+  const [tgBusy,       setTgBusy]       = useState(false);
+
   // Push notifications state
   const [pushSupported, setPushSupported] = useState(false);
   const [pushStatus,    setPushStatus]    = useState('unknown'); // 'unknown' | 'subscribed' | 'denied' | 'default'
@@ -1446,8 +1451,10 @@ function IntegrationsTab() {
       axios.get(`${API_URL}/email/config`),
       axios.get(`${API_URL}/facebook/status`),
       axios.get(`${API_URL}/whatsapp/status`),
-    ]).then(([tgRes, spRes, igRes, emailRes, fbRes, waRes]) => {
+      axios.get(`${API_URL}/organization/telegram-accounts`),
+    ]).then(([tgRes, spRes, igRes, emailRes, fbRes, waRes, tgAccRes]) => {
       setBotInfo(tgRes.data);
+      setTgAccounts(tgAccRes.data.accounts || []);
       setPacks(spRes.data.stickerPacks || []);
       setIgInfo(igRes.data);
       if (emailRes.data?.config) {
@@ -1618,6 +1625,73 @@ function IntegrationsTab() {
     }
   };
 
+  /* ─── Telegram user profil (MTProto) ─────────────────────────────────── */
+
+  // 1-qadam: telefon raqamga tasdiqlash kodi yuboriladi
+  const tgSendCode = async () => {
+    const phone = tgModal.phone.trim();
+    if (!phone) { toast.error('Telefon raqam kiriting'); return; }
+    setTgBusy(true);
+    try {
+      const res = await axios.post(`${API_URL}/organization/telegram-accounts/send-code`, { phone });
+      setTgModal(m => ({ ...m, step: 'code', loginKey: res.data.loginKey }));
+      toast.success('Kod Telegram ilovangizga yuborildi');
+    } catch (e) {
+      toast.error(e.response?.data?.message || "Kod yuborib bo'lmadi");
+    } finally {
+      setTgBusy(false);
+    }
+  };
+
+  // 2-qadam: kod (2FA yoqilgan bo'lsa — 3-qadam: parol)
+  const tgSignIn = async () => {
+    const { loginKey, code, password, step } = tgModal;
+    if (step === 'code' && !code?.trim())     { toast.error('Kodni kiriting'); return; }
+    if (step === 'password' && !password)     { toast.error('Parolni kiriting'); return; }
+    setTgBusy(true);
+    try {
+      // Parol bosqichida kod qayta yuborilmaydi — u allaqachon qabul qilingan
+      const res = await axios.post(`${API_URL}/organization/telegram-accounts/sign-in`, {
+        loginKey,
+        code:     step === 'password' ? '' : code,
+        password: step === 'password' ? password : '',
+      });
+
+      if (res.data.needsPassword) {
+        setTgModal(m => ({ ...m, step: 'password' }));
+        toast('Akkauntda 2FA yoqilgan — parolni kiriting', { icon: '🔒' });
+        return;
+      }
+
+      setTgAccounts(list => {
+        const acc = res.data.account;
+        const idx = list.findIndex(a => a._id === acc._id);
+        return idx === -1 ? [...list, acc] : list.map(a => (a._id === acc._id ? acc : a));
+      });
+      setTgModal(null);
+      toast.success('Telegram akkaunt ulandi');
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Kirish amalga oshmadi');
+    } finally {
+      setTgBusy(false);
+    }
+  };
+
+  const tgRemoveAccount = async (acc) => {
+    const label = acc.username ? `@${acc.username}` : acc.phone;
+    if (!window.confirm(`${label} akkauntini uzib qo'yasizmi? Suhbatlar yopiladi.`)) return;
+    setTgBusy(true);
+    try {
+      await axios.delete(`${API_URL}/organization/telegram-accounts/${acc._id}`);
+      setTgAccounts(list => list.filter(a => a._id !== acc._id));
+      toast.success('Akkaunt uzildi');
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Xato');
+    } finally {
+      setTgBusy(false);
+    }
+  };
+
   const saveEmailConfig = async () => {
     setEmailSaving(true);
     try {
@@ -1741,6 +1815,138 @@ function IntegrationsTab() {
           )}
         </div>
       </div>
+
+      {/* ══ TELEGRAM USER PROFILLAR (MTProto) ══ */}
+      <div className="bg-white border border-surface-200 rounded-2xl overflow-hidden">
+        <div className="flex items-center gap-3 px-5 py-4 border-b border-surface-100">
+          <div className="w-9 h-9 rounded-xl bg-[#e8f4fb] flex items-center justify-center shrink-0">
+            <Users className="w-5 h-5 text-[#229ED9]" />
+          </div>
+          <div className="flex-1">
+            <p className="font-semibold text-ink text-sm">Telegram akkauntlar</p>
+            <p className="text-xs text-ink-tertiary">Shaxsiy profil — mijoz bot emas, jonli odamga yozadi</p>
+          </div>
+          {tgAccounts.length > 0 && (
+            <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+              {tgAccounts.length} ta
+            </span>
+          )}
+        </div>
+
+        <div className="px-5 py-4 space-y-3">
+          {tgAccounts.map(acc => {
+            const name = [acc.firstName, acc.lastName].filter(Boolean).join(' ') || acc.phone;
+            const ok   = acc.status === 'active';
+            return (
+              <div key={acc._id} className={`flex items-center gap-3 p-3 rounded-xl ${ok ? 'bg-emerald-50' : 'bg-amber-50'}`}>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold shrink-0 ${ok ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                  {name.charAt(0).toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-ink truncate">{name}</p>
+                  <p className="text-xs text-ink-tertiary truncate">
+                    {acc.username ? `@${acc.username} · ` : ''}{acc.phone}
+                    {!ok && ` · ${acc.status === 'logged_out' ? 'sessiya tugagan — qayta ulang' : (acc.lastError || 'xato')}`}
+                  </p>
+                </div>
+                <button onClick={() => tgRemoveAccount(acc)} disabled={tgBusy}
+                  className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 transition-colors shrink-0" title="Uzib qo'yish">
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            );
+          })}
+
+          {!tgAccounts.length && (
+            <p className="text-xs text-ink-tertiary leading-relaxed">
+              Xodimning shaxsiy Telegram akkaunti ulanadi — unga kelgan yozishmalar Inbox'da ko'rinadi
+              va CRM'dan javob yozilganda mijoz o'sha profildan xabar oladi.
+            </p>
+          )}
+
+          <button onClick={() => setTgModal({ step: 'phone', phone: '', loginKey: '', code: '', password: '' })}
+            className="btn-secondary btn-md w-full flex items-center justify-center gap-2">
+            <Plus className="w-4 h-4" />
+            Akkaunt qo'shish
+          </button>
+
+          <p className="text-xs text-amber-600 leading-relaxed flex gap-1.5">
+            <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+            Shaxsiy akkauntni avtomatlashtirish Telegram qoidalari bo'yicha xavf tug'diradi —
+            spam yuborilsa akkaunt bloklanishi mumkin.
+          </p>
+        </div>
+      </div>
+
+      {/* Akkaunt ulash modali: telefon → kod → 2FA parol */}
+      {tgModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={() => !tgBusy && setTgModal(null)}>
+          <div className="bg-white rounded-2xl w-full max-w-sm p-5 space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h4 className="font-semibold text-ink">Telegram akkaunt ulash</h4>
+              <button onClick={() => !tgBusy && setTgModal(null)} className="text-ink-disabled hover:text-ink">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {tgModal.step === 'phone' && (
+              <>
+                <div>
+                  <label className="block text-xs font-medium text-ink-tertiary mb-1.5">Telefon raqam</label>
+                  <input className="input" autoFocus placeholder="+998901234567" value={tgModal.phone}
+                    onChange={e => setTgModal(m => ({ ...m, phone: e.target.value }))}
+                    onKeyDown={e => e.key === 'Enter' && !tgBusy && tgSendCode()} />
+                  <p className="text-xs text-ink-tertiary mt-1.5">
+                    Telegram shu raqamga tasdiqlash kodi yuboradi (kod ilovaning o'zida keladi).
+                  </p>
+                </div>
+                <button onClick={tgSendCode} disabled={tgBusy || !tgModal.phone.trim()}
+                  className="btn-primary btn-md w-full flex items-center justify-center gap-2">
+                  {tgBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Phone className="w-4 h-4" />}
+                  Kod yuborish
+                </button>
+              </>
+            )}
+
+            {tgModal.step === 'code' && (
+              <>
+                <div>
+                  <label className="block text-xs font-medium text-ink-tertiary mb-1.5">Tasdiqlash kodi</label>
+                  <input className="input tracking-widest text-center text-lg" autoFocus placeholder="12345"
+                    inputMode="numeric" value={tgModal.code}
+                    onChange={e => setTgModal(m => ({ ...m, code: e.target.value.replace(/\D/g, '') }))}
+                    onKeyDown={e => e.key === 'Enter' && !tgBusy && tgSignIn()} />
+                  <p className="text-xs text-ink-tertiary mt-1.5">{tgModal.phone} raqamiga yuborilgan kod</p>
+                </div>
+                <button onClick={tgSignIn} disabled={tgBusy || !tgModal.code.trim()}
+                  className="btn-primary btn-md w-full flex items-center justify-center gap-2">
+                  {tgBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                  Tasdiqlash
+                </button>
+              </>
+            )}
+
+            {tgModal.step === 'password' && (
+              <>
+                <div>
+                  <label className="block text-xs font-medium text-ink-tertiary mb-1.5">2FA parol</label>
+                  <input className="input" type="password" autoFocus placeholder="Cloud parol"
+                    value={tgModal.password}
+                    onChange={e => setTgModal(m => ({ ...m, password: e.target.value }))}
+                    onKeyDown={e => e.key === 'Enter' && !tgBusy && tgSignIn()} />
+                  <p className="text-xs text-ink-tertiary mt-1.5">Akkauntda ikki bosqichli tasdiqlash yoqilgan</p>
+                </div>
+                <button onClick={tgSignIn} disabled={tgBusy || !tgModal.password}
+                  className="btn-primary btn-md w-full flex items-center justify-center gap-2">
+                  {tgBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
+                  Kirish
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Sticker Packs */}
       <div className="bg-white border border-surface-200 rounded-2xl overflow-hidden">

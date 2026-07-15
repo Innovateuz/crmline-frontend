@@ -974,6 +974,13 @@ export default function TasksPage() {
                 {t('tasks.totalNote').replace('{total}', tasksTotal).replace('{shown}', tasks.length)}
               </span>
             )}
+            {/* Mobil: doim ko'rinadigan "Yangi vazifa" tugmasi (scroll strip ortida qolib ketmasin) */}
+            {stages.length > 0 && (
+              <button onClick={() => openCreate(stages[0])}
+                className="md:hidden ml-auto shrink-0 btn-primary btn-sm flex items-center gap-1.5">
+                <Plus className="w-4 h-4" /> {t('tasks.newTask')}
+              </button>
+            )}
           </div>
 
           <div className="flex items-center gap-2 overflow-x-auto no-scrollbar md:overflow-visible md:flex-wrap md:ml-auto -mx-4 px-4 md:mx-0 md:px-0">
@@ -1035,7 +1042,7 @@ export default function TasksPage() {
               <Archive className="w-3.5 h-3.5" /> {t('tasks.archive')}
             </button>
 
-            <button onClick={() => openCreate(stages[0])} className="btn-primary btn-md flex items-center gap-2">
+            <button onClick={() => openCreate(stages[0])} className="hidden md:flex btn-primary btn-md items-center gap-2">
               <Plus className="w-4 h-4" /> {t('tasks.newTask')}
             </button>
           </div>

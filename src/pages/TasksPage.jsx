@@ -426,7 +426,7 @@ function TaskModal({ initial, stages, users, allTags, onSave, onClose, saving, r
 
   return (
     <>
-    <div className="fixed inset-x-0 top-0 h-[100svh] z-[80] flex items-end justify-center lg:items-center lg:p-4"
+    <div className="fixed inset-x-0 top-0 h-full z-[80] flex items-end justify-center lg:items-center lg:p-4"
       style={vp ? { height: `${vp.height}px`, top: `${vp.top}px` } : undefined}>
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div

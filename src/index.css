@@ -61,8 +61,15 @@
     min-height: 100svh; /* mobil brauzer panellari hisobga olingan balandlik */
   }
   .h-screen-safe {
-    height: 100svh; /* qat'iy balandlik — ichki scroll + qotirilgan pastki navbar uchun */
+    /* Haqiqiy (dinamik) viewport balandligi — pastki nav ekran tubiga tegib tursin,
+       ostida bo'sh joy qolmasin. 100svh ba'zi iOS/standalone holatlarda ekrandan
+       qisqaroq bo'lib, nav yuqoriroqda qolib ketardi. */
+    height: 100svh;
+    height: 100dvh;
   }
+  /* Modal ochiq bo'lganda mobil pastki navbar yashiriladi — modal butun ekranni
+     egallaydi, footer tugmalari ko'rinadi, nav orqadan ko'rinib turmaydi. */
+  .modal-open .app-bottom-nav { display: none; }
   /* Touch maydoni — tugmalar barmoq uchun yetarlicha katta (min 44px) bo'lishi uchun */
   .tap-target { min-height: 44px; min-width: 44px; }
 

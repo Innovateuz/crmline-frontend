@@ -4,6 +4,7 @@ import { fetchTasks, invalidateTasks, upsertTask, removeTask as removeTaskAction
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { useT } from '../utils/translate';
+import { useModalOpen } from '../utils/modalLock';
 import { mediaUrl, mediaDownloadUrl } from '../utils/media';
 import { getSocket } from '../utils/socket';
 import {
@@ -338,6 +339,7 @@ function TagInput({ tags, allTags, onChange }) {
 /* ─── Task Modal ──────────────────────────────────────────── */
 function TaskModal({ initial, stages, users, allTags, onSave, onClose, saving, readOnly = false }) {
   const t = useT();
+  useModalOpen();
   const [title,       setTitle]       = useState(initial?.title       || '');
   const [description, setDescription] = useState(initial?.description || '');
   const [stageId,     setStageId]     = useState(
@@ -701,6 +703,7 @@ function TaskModal({ initial, stages, users, allTags, onSave, onClose, saving, r
 /* ─── Archive Modal ───────────────────────────────────────── */
 function ArchiveModal({ stages, onClose, onRestored }) {
   const t = useT();
+  useModalOpen();
   const [tasks,   setTasks]   = useState([]);
   const [loading, setLoading] = useState(true);
   const [busyId,  setBusyId]  = useState(null);

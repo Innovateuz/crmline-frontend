@@ -52,7 +52,7 @@ export default function BottomNav() {
 
   return (
     <>
-      <nav className="lg:hidden shrink-0 bg-white border-t border-gray-200 safe-bottom">
+      <nav className="app-bottom-nav lg:hidden shrink-0 bg-white border-t border-gray-200 safe-bottom">
         <div className="flex items-center justify-around h-16 px-1">
           {NAV_ITEMS.map(({ to, icon: Icon, label }) => {
             const active = isActive(to);

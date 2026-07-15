@@ -4,6 +4,7 @@ import { fetchTasks, invalidateTasks, upsertTask, removeTask as removeTaskAction
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { useT } from '../utils/translate';
+import { useModalOpen } from '../utils/modalLock';
 import { mediaUrl, mediaDownloadUrl } from '../utils/media';
 import { getSocket } from '../utils/socket';
 import {
@@ -338,6 +339,7 @@ function TagInput({ tags, allTags, onChange }) {
 /* ─── Task Modal ──────────────────────────────────────────── */
 function TaskModal({ initial, stages, users, allTags, onSave, onClose, saving, readOnly = false }) {
   const t = useT();
+  useModalOpen();
   const [title,       setTitle]       = useState(initial?.title       || '');
   const [description, setDescription] = useState(initial?.description || '');
   const [stageId,     setStageId]     = useState(
@@ -701,6 +703,7 @@ function TaskModal({ initial, stages, users, allTags, onSave, onClose, saving, r
 /* ─── Archive Modal ───────────────────────────────────────── */
 function ArchiveModal({ stages, onClose, onRestored }) {
   const t = useT();
+  useModalOpen();
   const [tasks,   setTasks]   = useState([]);
   const [loading, setLoading] = useState(true);
   const [busyId,  setBusyId]  = useState(null);
@@ -974,6 +977,13 @@ export default function TasksPage() {
                 {t('tasks.totalNote').replace('{total}', tasksTotal).replace('{shown}', tasks.length)}
               </span>
             )}
+            {/* Mobil: doim ko'rinadigan "Yangi vazifa" tugmasi (scroll strip ortida qolib ketmasin) */}
+            {stages.length > 0 && (
+              <button onClick={() => openCreate(stages[0])}
+                className="md:hidden ml-auto shrink-0 btn-primary btn-sm flex items-center gap-1.5">
+                <Plus className="w-4 h-4" /> {t('tasks.newTask')}
+              </button>
+            )}
           </div>
 
           <div className="flex items-center gap-2 overflow-x-auto no-scrollbar md:overflow-visible md:flex-wrap md:ml-auto -mx-4 px-4 md:mx-0 md:px-0">
@@ -1035,7 +1045,7 @@ export default function TasksPage() {
               <Archive className="w-3.5 h-3.5" /> {t('tasks.archive')}
             </button>
 
-            <button onClick={() => openCreate(stages[0])} className="btn-primary btn-md flex items-center gap-2">
+            <button onClick={() => openCreate(stages[0])} className="hidden md:flex btn-primary btn-md items-center gap-2">
               <Plus className="w-4 h-4" /> {t('tasks.newTask')}
             </button>
           </div>

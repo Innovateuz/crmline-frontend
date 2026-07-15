@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { useT } from '../utils/translate';
+import { useModalOpen } from '../utils/modalLock';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { invalidateContacts } from '../store/contactsSlice';
@@ -226,6 +227,7 @@ function StageColumn({ stage, deals, onOpen, onDelete, onMove, onQuickAdd, curre
 /* ── Deal form modal ── */
 function DealModal({ stageId, stages, contacts, users, deal, isLead, currency, onSave, onClose, onContactCreated }) {
   const t = useT();
+  useModalOpen();
   const [title,      setTitle]      = useState(deal?.title || '');
   const [stage,      setStage]      = useState(stageId || deal?.stageId || stages[0]?._id || '');
   const [value,      setValue]      = useState(deal?.value ?? '');

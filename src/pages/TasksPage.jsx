@@ -14,7 +14,7 @@ import {
   Plus, X, Loader2, Check, ChevronDown,
   Calendar, CheckSquare2, Pencil, Trash2,
   AlertCircle, User, UserCheck, Link2, Search, Filter, Eye, Archive, ArchiveRestore,
-  Paperclip, Upload, FileText, Tag, Download,
+  Paperclip, Upload, FileText, Tag, Download, History,
 } from 'lucide-react';
 
 const isImageFile = (f) =>
@@ -33,6 +33,14 @@ function fmtDate(d) {
   if (!d) return null;
   const dt = new Date(d);
   return `${String(dt.getDate()).padStart(2,'0')}.${String(dt.getMonth()+1).padStart(2,'0')}.${dt.getFullYear()}`;
+}
+
+// Sana + vaqt (tarix yozuvlari uchun) — masalan "15.07.2026 14:30"
+function fmtDateTime(d) {
+  if (!d) return null;
+  const dt = new Date(d);
+  const p = (n) => String(n).padStart(2, '0');
+  return `${p(dt.getDate())}.${p(dt.getMonth()+1)}.${dt.getFullYear()} ${p(dt.getHours())}:${p(dt.getMinutes())}`;
 }
 
 function isOverdue(dueDate) {
@@ -604,6 +612,49 @@ function TaskModal({ initial, stages, users, allTags, onSave, onClose, saving, r
             )}
           </div>
         </fieldset>
+
+        {/* O'zgarishlar tarixi — faqat mavjud (saqlangan) vazifada ko'rinadi */}
+        {initial?._id && initial?.history?.length > 0 && (
+          <div className="mt-5 pt-4 border-t border-surface-100">
+            <div className="flex items-center gap-1.5 mb-3 text-xs font-medium text-ink-tertiary">
+              <History className="w-3.5 h-3.5" /> {t('tasks.historyTitle')}
+            </div>
+            <ol className="space-y-3">
+              {[...initial.history].reverse().map((h, i) => {
+                const stageNameOf = (id) => stages.find(s => String(s._id || s.name) === String(id))?.name || '—';
+                const userNameOf  = (id) => users.find(u => String(u._id) === String(id))?.name || '—';
+                const actor = h.by?.name || t('tasks.histUnknownUser');
+                let detail = null;
+                if (h.action === 'stage_changed') {
+                  detail = <>{stageNameOf(h.from)} <span className="text-ink-disabled">→</span> {stageNameOf(h.to)}</>;
+                } else if (h.action === 'assigned') {
+                  detail = <>→ {userNameOf(h.to)}</>;
+                }
+                const actionLabel = {
+                  created:       t('tasks.histCreated'),
+                  stage_changed: t('tasks.histStageChanged'),
+                  assigned:      t('tasks.histAssigned'),
+                  unassigned:    t('tasks.histUnassigned'),
+                  archived:      t('tasks.histArchived'),
+                  unarchived:    t('tasks.histUnarchived'),
+                }[h.action] || h.action;
+                return (
+                  <li key={i} className="flex gap-2.5">
+                    <div className="mt-1 w-1.5 h-1.5 rounded-full bg-primary-300 shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-xs text-ink leading-snug">
+                        <span className="font-medium">{actor}</span>{' '}
+                        <span className="text-ink-tertiary">{actionLabel}</span>
+                        {detail && <span className="text-ink-secondary"> · {detail}</span>}
+                      </p>
+                      <p className="text-[11px] text-ink-disabled mt-0.5">{fmtDateTime(h.at)}</p>
+                    </div>
+                  </li>
+                );
+              })}
+            </ol>
+          </div>
+        )}
         </div>
 
         <div className="flex justify-end gap-2 px-5 pt-4 pb-[calc(1rem_+_env(safe-area-inset-bottom))] lg:pb-4 border-t border-surface-100 shrink-0">

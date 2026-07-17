@@ -381,6 +381,7 @@ function FunnelsTab() {
   const [stages,  setStages]  = useState([{ name: '', color: '#94a3b8' }]);
   const [saving,  setSaving]  = useState(false);
   const [deleting, setDeleting] = useState(null);
+  const [reordering, setReordering] = useState(false);
 
   const openCreate = () => {
     setEditId(null); setFname(''); setStages([{ name: '', color: '#94a3b8' }]); setShowCreate(true);
@@ -428,6 +429,24 @@ function FunnelsTab() {
     }
   };
 
+  const moveFunnel = async (index, dir) => {
+    const j = index + dir;
+    if (j < 0 || j >= funnels.length || reordering) return;
+    const reordered = [...funnels];
+    [reordered[index], reordered[j]] = [reordered[j], reordered[index]];
+    setReordering(true);
+    try {
+      const responses = await Promise.all(
+        reordered.map((f, i) => axios.put(`${API_URL}/funnels/${f._id}`, { order: i }))
+      );
+      responses.forEach(res => dispatch(updateFunnelStore(res.data.funnel)));
+    } catch {
+      toast.error('Xato');
+    } finally {
+      setReordering(false);
+    }
+  };
+
   const deleteFunnelFn = async (id) => {
     setDeleting(id);
     try {
@@ -462,11 +481,19 @@ function FunnelsTab() {
         </div>
       ) : (
         <div className="space-y-3">
-          {funnels.map(f => (
+          {funnels.map((f, idx) => (
             <div key={f._id} className="bg-white border border-surface-200 rounded-xl overflow-hidden">
               <div className="flex items-center gap-3 px-4 py-3 border-b border-surface-100">
                 <Kanban className="w-4 h-4 text-ink-tertiary shrink-0" />
                 <span className="font-semibold text-ink flex-1">{f.name}</span>
+                <button onClick={() => moveFunnel(idx, -1)} disabled={idx === 0 || reordering}
+                  className="p-1.5 rounded-lg hover:bg-surface-100 text-ink-disabled hover:text-ink-tertiary disabled:opacity-30 transition-colors">
+                  <ChevronUp className="w-3.5 h-3.5" />
+                </button>
+                <button onClick={() => moveFunnel(idx, 1)} disabled={idx === funnels.length - 1 || reordering}
+                  className="p-1.5 rounded-lg hover:bg-surface-100 text-ink-disabled hover:text-ink-tertiary disabled:opacity-30 transition-colors">
+                  <ChevronDown className="w-3.5 h-3.5" />
+                </button>
                 <button onClick={() => openEdit(f)} className="p-1.5 rounded-lg hover:bg-surface-100 text-ink-tertiary hover:text-ink transition-colors">
                   <Pencil className="w-3.5 h-3.5" />
                 </button>

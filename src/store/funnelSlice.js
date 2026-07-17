@@ -26,6 +26,9 @@ const funnelSlice = createSlice({
     updateFunnel(state, { payload }) {
       const i = state.list.findIndex(f => f._id === payload._id);
       if (i !== -1) state.list[i] = payload;
+      // `order` o'zgargan bo'lishi mumkin — ro'yxatni qayta saralaymiz, aks
+      // holda sidebar'dagi tartib yangi qiymatni darhol aks ettirmaydi.
+      state.list.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
     },
     removeFunnel(state, { payload }) {
       state.list = state.list.filter(f => f._id !== payload);

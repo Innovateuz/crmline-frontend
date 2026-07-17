@@ -49,8 +49,14 @@ export const getMe = createAsyncThunk('auth/getMe', async (_, { rejectWithValue 
     }
     return user;
   } catch (error) {
-    localStorage.removeItem('token');
-    delete axios.defaults.headers.common['Authorization'];
+    // Faqat token haqiqatan yaroqsiz bo'lsa (401) tozalaymiz. Tarmoq uzilishi,
+    // timeout yoki server xatosida tokenni saqlab qolamiz — aks holda mobil
+    // PWA sovuq ochilganda tarmoq hali tayyor bo'lmasa, yaroqli token ham
+    // o'chirilib, foydalanuvchi har safar qayta login qilishga majbur bo'lardi.
+    if (error.response?.status === 401) {
+      localStorage.removeItem('token');
+      delete axios.defaults.headers.common['Authorization'];
+    }
     return rejectWithValue(error.response?.data?.message || 'Xato yuz berdi');
   }
 });

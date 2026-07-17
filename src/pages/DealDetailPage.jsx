@@ -228,6 +228,9 @@ export default function DealDetailPage({ funnelId, dealId }) {
   const [showAssignedPicker, setShowAssignedPicker] = useState(false);
   const [showContactPicker,  setShowContactPicker]  = useState(false);
   const [contactSearch,      setContactSearch]      = useState('');
+  const [showNewContact,     setShowNewContact]     = useState(false);
+  const [newContact,         setNewContact]         = useState({ name: '', phone: '', email: '' });
+  const [savingContact,      setSavingContact]      = useState(false);
   const [confirmDelete,      setConfirmDelete]      = useState(false);
   const [showMenu,           setShowMenu]           = useState(false);
 
@@ -472,6 +475,37 @@ export default function DealDetailPage({ funnelId, dealId }) {
       navigate(`/funnel/${funnelId}`);
     } catch {
       toast.error(t('deals.loadError'));
+    }
+  };
+
+  // ── Yangi kontakt yaratish (kontakt tanlash ro'yxati ichida) ─────────────
+  const handleCreateContact = async () => {
+    if (!newContact.name.trim() || savingContact) return;
+    setSavingContact(true);
+    try {
+      const res = await axios.post(`${API}/contacts`, newContact);
+      setContacts(prev => [res.data.contact, ...prev]);
+      setContact(res.data.contact._id);
+      toast.success(t('funnel.contactCreated'));
+      setShowNewContact(false);
+      setNewContact({ name: '', phone: '', email: '' });
+      setShowContactPicker(false);
+      setContactSearch('');
+    } catch (e) {
+      const duplicate = e.response?.data?.duplicate;
+      if (duplicate) {
+        setContacts(prev => prev.some(c => c._id === duplicate._id) ? prev : [duplicate, ...prev]);
+        setContact(duplicate._id);
+        toast.success(`${t('funnel.contactExists')}: ${duplicate.name}`);
+        setShowNewContact(false);
+        setNewContact({ name: '', phone: '', email: '' });
+        setShowContactPicker(false);
+        setContactSearch('');
+      } else {
+        toast.error(e.response?.data?.message || t('funnel.loadError'));
+      }
+    } finally {
+      setSavingContact(false);
     }
   };
 
@@ -899,7 +933,7 @@ export default function DealDetailPage({ funnelId, dealId }) {
                     <FloatingDropdown
                       anchorRef={contactAnchorRef}
                       open={showContactPicker}
-                      onClose={() => { setShowContactPicker(false); setContactSearch(''); }}
+                      onClose={() => { setShowContactPicker(false); setContactSearch(''); setShowNewContact(false); }}
                     >
                       <div className="p-2 border-b border-surface-100">
                         <input
@@ -929,6 +963,35 @@ export default function DealDetailPage({ funnelId, dealId }) {
                         ))}
                         {filteredContacts.length === 0 && contactSearch && (
                           <p className="px-3 py-4 text-xs text-ink-tertiary text-center">Topilmadi</p>
+                        )}
+                      </div>
+                      <div className="p-2 border-t border-surface-100">
+                        {showNewContact ? (
+                          <div className="space-y-2">
+                            <input className="input text-xs" placeholder={t('funnel.contactNamePh')}
+                              value={newContact.name} onChange={e => setNewContact(f => ({ ...f, name: e.target.value }))} autoFocus />
+                            <input className="input text-xs" placeholder={t('funnel.contactPhonePh')}
+                              value={newContact.phone} onChange={e => setNewContact(f => ({ ...f, phone: e.target.value }))} />
+                            <input className="input text-xs" placeholder={t('funnel.contactEmailPh')}
+                              value={newContact.email} onChange={e => setNewContact(f => ({ ...f, email: e.target.value }))} />
+                            <div className="flex gap-2 pt-1">
+                              <button type="button" onClick={() => { setShowNewContact(false); setNewContact({ name: '', phone: '', email: '' }); }}
+                                className="flex-1 py-1.5 text-xs rounded-lg bg-surface-100 text-ink-secondary hover:bg-surface-200 transition-colors">
+                                {t('deals.cancel')}
+                              </button>
+                              <button type="button" onClick={handleCreateContact} disabled={!newContact.name.trim() || savingContact}
+                                className="flex-1 py-1.5 text-xs rounded-lg bg-primary-600 text-white hover:bg-primary-700 disabled:opacity-40 transition-colors flex items-center justify-center gap-1">
+                                {savingContact ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                                {t('deals.save')}
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button type="button" onClick={() => setShowNewContact(true)}
+                            className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg border border-dashed border-surface-300 text-xs text-ink-tertiary hover:border-primary-400 hover:text-primary-600 transition-colors">
+                            <Plus className="w-3.5 h-3.5" />
+                            {t('funnel.createContact')}
+                          </button>
                         )}
                       </div>
                     </FloatingDropdown>

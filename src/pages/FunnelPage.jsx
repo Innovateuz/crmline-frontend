@@ -15,7 +15,7 @@ import {
   SortableContext, useSortable, verticalListSortingStrategy, arrayMove,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Plus, X, Loader2, Check, User, Phone, DollarSign, Pencil, Trash2, Search, Clock, Calendar, Download, Upload, Layers } from 'lucide-react';
+import { Plus, X, Loader2, Check, User, Phone, DollarSign, Pencil, Trash2, Search, Clock, Calendar, Download, Upload, Layers, ChevronDown } from 'lucide-react';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:5002/api';
 
@@ -545,12 +545,14 @@ export default function FunnelPage({ funnelId }) {
   const dispatch  = useDispatch();
   const t = useT();
   const currency  = useSelector(s => s.auth.user?.organization?.currency || 'UZS');
+  const meId      = useSelector(s => s.auth.user?._id || s.auth.user?.id);
   const allFunnels = useSelector(s => s.funnels.list);
   const [funnel,      setFunnel]      = useState(null);
   const [deals,       setDeals]       = useState([]);
   const [loading,     setLoading]     = useState(true);
   const [activeId,    setActiveId]    = useState(null);
   const [search,      setSearch]      = useState('');
+  const [filterAssignedTo, setFilterAssignedTo] = useState(''); // '' = hammasi
   const [pendingMove, setPendingMove] = useState(null);
   const [moveValue,   setMoveValue]   = useState('');
 
@@ -651,15 +653,15 @@ export default function FunnelPage({ funnelId }) {
     };
   }, [funnelId]);
 
-  /* Search filter */
+  /* Search + "menga biriktirilgan" filtri */
   const q = search.trim().toLowerCase();
-  const filteredDeals = q
-    ? deals.filter(d =>
+  const filteredDeals = deals
+    .filter(d => !q ||
         d.title.toLowerCase().includes(q) ||
         d.contact?.name?.toLowerCase().includes(q) ||
         d.contact?.phone?.includes(q)
       )
-    : deals;
+    .filter(d => !filterAssignedTo || String(d.assignedTo?._id || d.assignedTo || '') === String(filterAssignedTo));
 
   /* Group deals by stage */
   const dealsByStage = (funnel?.stages || []).reduce((acc, s) => {
@@ -853,6 +855,31 @@ export default function FunnelPage({ funnelId }) {
               <X className="w-3.5 h-3.5" />
             </button>
           )}
+        </div>
+
+        {/* Menga biriktirilgan tezkor filtri */}
+        <button
+          onClick={() => setFilterAssignedTo(v => v === meId ? '' : meId)}
+          className={`shrink-0 px-3 py-2 rounded-xl text-sm font-medium border transition-colors whitespace-nowrap md:order-2 ${
+            filterAssignedTo === meId
+              ? 'bg-primary-50 border-primary-300 text-primary-700'
+              : 'bg-surface-50 border-surface-200 text-ink-secondary hover:bg-surface-100'
+          }`}>
+          {t('tasks.assignedToMe')}
+        </button>
+
+        {/* Mas'ul bo'yicha filtr — istalgan xodimni tanlash */}
+        <div className="relative shrink-0 md:order-2">
+          <User className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-ink-disabled pointer-events-none" />
+          <select
+            className="pl-8 pr-8 py-2 text-sm bg-surface-50 border border-surface-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-300 appearance-none"
+            value={filterAssignedTo}
+            onChange={e => setFilterAssignedTo(e.target.value)}
+          >
+            <option value="">{t('tasks.allAssignees')}</option>
+            {users.map(u => <option key={u._id} value={u._id}>{u.name}</option>)}
+          </select>
+          <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-ink-disabled pointer-events-none" />
         </div>
 
         {/* Stats */}

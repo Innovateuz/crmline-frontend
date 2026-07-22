@@ -112,7 +112,12 @@ function ConvItem({ conv, active, onClick, onContextMenu }) {
           </div>
         </div>
         <div className="flex items-center justify-between gap-2 mt-0.5">
-          <span className="text-xs text-ink-tertiary truncate">{conv.lastMessage || '...'}</span>
+          <span className="text-xs text-ink-tertiary truncate">
+            {conv.source === 'comment' && (
+              <span className="mr-1 text-[10px] text-pink-600 bg-pink-50 px-1 py-0 rounded">Komment</span>
+            )}
+            {conv.lastMessage || '...'}
+          </span>
           {conv.unreadCount > 0 ? (
             <span className="shrink-0 min-w-[18px] h-[18px] rounded-full bg-primary-600 text-white text-[10px] font-bold flex items-center justify-center px-1">
               {conv.unreadCount > 99 ? '99+' : conv.unreadCount}
@@ -1026,6 +1031,20 @@ export default function InboxPage() {
                     <p className="text-xs text-ink-tertiary">
                       {activeConv.channel === 'email' ? activeConv.username : `@${activeConv.username}`}
                     </p>
+                  )}
+                  {activeConv.source === 'comment' && (
+                    activeConv.postUrl ? (
+                      <a
+                        href={activeConv.postUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs text-pink-600 bg-pink-50 px-1.5 py-0 rounded-full hover:underline"
+                      >
+                        Komment · post
+                      </a>
+                    ) : (
+                      <span className="text-xs text-pink-600 bg-pink-50 px-1.5 py-0 rounded-full">Komment</span>
+                    )
                   )}
                   {activeConv.channel === 'email' && activeConv.emailSubject && (
                     <p className="text-xs text-ink-disabled truncate max-w-[200px]" title={activeConv.emailSubject}>

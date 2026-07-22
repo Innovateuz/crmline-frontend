@@ -92,12 +92,19 @@ function ConvItem({ conv, active, onClick, onContextMenu }) {
       }`}
     >
       <div className="relative shrink-0">
-        <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center text-sm font-bold text-primary-700">
+        <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center text-sm font-bold text-primary-700 overflow-hidden">
           {initials(conv.title)}
         </div>
         <span className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center ${iconCls}`}>
           <Icon />
         </span>
+        {conv.source === 'comment' && conv.postThumb && (
+          <img
+            src={resolveMediaUrl(conv.postThumb)}
+            alt=""
+            className="absolute -top-1 -left-1 w-5 h-5 rounded object-cover border-2 border-white shadow"
+          />
+        )}
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2">
@@ -1033,18 +1040,7 @@ export default function InboxPage() {
                     </p>
                   )}
                   {activeConv.source === 'comment' && (
-                    activeConv.postUrl ? (
-                      <a
-                        href={activeConv.postUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-xs text-pink-600 bg-pink-50 px-1.5 py-0 rounded-full hover:underline"
-                      >
-                        Komment · post
-                      </a>
-                    ) : (
-                      <span className="text-xs text-pink-600 bg-pink-50 px-1.5 py-0 rounded-full">Komment</span>
-                    )
+                    <span className="text-xs text-pink-600 bg-pink-50 px-1.5 py-0 rounded-full">Komment</span>
                   )}
                   {activeConv.channel === 'email' && activeConv.emailSubject && (
                     <p className="text-xs text-ink-disabled truncate max-w-[200px]" title={activeConv.emailSubject}>
@@ -1223,6 +1219,37 @@ export default function InboxPage() {
                 <Info className="w-4 h-4" />
               </button>
             </div>
+
+            {/* Instagram komment — qaysi post ostida ekanini ko'rsatuvchi banner */}
+            {activeConv.source === 'comment' && (
+              <a
+                href={activeConv.postUrl || undefined}
+                target="_blank"
+                rel="noreferrer"
+                className={`shrink-0 flex items-center gap-3 px-4 py-2 border-b border-surface-100 bg-pink-50/60 ${activeConv.postUrl ? 'hover:bg-pink-50 cursor-pointer' : 'cursor-default'}`}
+              >
+                {activeConv.postThumb ? (
+                  <img
+                    src={resolveMediaUrl(activeConv.postThumb)}
+                    alt=""
+                    className="w-10 h-10 rounded-lg object-cover border border-pink-200 shrink-0"
+                  />
+                ) : (
+                  <div className="w-10 h-10 rounded-lg bg-pink-100 flex items-center justify-center shrink-0 text-pink-500">
+                    {(() => { const I = CHANNEL_ICON.instagram; return <I />; })()}
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] font-semibold text-pink-600 uppercase tracking-wide">Post ostidagi komment</p>
+                  <p className="text-xs text-ink-secondary truncate">
+                    {activeConv.postCaption || 'Post matni yo\'q'}
+                  </p>
+                </div>
+                {activeConv.postUrl && (
+                  <span className="text-[11px] text-pink-600 font-medium shrink-0">Postni ochish →</span>
+                )}
+              </a>
+            )}
 
             {/* Message search bar */}
             {showMsgSearch && (

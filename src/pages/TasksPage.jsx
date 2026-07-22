@@ -257,7 +257,7 @@ function Column({ stage, tasks, onAdd, onView, onEdit, onArchive, onDelete }) {
   const t = useT();
 
   return (
-    <div className="flex flex-col w-72 shrink-0 h-full">
+    <div className="flex flex-col flex-1 min-w-72 shrink-0 h-full">
       <div className="flex items-center gap-2 mb-3 px-1">
         <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: stage.color }} />
         <span className="text-sm font-semibold text-ink">{stage.name}</span>
@@ -800,7 +800,8 @@ export default function TasksPage() {
   // Filters
   const [filterSearch,   setFilterSearch]   = useState('');
   const [filterPriority, setFilterPriority] = useState('');
-  const [filterAssignee, setFilterAssignee] = useState('');
+  // Sahifa ochilganda "Menga biriktirilgan" filtri avtomatik yoqilgan bo'lsin.
+  const [filterAssignee, setFilterAssignee] = useState(meId || '');
   const [filterTags,     setFilterTags]     = useState([]);
   const [filterCreatedByMe, setFilterCreatedByMe] = useState(false);
   const [showFilters,    setShowFilters]    = useState(false);
@@ -894,7 +895,7 @@ export default function TasksPage() {
       } else {
         const res = await axios.post(`${API_URL}/tasks`, {
           ...data,
-          stageId:    modal?.stageId || (stages[0] ? stageKey(stages[0]) : ''),
+          stageId:    data.stageId || modal?.stageId || (stages[0] ? stageKey(stages[0]) : ''),
           assignedTo: data.assignedTo || meId || null,
         });
         dispatch(upsertTask(res.data.task));

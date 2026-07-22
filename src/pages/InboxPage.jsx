@@ -13,6 +13,7 @@ import {
   CheckCheck, User, X, Smile, Trash2, Paperclip, FileText,
   StickyNote, CheckCircle2, RotateCcw, Info, Phone, Mail, Hash, ChevronRight,
   Plus, Check, Tag, UserCheck, Search as SearchIcon, TrendingUp, ArrowLeft,
+  CornerUpLeft,
 } from 'lucide-react';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5002/api';
@@ -260,8 +261,29 @@ function MediaAttachment({ msg, isOut }) {
   return <a href={info.url} target="_blank" rel="noreferrer" className={`text-xs underline ${textCls}`}>Faylni ochish</a>;
 }
 
+/* ─── Instagram komment post chipi (xabar qaysi post ostida) ─ */
+function IgPostChip({ igPost, isOut }) {
+  if (!igPost || (!igPost.thumb && !igPost.caption && !igPost.url)) return null;
+  const border = isOut ? 'border-white/25' : 'border-surface-200';
+  const cap    = isOut ? 'text-white/80' : 'text-ink-secondary';
+  const body = (
+    <div className={`flex items-center gap-2 mb-1.5 pb-1.5 border-b ${border}`}>
+      {igPost.thumb && (
+        <img src={resolveMediaUrl(igPost.thumb)} alt="" className="w-8 h-8 rounded object-cover shrink-0" />
+      )}
+      <div className="min-w-0">
+        <p className={`text-[9px] font-semibold uppercase tracking-wide ${isOut ? 'text-white/60' : 'text-pink-500'}`}>Post</p>
+        <p className={`text-[11px] truncate max-w-[160px] ${cap}`}>{igPost.caption || 'Instagram post'}</p>
+      </div>
+    </div>
+  );
+  return igPost.url
+    ? <a href={igPost.url} target="_blank" rel="noreferrer" className="block hover:opacity-80">{body}</a>
+    : body;
+}
+
 /* ─── Chat Bubble ───────────────────────────────────────── */
-function Bubble({ msg, onContextMenu }) {
+function Bubble({ msg, onContextMenu, onReply }) {
   const isOut     = msg.direction === 'out';
   const isNote    = msg.isNote;
   const isSticker = msg.mediaType === 'sticker';
@@ -312,12 +334,23 @@ function Bubble({ msg, onContextMenu }) {
   }
 
   const isEmail = !!msg.emailMsgId || !!msg.emailSubject;
+  const igPost  = msg.igPost;
+  const canReplyComment = !isOut && !!igPost?.commentId && !!onReply;
 
   return (
     <div
       onContextMenu={e => { e.preventDefault(); onContextMenu(e, msg._id); }}
-      className={`flex ${isOut ? 'justify-end' : 'justify-start'} mb-1`}
+      className={`group flex ${isOut ? 'justify-end' : 'justify-start'} mb-1 items-end gap-1.5`}
     >
+      {canReplyComment && (
+        <button
+          onClick={() => onReply(msg)}
+          title="Shu kommentga javob berish"
+          className="order-2 shrink-0 mb-1 w-7 h-7 rounded-full bg-surface-100 text-ink-tertiary hover:bg-pink-100 hover:text-pink-600 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+        >
+          <CornerUpLeft className="w-3.5 h-3.5" />
+        </button>
+      )}
       <div
         className={`max-w-[72%] px-3 py-2 rounded-2xl text-sm leading-relaxed ${
           isOut
@@ -325,6 +358,7 @@ function Bubble({ msg, onContextMenu }) {
             : 'bg-white border border-surface-200 text-ink rounded-bl-sm'
         }`}
       >
+        {igPost && <IgPostChip igPost={igPost} isOut={isOut} />}
         {isEmail && msg.emailSubject && (
           <p className={`text-[11px] font-semibold mb-1 border-b pb-1 ${isOut ? 'border-white/20 text-white/80' : 'border-surface-100 text-ink-tertiary'}`}>
             {msg.emailSubject}
@@ -373,6 +407,7 @@ export default function InboxPage() {
   const [loadingPack,   setLoadingPack]     = useState(false);
   const [pendingFile,   setPendingFile]     = useState(null);
   const [isNoteMode,    setIsNoteMode]      = useState(false);
+  const [replyTarget,   setReplyTarget]     = useState(null); // IG komment javob nishoni: { commentId, text, igPost }
   const [quickReplies,  setQuickReplies]    = useState([]);
   const [showQR,        setShowQR]          = useState(false);
   const [qrFilter,      setQrFilter]        = useState('');
@@ -415,6 +450,15 @@ export default function InboxPage() {
 
   const messagesEndRef = useRef(null);
   const activeConv = conversations.find(c => c._id === activeConvId);
+  const isCommentConv = activeConv?.source === 'comment';
+
+  // Komment chatida javob nishoni: menejer tanlagani, aks holda oxirgi kelgan komment.
+  const lastInboundComment = isCommentConv
+    ? [...messages].reverse().find(m => m.direction === 'in' && m.igPost?.commentId)
+    : null;
+  const effectiveReply = replyTarget || (lastInboundComment
+    ? { commentId: lastInboundComment.igPost.commentId, text: lastInboundComment.text, igPost: lastInboundComment.igPost }
+    : null);
 
   const loadConversations = useCallback(async () => {
     setLoadingConvs(true);
@@ -507,6 +551,7 @@ export default function InboxPage() {
   const openConv = async (conv) => {
     setActiveConvId(conv._id);
     setMessages([]);
+    setReplyTarget(null);
     setLoadingMsgs(true);
     setMsgSearch('');
     setMsgDateFrom('');
@@ -541,7 +586,12 @@ export default function InboxPage() {
     setShowQR(false);
     try {
       const body = isNoteMode ? { text: draft, isNote: true } : { text: draft };
+      // IG komment chatida — javob tanlangan (yoki oxirgi) kommentga boradi.
+      if (!isNoteMode && isCommentConv && effectiveReply?.commentId) {
+        body.replyToCommentId = effectiveReply.commentId;
+      }
       const res = await axios.post(`${API_URL}/inbox/${activeConvId}/send`, body);
+      setReplyTarget(null);
       setMessages(prev => prev.some(m => String(m._id) === String(res.data.message._id)) ? prev : [...prev, res.data.message]);
       if (!isNoteMode) {
         setConversations(prev => prev.map(c =>
@@ -1220,35 +1270,14 @@ export default function InboxPage() {
               </button>
             </div>
 
-            {/* Instagram komment — qaysi post ostida ekanini ko'rsatuvchi banner */}
+            {/* Instagram komment chati — yo'riqnoma qatori */}
             {activeConv.source === 'comment' && (
-              <a
-                href={activeConv.postUrl || undefined}
-                target="_blank"
-                rel="noreferrer"
-                className={`shrink-0 flex items-center gap-3 px-4 py-2 border-b border-surface-100 bg-pink-50/60 ${activeConv.postUrl ? 'hover:bg-pink-50 cursor-pointer' : 'cursor-default'}`}
-              >
-                {activeConv.postThumb ? (
-                  <img
-                    src={resolveMediaUrl(activeConv.postThumb)}
-                    alt=""
-                    className="w-10 h-10 rounded-lg object-cover border border-pink-200 shrink-0"
-                  />
-                ) : (
-                  <div className="w-10 h-10 rounded-lg bg-pink-100 flex items-center justify-center shrink-0 text-pink-500">
-                    {(() => { const I = CHANNEL_ICON.instagram; return <I />; })()}
-                  </div>
-                )}
-                <div className="min-w-0 flex-1">
-                  <p className="text-[10px] font-semibold text-pink-600 uppercase tracking-wide">Post ostidagi komment</p>
-                  <p className="text-xs text-ink-secondary truncate">
-                    {activeConv.postCaption || 'Post matni yo\'q'}
-                  </p>
-                </div>
-                {activeConv.postUrl && (
-                  <span className="text-[11px] text-pink-600 font-medium shrink-0">Postni ochish →</span>
-                )}
-              </a>
+              <div className="shrink-0 flex items-center gap-2 px-4 py-1.5 border-b border-surface-100 bg-pink-50/50 text-pink-600">
+                {(() => { const I = CHANNEL_ICON.instagram; return <I />; })()}
+                <p className="text-[11px]">
+                  Post ostidagi kommentlar · javob bermoqchi bo'lgan kommentda <CornerUpLeft className="inline w-3 h-3" /> tugmasini bosing
+                </p>
+              </div>
             )}
 
             {/* Message search bar */}
@@ -1326,6 +1355,10 @@ export default function InboxPage() {
                     key={msg._id}
                     msg={msg}
                     onContextMenu={(e, id) => openCtxMenu(e, 'msg', id)}
+                    onReply={isCommentConv ? (m => {
+                      setReplyTarget({ commentId: m.igPost.commentId, text: m.text, igPost: m.igPost });
+                      textareaRef.current?.focus();
+                    }) : undefined}
                   />
                 ))
               )}
@@ -1334,6 +1367,27 @@ export default function InboxPage() {
 
             {/* Input */}
             <div className="relative shrink-0 bg-white border-t border-surface-200 px-4 py-3 space-y-2">
+              {/* IG komment — javob nishoni (qaysi kommentga javob berilmoqda) */}
+              {!isNoteMode && isCommentConv && effectiveReply && (
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-pink-50 border border-pink-200 rounded-xl">
+                  <CornerUpLeft className="w-3.5 h-3.5 text-pink-500 shrink-0" />
+                  {effectiveReply.igPost?.thumb && (
+                    <img src={resolveMediaUrl(effectiveReply.igPost.thumb)} alt="" className="w-7 h-7 rounded object-cover shrink-0" />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-semibold text-pink-600">
+                      {replyTarget ? 'Tanlangan kommentga javob' : 'Oxirgi kommentga javob'}
+                      {effectiveReply.igPost?.caption ? ` · ${effectiveReply.igPost.caption}` : ''}
+                    </p>
+                    <p className="text-xs text-ink-secondary truncate">{effectiveReply.text || '—'}</p>
+                  </div>
+                  {replyTarget && (
+                    <button onClick={() => setReplyTarget(null)} className="shrink-0 text-ink-tertiary hover:text-ink" title="Bekor qilish">
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              )}
               {/* Note mode indicator */}
               {isNoteMode && (
                 <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-700">

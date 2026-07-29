@@ -847,17 +847,26 @@ export default function TasksPage() {
 
   const stageKey = (s) => String(s._id || s.name);
 
-  const tasksForStage = (stage) =>
-    tasks
-      .filter(t => String(t.stageId) === stageKey(stage))
-      .filter(t => !filterSearch   || t.title.toLowerCase().includes(filterSearch.toLowerCase())
-                                   || t.description?.toLowerCase().includes(filterSearch.toLowerCase()))
+  // Boardda faqat mavjud bosqichga tegishli va filtrlardan o'tgan tasklar ko'rinadi —
+  // sarlavhadagi hisoblagich ham aynan shu ro'yxatdan olinadi (aks holda ustunlar
+  // yig'indisi bilan sondagi raqam mos kelmaydi).
+  const visibleTasks = useMemo(() => {
+    const keys = new Set(stages.map(s => String(s._id || s.name)));
+    const q = filterSearch.toLowerCase();
+    return tasks
+      .filter(t => keys.has(String(t.stageId)))
+      .filter(t => !filterSearch   || t.title.toLowerCase().includes(q)
+                                   || t.description?.toLowerCase().includes(q))
       .filter(t => !filterPriority || t.priority === filterPriority)
       .filter(t => !filterAssignee
         || String(t.assignedTo?._id || t.assignedTo || '') === filterAssignee
         || (t.additionalAssignees || []).some(u => String(u?._id || u) === filterAssignee))
       .filter(t => filterTags.length === 0 || filterTags.every(tag => t.tags?.includes(tag)))
       .filter(t => !filterCreatedByMe || String(t.createdBy?._id || t.createdBy || '') === String(meId));
+  }, [tasks, stages, filterSearch, filterPriority, filterAssignee, filterTags, filterCreatedByMe, meId]);
+
+  const tasksForStage = (stage) =>
+    visibleTasks.filter(t => String(t.stageId) === stageKey(stage));
 
   const activeTask = activeId ? tasks.find(t => t._id === activeId) : null;
 
@@ -934,7 +943,7 @@ export default function TasksPage() {
     }
   };
 
-  const totalOverdue = tasks.filter(t => isOverdue(t.dueDate)).length;
+  const totalOverdue = visibleTasks.filter(t => isOverdue(t.dueDate)).length;
   const hasFilters = filterSearch || filterPriority || filterAssignee || filterTags.length > 0 || filterCreatedByMe;
 
   if (loading) {
@@ -965,7 +974,9 @@ export default function TasksPage() {
           <div className="flex items-center gap-3 flex-wrap min-w-0">
             <CheckSquare2 className="w-5 h-5 text-primary-600 shrink-0" />
             <h1 className="font-bold text-ink">{t('tasks.title')}</h1>
-            <span className="text-xs text-ink-disabled bg-surface-100 rounded-full px-2 py-0.5">{tasks.length}</span>
+            <span className="text-xs text-ink-disabled bg-surface-100 rounded-full px-2 py-0.5">
+              {visibleTasks.length < tasks.length ? `${visibleTasks.length} / ${tasks.length}` : tasks.length}
+            </span>
             {totalOverdue > 0 && (
               <span className="flex items-center gap-1 text-xs text-red-500 bg-red-50 rounded-full px-2 py-0.5 font-medium">
                 <AlertCircle className="w-3 h-3" />

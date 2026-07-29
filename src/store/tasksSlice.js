@@ -28,6 +28,13 @@ const slice = createSlice({
     setTasksList: (s, { payload }) => { s.tasks = payload; },
     upsertTask: (s, { payload }) => {
       const i = s.tasks.findIndex(t => t._id === payload._id);
+      // Arxivlangan task boardda turmaydi. Backend arxivlashda ham `task:updated`
+      // yuboradi — uni oddiy upsert qilsak, endigina olib tashlangan kartochka
+      // qaytib paydo bo'lardi (faqat refreshdan keyin yo'qolardi).
+      if (payload.archived) {
+        if (i !== -1) s.tasks.splice(i, 1);
+        return;
+      }
       if (i !== -1) s.tasks[i] = payload; else s.tasks.push(payload);
     },
     removeTask: (s, { payload: id }) => { s.tasks = s.tasks.filter(t => t._id !== id); },

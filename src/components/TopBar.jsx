@@ -9,7 +9,7 @@ import { mediaUrl } from '../utils/media';
 import { usePermissions } from '../utils/permissions';
 import { NAV_ITEMS } from './Sidebar';
 import {
-  Building2, Settings, LogOut, UserCircle, ChevronDown, Lock,
+  Building2, Settings, LogOut, UserCircle, ChevronDown, ChevronUp, Lock,
   Maximize, Minimize, RotateCcw, Kanban,
 } from 'lucide-react';
 
@@ -289,6 +289,21 @@ function FullscreenButton() {
 }
 
 export default function TopBar({ left, right, onAccountSettings, active, onNavigate, showNav = true }) {
+  const [collapsed, setCollapsed] = useState(false);
+
+  if (collapsed) {
+    return (
+      <button
+        type="button"
+        onClick={() => setCollapsed(false)}
+        title="Yuqori panelni ochish"
+        className="w-full bg-primary-800 flex items-center justify-center py-1 safe-top shrink-0"
+      >
+        <ChevronDown className="w-4 h-4 text-white/60" />
+      </button>
+    );
+  }
+
   return (
     <>
       <header className="bg-primary-800 px-4 lg:px-5 py-2.5 flex items-center gap-3 shrink-0 safe-top [--safe-pad:0.625rem]">
@@ -313,6 +328,14 @@ export default function TopBar({ left, right, onAccountSettings, active, onNavig
           <RefreshButton />
           <FullscreenButton />
           <LockButton />
+          <button
+            type="button"
+            onClick={() => setCollapsed(true)}
+            title="Yig'ish"
+            className="flex items-center justify-center w-8 h-8 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+          >
+            <ChevronUp className="w-4 h-4" />
+          </button>
           <div className="w-px h-5 bg-white/20" />
           <UserDropdown onAccountSettings={onAccountSettings} />
         </div>

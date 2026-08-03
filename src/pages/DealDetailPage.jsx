@@ -8,7 +8,7 @@ import toast from 'react-hot-toast';
 import {
   ArrowLeft, Loader2, Send, MessageSquare, Trash2, Pencil,
   Plus, X, Check, ChevronDown, Upload, FileText, MoreVertical,
-  User, DollarSign, Kanban, Phone, Trophy, XCircle, RotateCcw,
+  User, DollarSign, Kanban, Phone, PhoneCall,
   Mail, AlertCircle, ExternalLink, Layers,
 } from 'lucide-react';
 import { getSocket } from '../utils/socket';
@@ -253,11 +253,6 @@ export default function DealDetailPage({ funnelId, dealId }) {
   // Deal calls (statistika uchun)
   const [dealCalls,    setDealCalls]   = useState([]);
 
-  // F-12: won/lost status
-  const [dealStatus,   setDealStatus]  = useState('active');
-  const [closeReason,  setCloseReason] = useState('');
-  const [showWonLost,  setShowWonLost] = useState(false); // 'won'|'lost'|false
-  const [wlReason,     setWlReason]    = useState('');
   const bottomRef        = useRef(null);
   const textareaRef      = useRef(null);
   const contactAnchorRef = useRef(null);
@@ -320,8 +315,6 @@ export default function DealDetailPage({ funnelId, dealId }) {
           setSource(d.source || '');
           setNotes(d.notes || '');
           setFiles(d.files || []);
-          setDealStatus(d.status || 'active');
-          setCloseReason(d.closeReason || '');
           const vals = d.customFieldValues || {};
           setCustomFieldValues(vals);
           setCustomFieldValues(vals);
@@ -449,21 +442,6 @@ export default function DealDetailPage({ funnelId, dealId }) {
       toast.error(err.response?.data?.message || t('deals.loadError'));
     } finally {
       setSaving(false);
-    }
-  };
-
-  // F-12: Won / Lost
-  const handleSetStatus = async (status, reason) => {
-    try {
-      await axios.put(`${API}/funnels/${funnelId}/deals/${dealId}`, { status, closeReason: reason });
-      setDealStatus(status);
-      setCloseReason(reason);
-      setShowWonLost(false);
-      setWlReason('');
-      toast.success(status === 'won' ? 'Bitim yutildi!' : status === 'lost' ? "Bitim yo'qotildi" : 'Holat yangilandi');
-      loadActivities();
-    } catch {
-      toast.error(t('deals.loadError'));
     }
   };
 
@@ -661,38 +639,6 @@ export default function DealDetailPage({ funnelId, dealId }) {
           )}
         </div>
         <div className="flex items-center gap-2 shrink-0 w-full lg:w-auto justify-end">
-          {/* F-12: won/lost status badge + buttons */}
-          {!isNew && dealStatus === 'won' && (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-xl">
-              <Trophy className="w-3.5 h-3.5 text-emerald-600" />
-              <span className="text-xs font-semibold text-emerald-700">Yutildi</span>
-              <button onClick={() => handleSetStatus('active', '')} title="Faolga qaytarish" className="ml-1 text-emerald-400 hover:text-emerald-700 transition-colors">
-                <RotateCcw className="w-3 h-3" />
-              </button>
-            </div>
-          )}
-          {!isNew && dealStatus === 'lost' && (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 border border-red-200 rounded-xl">
-              <XCircle className="w-3.5 h-3.5 text-red-500" />
-              <span className="text-xs font-semibold text-red-600">Yo'qotildi</span>
-              {closeReason && <span className="text-[10px] text-red-400 truncate max-w-[100px]">{closeReason}</span>}
-              <button onClick={() => handleSetStatus('active', '')} title="Faolga qaytarish" className="ml-1 text-red-400 hover:text-red-600 transition-colors">
-                <RotateCcw className="w-3 h-3" />
-              </button>
-            </div>
-          )}
-          {!isNew && dealStatus === 'active' && (
-            <>
-              <button onClick={() => { setShowWonLost('won'); setWlReason(''); }}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl text-xs font-medium text-emerald-700 transition-colors">
-                <Trophy className="w-3.5 h-3.5" /> Yutildi
-              </button>
-              <button onClick={() => { setShowWonLost('lost'); setWlReason(''); }}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 hover:bg-red-100 border border-red-200 rounded-xl text-xs font-medium text-red-600 transition-colors">
-                <XCircle className="w-3.5 h-3.5" /> Yo'qotildi
-              </button>
-            </>
-          )}
           {isDirty && (
             <button onClick={handleSave} disabled={saving} className="btn-md btn-primary flex items-center gap-2">
               {saving && <Loader2 className="w-4 h-4 animate-spin" />}
@@ -726,42 +672,6 @@ export default function DealDetailPage({ funnelId, dealId }) {
           )}
         </div>
       </div>
-
-      {/* ── Won/Lost modal ── */}
-      {showWonLost && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/40" onClick={() => { setShowWonLost(false); setWlReason(''); }} />
-          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
-            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4 ${showWonLost === 'won' ? 'bg-emerald-100' : 'bg-red-100'}`}>
-              {showWonLost === 'won'
-                ? <Trophy className="w-6 h-6 text-emerald-600" />
-                : <XCircle className="w-6 h-6 text-red-500" />}
-            </div>
-            <h3 className="text-base font-bold text-ink text-center mb-1">
-              {showWonLost === 'won' ? t('deals.wonTitle') : t('deals.lostTitle')}
-            </h3>
-            <p className="text-sm text-ink-tertiary text-center mb-5">
-              {showWonLost === 'won' ? t('deals.wonReason') : t('deals.lostReason')}
-            </p>
-            <textarea
-              autoFocus
-              className="input w-full resize-none text-sm"
-              rows={2}
-              placeholder={t('deals.reasonPlaceholder')}
-              value={wlReason}
-              onChange={e => setWlReason(e.target.value)}
-            />
-            <div className="flex gap-2 mt-4">
-              <button onClick={() => { setShowWonLost(false); setWlReason(''); }} className="btn-secondary btn-md flex-1">{t('deals.cancel')}</button>
-              <button
-                onClick={() => handleSetStatus(showWonLost, wlReason)}
-                className={`btn-md flex-1 font-medium rounded-xl transition-colors text-white ${showWonLost === 'won' ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-red-500 hover:bg-red-600'}`}>
-                {t('deals.confirm')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ── Delete confirm ── */}
       {confirmDelete && (
@@ -930,6 +840,12 @@ export default function DealDetailPage({ funnelId, dealId }) {
                       ) : <span className="text-sm text-ink-disabled">— Tanlang</span>}
                       <ChevronDown className={`w-3.5 h-3.5 text-ink-tertiary shrink-0 transition-transform ${showContactPicker ? 'rotate-180' : ''}`} />
                     </button>
+                    {(linkedContact || selectedContact)?.phone && (
+                      <a href={`tel:${(linkedContact || selectedContact).phone}`} title="Qo'ng'iroq qilish"
+                        className="p-1.5 rounded-lg text-green-600 hover:bg-green-50 transition-colors shrink-0">
+                        <PhoneCall className="w-4 h-4" />
+                      </a>
+                    )}
                     <FloatingDropdown
                       anchorRef={contactAnchorRef}
                       open={showContactPicker}
@@ -1025,7 +941,13 @@ export default function DealDetailPage({ funnelId, dealId }) {
                             <span className="w-28 text-sm text-ink-tertiary shrink-0 flex items-center gap-1.5">
                               <Phone className="w-3.5 h-3.5" /> Telefon
                             </span>
-                            <span className="text-sm text-ink">{linkedContact.phone}</span>
+                            <span className="flex-1 flex items-center justify-between gap-2 min-w-0">
+                              <span className="text-sm text-ink">{linkedContact.phone}</span>
+                              <a href={`tel:${linkedContact.phone}`} title="Qo'ng'iroq qilish"
+                                className="p-1.5 rounded-lg text-green-600 hover:bg-green-50 transition-colors shrink-0">
+                                <PhoneCall className="w-3.5 h-3.5" />
+                              </a>
+                            </span>
                           </div>
                         )}
                         {linkedContact.email && (
@@ -1126,7 +1048,6 @@ export default function DealDetailPage({ funnelId, dealId }) {
             {/* ─── Statistika tab ─── */}
             {tab === 'stats' && (() => {
               const createdAt  = deal?.createdAt ? new Date(deal.createdAt) : null;
-              const closedAt   = deal?.closedAt  ? new Date(deal.closedAt)  : null;
               const daysActive = createdAt ? Math.floor((Date.now() - createdAt) / 86400000) : 0;
               const fmt2 = d => d ? `${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}.${d.getFullYear()}` : '—';
               const noteCount  = activities.filter(a => a.type === 'note').length;
@@ -1154,20 +1075,6 @@ export default function DealDetailPage({ funnelId, dealId }) {
 
               return (
                 <div className="space-y-3">
-                  {/* Status banner */}
-                  {dealStatus !== 'active' && (
-                    <div className={`rounded-xl px-4 py-3 flex items-center gap-3 ${dealStatus === 'won' ? 'bg-emerald-50 border border-emerald-200' : 'bg-red-50 border border-red-200'}`}>
-                      {dealStatus === 'won' ? <Trophy className="w-5 h-5 text-emerald-600 shrink-0" /> : <XCircle className="w-5 h-5 text-red-500 shrink-0" />}
-                      <div className="min-w-0">
-                        <p className={`text-sm font-semibold ${dealStatus === 'won' ? 'text-emerald-700' : 'text-red-600'}`}>
-                          {dealStatus === 'won' ? 'Bitim yutildi' : "Bitim yo'qotildi"}
-                        </p>
-                        {closeReason && <p className="text-xs text-ink-tertiary truncate">{closeReason}</p>}
-                        {closedAt && <p className="text-xs text-ink-tertiary">{fmt2(closedAt)}</p>}
-                      </div>
-                    </div>
-                  )}
-
                   {/* Dates row */}
                   <div className="grid grid-cols-2 gap-3">
                     <div className="border border-surface-100 rounded-xl px-3 py-2.5">

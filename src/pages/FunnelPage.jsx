@@ -15,7 +15,7 @@ import {
   SortableContext, useSortable, verticalListSortingStrategy, arrayMove,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Plus, X, Loader2, Check, User, Phone, DollarSign, Pencil, Trash2, Search, Clock, Calendar, Download, Upload, Layers, ChevronDown } from 'lucide-react';
+import { Plus, X, Loader2, Check, User, Phone, PhoneCall, DollarSign, Pencil, Trash2, Search, Clock, Calendar, Download, Upload, Layers, ChevronDown } from 'lucide-react';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:5002/api';
 
@@ -120,6 +120,10 @@ function DealCard({ deal, isLead, onEdit, onDelete, onMove, currency, overlay = 
           <div className="flex items-center gap-1.5 mb-1.5">
             <Phone className="w-3 h-3 text-ink-tertiary shrink-0" />
             <span className="text-xs text-ink-secondary font-medium">{deal.contact.phone}</span>
+            <a href={`tel:${deal.contact.phone}`} onClick={e => e.stopPropagation()} title="Qo'ng'iroq qilish"
+              className="p-1 rounded-lg text-green-600 hover:bg-green-50 transition-colors shrink-0">
+              <PhoneCall className="w-3 h-3" />
+            </a>
           </div>
         )}
         {/* Contact name */}
@@ -545,7 +549,6 @@ export default function FunnelPage({ funnelId }) {
   const dispatch  = useDispatch();
   const t = useT();
   const currency  = useSelector(s => s.auth.user?.organization?.currency || 'UZS');
-  const meId      = useSelector(s => s.auth.user?._id || s.auth.user?.id);
   const allFunnels = useSelector(s => s.funnels.list);
   const [funnel,      setFunnel]      = useState(null);
   const [deals,       setDeals]       = useState([]);
@@ -808,7 +811,7 @@ export default function FunnelPage({ funnelId }) {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="px-4 md:px-6 py-3 md:py-4 border-b border-surface-100 bg-white shrink-0 flex flex-col md:flex-row md:items-center gap-3 md:gap-4 md:min-h-[68px]">
+      <div className="px-4 md:px-6 py-2 md:py-4 border-b border-surface-100 bg-white shrink-0 flex flex-col md:flex-row md:items-center gap-2 md:gap-4 md:min-h-[68px]">
         {/* Title + Action (mobile: same row; desktop: split via order) */}
         <div className="flex items-center justify-between gap-3 md:contents">
           <h1 className="text-lg font-bold text-ink shrink-0 md:order-1">{funnel.name}</h1>
@@ -845,7 +848,7 @@ export default function FunnelPage({ funnelId }) {
         <div className="relative flex-1 min-w-0 md:order-2">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-tertiary pointer-events-none" />
           <input
-            className="input pl-9 text-sm h-9 w-full"
+            className="input pl-9 text-sm h-8 md:h-9 w-full"
             placeholder={t('funnel.dealSearch')}
             value={search}
             onChange={e => setSearch(e.target.value)}
@@ -856,17 +859,6 @@ export default function FunnelPage({ funnelId }) {
             </button>
           )}
         </div>
-
-        {/* Menga biriktirilgan tezkor filtri */}
-        <button
-          onClick={() => setFilterAssignedTo(v => v === meId ? '' : meId)}
-          className={`shrink-0 px-3 py-2 rounded-xl text-sm font-medium border transition-colors whitespace-nowrap md:order-2 ${
-            filterAssignedTo === meId
-              ? 'bg-primary-50 border-primary-300 text-primary-700'
-              : 'bg-surface-50 border-surface-200 text-ink-secondary hover:bg-surface-100'
-          }`}>
-          {t('tasks.assignedToMe')}
-        </button>
 
         {/* Mas'ul bo'yicha filtr — istalgan xodimni tanlash */}
         <div className="relative shrink-0 md:order-2">

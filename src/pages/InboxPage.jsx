@@ -11,7 +11,7 @@ import { mediaUrl as resolveMediaUrl } from '../utils/media';
 import {
   Send, MessageSquare, Search, Loader2,
   CheckCheck, User, X, Smile, Trash2, Paperclip, FileText,
-  StickyNote, CheckCircle2, RotateCcw, Info, Phone, Mail, Hash, ChevronRight,
+  StickyNote, CheckCircle2, RotateCcw, Info, Phone, PhoneCall, Mail, Hash, ChevronRight,
   Plus, Check, Tag, UserCheck, Search as SearchIcon, TrendingUp, ArrowLeft,
   CornerUpLeft,
 } from 'lucide-react';
@@ -1589,7 +1589,11 @@ export default function InboxPage() {
                       {contactInfo.conv.contact.phone && (
                         <div className="flex items-center gap-1.5">
                           <Phone className="w-3 h-3 text-ink-tertiary" />
-                          <span className="text-xs text-ink-secondary">{contactInfo.conv.contact.phone}</span>
+                          <span className="text-xs text-ink-secondary flex-1">{contactInfo.conv.contact.phone}</span>
+                          <a href={`tel:${contactInfo.conv.contact.phone}`} title="Qo'ng'iroq qilish"
+                            className="p-1 rounded-lg text-green-600 hover:bg-green-100 transition-colors shrink-0">
+                            <PhoneCall className="w-3.5 h-3.5" />
+                          </a>
                         </div>
                       )}
                       {contactInfo.conv.contact.email && (

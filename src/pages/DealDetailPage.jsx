@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import { useT } from '../utils/translate';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { fetchTasks, upsertTask } from '../store/tasksSlice';
 import {
   ArrowLeft, Loader2, Send, MessageSquare, Trash2, Pencil,
   Plus, X, Check, ChevronDown, Upload, FileText, MoreVertical,
-  User, DollarSign, Kanban, Phone, PhoneCall,
+  User, DollarSign, Kanban, Phone, PhoneCall, CheckSquare2,
   Mail, AlertCircle, ExternalLink, Layers,
 } from 'lucide-react';
 import { getSocket } from '../utils/socket';
@@ -185,10 +186,12 @@ function NoteItem({ activity, onDelete, currentUserId }) {
 
 export default function DealDetailPage({ funnelId, dealId }) {
   const navigate  = useNavigate();
+  const dispatch  = useDispatch();
   const t = useT();
   const currency  = useSelector(s => s.auth.user?.organization?.currency || 'UZS');
   const meId      = useSelector(s => s.auth.user?._id || s.auth.user?.id);
   const allFunnels = useSelector(s => s.funnels.list);
+  const taskStages = useSelector(s => s.tasks.stages);
   const isNew     = dealId === 'new';
 
   // Core data
@@ -197,6 +200,14 @@ export default function DealDetailPage({ funnelId, dealId }) {
   const [loading,  setLoading]  = useState(true);
   const [saving,   setSaving]   = useState(false);
   const [tab,      setTab]      = useState('main');
+
+  // Vazifa yaratish (shu lead/dealga bog'langan)
+  const [showTaskModal,   setShowTaskModal]   = useState(false);
+  const [taskSaving,      setTaskSaving]      = useState(false);
+  const [newTaskTitle,    setNewTaskTitle]    = useState('');
+  const [newTaskAssignee, setNewTaskAssignee] = useState('');
+  const [newTaskDueDate,  setNewTaskDueDate]  = useState('');
+  const [newTaskPriority, setNewTaskPriority] = useState('normal');
 
   // Form state
   const [title,      setTitle]      = useState('');
@@ -545,13 +556,48 @@ export default function DealDetailPage({ funnelId, dealId }) {
     }
   };
 
+  // ── Task (shu leadga bog'langan vazifa) ─────────────────────────────────────
+  const openTaskModal = () => {
+    dispatch(fetchTasks());
+    setNewTaskTitle(title || '');
+    setNewTaskAssignee(assignedTo || '');
+    setNewTaskDueDate('');
+    setNewTaskPriority('normal');
+    setShowTaskModal(true);
+  };
+
+  const handleCreateTask = async () => {
+    if (!newTaskTitle.trim()) { toast.error(t('tasks.titleRequired')); return; }
+    const firstStage = taskStages[0];
+    if (!firstStage) { toast.error(t('deals.loadError')); return; }
+    setTaskSaving(true);
+    try {
+      const res = await axios.post(`${API}/tasks`, {
+        title:      newTaskTitle.trim(),
+        stageId:    String(firstStage._id || firstStage.name),
+        assignedTo: newTaskAssignee || null,
+        dueDate:    newTaskDueDate  || null,
+        priority:   newTaskPriority,
+        contact:    linkedContact?._id || null,
+        deal:       dealId,
+      });
+      dispatch(upsertTask(res.data.task));
+      toast.success(t('tasks.created'));
+      setShowTaskModal(false);
+    } catch (e) {
+      toast.error(e.response?.data?.message || t('tasks.error'));
+    } finally {
+      setTaskSaving(false);
+    }
+  };
+
   // ── Activity ─────────────────────────────────────────────────────────────
   const handleSendNote = async () => {
     if (!noteText.trim() || isNew) return;
     setNoteSending(true);
     try {
       const r = await axios.post(`${API}/funnels/${funnelId}/deals/${dealId}/activities`, { text: noteText.trim() });
-      setActivities(prev => [...prev, r.data.activity]);
+      setActivities(prev => prev.some(a => a._id === r.data.activity._id) ? prev : [...prev, r.data.activity]);
       setNoteText('');
       if (textareaRef.current) textareaRef.current.style.height = 'auto';
       textareaRef.current?.focus();
@@ -672,6 +718,57 @@ export default function DealDetailPage({ funnelId, dealId }) {
           )}
         </div>
       </div>
+
+      {/* ── Vazifa yaratish modal ── */}
+      {showTaskModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
+            <p className="text-base font-semibold text-ink mb-4">{t('tasks.newTask')}</p>
+
+            <label className="block text-xs font-medium text-ink-secondary mb-1">{t('tasks.modalTitle')}</label>
+            <input
+              autoFocus
+              className="input w-full mb-3"
+              placeholder={t('tasks.titlePlaceholder')}
+              value={newTaskTitle}
+              onChange={e => setNewTaskTitle(e.target.value)}
+            />
+
+            <label className="block text-xs font-medium text-ink-secondary mb-1">{t('tasks.assignee')}</label>
+            <select
+              className="input w-full mb-3"
+              value={newTaskAssignee}
+              onChange={e => setNewTaskAssignee(e.target.value)}
+            >
+              <option value="">{t('tasks.unassigned')}</option>
+              {users.map(u => <option key={u._id} value={u._id}>{u.name}</option>)}
+            </select>
+
+            <div className="grid grid-cols-2 gap-3 mb-5">
+              <div>
+                <label className="block text-xs font-medium text-ink-secondary mb-1">{t('tasks.dueDate')}</label>
+                <input type="date" className="input w-full"
+                  value={newTaskDueDate} onChange={e => setNewTaskDueDate(e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-ink-secondary mb-1">{t('tasks.priority')}</label>
+                <select className="input w-full" value={newTaskPriority} onChange={e => setNewTaskPriority(e.target.value)}>
+                  <option value="low">{t('tasks.prioLow')}</option>
+                  <option value="normal">{t('tasks.prioMedium')}</option>
+                  <option value="high">{t('tasks.prioHigh')}</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <button onClick={() => setShowTaskModal(false)} className="btn-md btn-secondary flex-1">{t('tasks.cancel')}</button>
+              <button onClick={handleCreateTask} disabled={taskSaving} className="btn-md btn-primary flex-1 flex items-center justify-center gap-2">
+                {taskSaving && <Loader2 className="w-4 h-4 animate-spin" />} {t('tasks.create')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Delete confirm ── */}
       {confirmDelete && (
@@ -1308,9 +1405,17 @@ export default function DealDetailPage({ funnelId, dealId }) {
 
         {/* ── RIGHT: Activity feed (telefonda pastda joylashadi) ── */}
         <div className="w-full lg:flex-1 flex flex-col lg:min-w-0 bg-surface-50">
-          <div className="px-5 py-3 border-b border-surface-100 bg-white shrink-0">
-            <p className="text-sm font-semibold text-ink">{t('contactForm.tabActivity')}</p>
-            <p className="text-xs text-ink-tertiary mt-0.5">{t('deals.activitySub')}</p>
+          <div className="px-5 py-3 border-b border-surface-100 bg-white shrink-0 flex items-center justify-between gap-2">
+            <div>
+              <p className="text-sm font-semibold text-ink">{t('contactForm.tabActivity')}</p>
+              <p className="text-xs text-ink-tertiary mt-0.5">{t('deals.activitySub')}</p>
+            </div>
+            {!isNew && (
+              <button onClick={openTaskModal}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border border-surface-200 text-ink-secondary hover:border-primary-300 hover:text-primary-600 transition-colors shrink-0">
+                <CheckSquare2 className="w-3.5 h-3.5" /> {t('tasks.newTask')}
+              </button>
+            )}
           </div>
           <div className="min-h-[40vh] lg:min-h-0 lg:flex-1 lg:overflow-y-auto px-5 py-4">
             {isNew ? (

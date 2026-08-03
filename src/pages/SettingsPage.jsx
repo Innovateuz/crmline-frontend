@@ -6264,24 +6264,6 @@ export default function SettingsPage() {
   // Joriy tab qaysi guruhga tegishli bo'lsa — shu guruh faol; sub-tab strip shu guruh ichidagilarga cheklanadi.
   const activeGroup = TAB_GROUPS.find(g => g.tabs.includes(tab)) || TAB_GROUPS[0];
   const subTabs = visibleTabs.filter(x => activeGroup.tabs.includes(x.key));
-  const activeTabRef = useRef(null);
-  const subTabsScrollRef = useRef(null);
-
-  // Mobilda scroll-tab: faol tabni avtomatik ko'rinadigan joyga surish.
-  // Faqat gorizontal konteynerni suramiz — scrollIntoView sahifani vertikal ham
-  // siljitib, qatorni "oynab ketishi"ga sabab bo'lardi.
-  useEffect(() => {
-    const container = subTabsScrollRef.current;
-    const el = activeTabRef.current;
-    if (!container || !el) return;
-    const cRect = container.getBoundingClientRect();
-    const eRect = el.getBoundingClientRect();
-    if (eRect.left < cRect.left) {
-      container.scrollBy({ left: eRect.left - cRect.left - 16, behavior: 'smooth' });
-    } else if (eRect.right > cRect.right) {
-      container.scrollBy({ left: eRect.right - cRect.right + 16, behavior: 'smooth' });
-    }
-  }, [tab]);
 
   return (
     <div className="min-h-screen-safe bg-surface-50 flex flex-col">
@@ -6329,11 +6311,10 @@ export default function SettingsPage() {
 
       {/* Sub-tablar — ikkinchi qatlam, faqat faol guruhga tegishlilari */}
       <div className="bg-white border-b border-surface-200 px-4 lg:px-6">
-        <div ref={subTabsScrollRef} className="flex gap-1 overflow-x-auto no-scrollbar">
+        <div className="flex gap-1 overflow-x-auto no-scrollbar">
           {subTabs.map(({ key, icon: Icon, label }) => (
             <button
               key={key}
-              ref={tab === key ? activeTabRef : null}
               onClick={() => setTab(key)}
               className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors -mb-px shrink-0 whitespace-nowrap ${
                 tab === key

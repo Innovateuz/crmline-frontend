@@ -6311,15 +6311,15 @@ export default function SettingsPage() {
 
       {/* Sub-tablar — ikkinchi qatlam, faqat faol guruhga tegishlilari */}
       <div className="bg-white border-b border-surface-200 px-4 lg:px-6">
-        <div className="flex gap-1 overflow-x-auto no-scrollbar">
+        <div className="flex gap-1.5 overflow-x-auto no-scrollbar py-2">
           {subTabs.map(({ key, icon: Icon, label }) => (
             <button
               key={key}
               onClick={() => setTab(key)}
-              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors -mb-px shrink-0 whitespace-nowrap ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium transition-colors shrink-0 whitespace-nowrap ${
                 tab === key
-                  ? 'border-primary-600 text-primary-700'
-                  : 'border-transparent text-ink-secondary hover:text-ink'
+                  ? 'bg-primary-600 text-white shadow-sm'
+                  : 'text-ink-secondary hover:bg-surface-50 hover:text-ink'
               }`}
             >
               <Icon className="w-4 h-4 shrink-0" />

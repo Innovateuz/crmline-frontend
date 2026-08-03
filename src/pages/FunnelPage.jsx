@@ -166,7 +166,7 @@ function DealCard({ deal, isLead, onEdit, onDelete, onMove, currency, overlay = 
 
   if (overlay) return card;
   return (
-    <div ref={setNodeRef} style={style} className="touch-pan-y">
+    <div ref={setNodeRef} style={style}>
       <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing"
         onClick={e => {
           // Only navigate if it wasn't a real drag (distance constraint handles this, but

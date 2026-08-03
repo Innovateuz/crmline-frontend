@@ -571,6 +571,7 @@ export default function FunnelPage({ funnelId }) {
   const [quickStageId,  setQuickStageId]  = useState(null); // null = closed
   const [showImport,    setShowImport]    = useState(false);
   const [exporting,     setExporting]     = useState(false);
+  const [toolbarOpen,   setToolbarOpen]   = useState(true);
 
   const sensors = useSensors(
     // Desktop: sichqoncha bilan 5px surilsa drag boshlanadi
@@ -814,7 +815,16 @@ export default function FunnelPage({ funnelId }) {
       <div className="px-4 md:px-6 py-2 md:py-4 border-b border-surface-100 bg-white shrink-0 flex flex-col md:flex-row md:items-center gap-2 md:gap-4 md:min-h-[68px]">
         {/* Title + Action (mobile: same row; desktop: split via order) */}
         <div className="flex items-center justify-between gap-3 md:contents">
-          <h1 className="text-lg font-bold text-ink shrink-0 md:order-1">{funnel.name}</h1>
+          <div className="flex items-center gap-1.5 shrink-0 md:order-1">
+            <h1 className="text-lg font-bold text-ink">{funnel.name}</h1>
+            <button
+              onClick={() => setToolbarOpen(v => !v)}
+              title={toolbarOpen ? "Yig'ish" : "Ochish"}
+              className="p-1 rounded-lg text-ink-tertiary hover:text-ink hover:bg-surface-100 transition-colors"
+            >
+              <ChevronDown className={`w-4 h-4 transition-transform ${toolbarOpen ? 'rotate-180' : ''}`} />
+            </button>
+          </div>
           <div className="flex items-center gap-2 shrink-0 md:order-4">
             <button
               onClick={handleExport}
@@ -844,52 +854,56 @@ export default function FunnelPage({ funnelId }) {
           </div>
         </div>
 
-        {/* Search */}
-        <div className="relative flex-1 min-w-0 md:order-2">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-tertiary pointer-events-none" />
-          <input
-            className="input pl-9 text-sm h-8 md:h-9 w-full"
-            placeholder={t('funnel.dealSearch')}
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
-          {search && (
-            <button onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-tertiary hover:text-ink">
-              <X className="w-3.5 h-3.5" />
-            </button>
-          )}
-        </div>
+        {toolbarOpen && (
+          <>
+            {/* Search */}
+            <div className="relative flex-1 min-w-0 md:order-2">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-tertiary pointer-events-none" />
+              <input
+                className="input pl-9 text-sm h-8 md:h-9 w-full"
+                placeholder={t('funnel.dealSearch')}
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+              />
+              {search && (
+                <button onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-tertiary hover:text-ink">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
 
-        {/* Mas'ul bo'yicha filtr — istalgan xodimni tanlash */}
-        <div className="relative shrink-0 md:order-2">
-          <User className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-ink-disabled pointer-events-none" />
-          <select
-            className="pl-8 pr-8 py-2 text-sm bg-surface-50 border border-surface-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-300 appearance-none"
-            value={filterAssignedTo}
-            onChange={e => setFilterAssignedTo(e.target.value)}
-          >
-            <option value="">{t('tasks.allAssignees')}</option>
-            {users.map(u => <option key={u._id} value={u._id}>{u.name}</option>)}
-          </select>
-          <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-ink-disabled pointer-events-none" />
-        </div>
+            {/* Mas'ul bo'yicha filtr — istalgan xodimni tanlash */}
+            <div className="relative shrink-0 md:order-2">
+              <User className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-ink-disabled pointer-events-none" />
+              <select
+                className="pl-8 pr-8 py-2 text-sm bg-surface-50 border border-surface-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-300 appearance-none"
+                value={filterAssignedTo}
+                onChange={e => setFilterAssignedTo(e.target.value)}
+              >
+                <option value="">{t('tasks.allAssignees')}</option>
+                {users.map(u => <option key={u._id} value={u._id}>{u.name}</option>)}
+              </select>
+              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-ink-disabled pointer-events-none" />
+            </div>
 
-        {/* Stats */}
-        {(leadSum > 0 || progressSum > 0 || dealSum > 0) && (
-          <div className="flex items-center gap-3 shrink-0 text-xs font-semibold overflow-x-auto no-scrollbar md:order-3">
-            <span className="flex items-center gap-1.5 text-amber-600 whitespace-nowrap">
-              <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />
-              Zayavka: {fmt(leadSum)} {currency}
-            </span>
-            <span className="flex items-center gap-1.5 text-blue-600 whitespace-nowrap">
-              <span className="w-2 h-2 rounded-full bg-blue-400 shrink-0" />
-              Jarayonda: {fmt(progressSum)} {currency}
-            </span>
-            <span className="flex items-center gap-1.5 text-green-600 whitespace-nowrap">
-              <span className="w-2 h-2 rounded-full bg-green-500 shrink-0" />
-              Deal: {fmt(dealSum)} {currency}
-            </span>
-          </div>
+            {/* Stats */}
+            {(leadSum > 0 || progressSum > 0 || dealSum > 0) && (
+              <div className="flex items-center gap-3 shrink-0 text-xs font-semibold overflow-x-auto no-scrollbar md:order-3">
+                <span className="flex items-center gap-1.5 text-amber-600 whitespace-nowrap">
+                  <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />
+                  Zayavka: {fmt(leadSum)} {currency}
+                </span>
+                <span className="flex items-center gap-1.5 text-blue-600 whitespace-nowrap">
+                  <span className="w-2 h-2 rounded-full bg-blue-400 shrink-0" />
+                  Jarayonda: {fmt(progressSum)} {currency}
+                </span>
+                <span className="flex items-center gap-1.5 text-green-600 whitespace-nowrap">
+                  <span className="w-2 h-2 rounded-full bg-green-500 shrink-0" />
+                  Deal: {fmt(dealSum)} {currency}
+                </span>
+              </div>
+            )}
+          </>
         )}
       </div>
 

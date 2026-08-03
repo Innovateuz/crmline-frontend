@@ -133,7 +133,7 @@ export default function DashboardPage() {
         onNavigate={handleNavigate}
         onAccountSettings={handleAccountSettings}
       />
-      <main className="flex-1 min-h-0 overflow-y-auto">
+      <main className="flex-1 min-h-0 overflow-y-auto pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0">
         {getContent()}
       </main>
       <BottomNav />

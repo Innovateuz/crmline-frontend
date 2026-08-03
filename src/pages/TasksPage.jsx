@@ -15,7 +15,7 @@ import {
   Plus, X, Loader2, Check, ChevronDown,
   Calendar, CheckSquare2, Pencil, Trash2,
   AlertCircle, User, UserCheck, Link2, Search, Filter, Eye, Archive, ArchiveRestore,
-  Paperclip, Upload, FileText, Tag, Download, History,
+  Paperclip, Upload, FileText, Tag, Download, History, PhoneCall,
 } from 'lucide-react';
 
 const isImageFile = (f) =>
@@ -195,6 +195,12 @@ function TaskCard({ task, onView, onEdit, onArchive, onDelete, overlay = false }
         <div className="flex items-center gap-1 mt-1.5">
           <Link2 className="w-3 h-3 text-ink-disabled shrink-0" />
           <span className="text-[11px] text-ink-tertiary truncate">{task.contact.name}</span>
+          {task.contact.phone && (
+            <a href={`tel:${task.contact.phone}`} onClick={e => e.stopPropagation()} title="Qo'ng'iroq qilish"
+              className="p-1 rounded-lg text-green-600 hover:bg-green-50 transition-colors shrink-0">
+              <PhoneCall className="w-3 h-3" />
+            </a>
+          )}
         </div>
       )}
 

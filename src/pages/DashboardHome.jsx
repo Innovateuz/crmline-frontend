@@ -230,7 +230,7 @@ export default function DashboardHome() {
     );
   }
 
-  const { cards, dealSources = [], dealsByManager = [], managerTotal = { count: 0, sum: 0 }, goalsProgress = null } = data;
+  const { cards, dealSources = [], dealsByManager = [], managerTotal = { count: 0, sum: 0 }, goalsProgress = null, funnelStats = [] } = data;
   const totalDeals = dealSources.reduce((a, d) => a + d.count, 0);
 
   return (
@@ -273,6 +273,7 @@ export default function DashboardHome() {
             label={t('dashboardHome.unassignedLabel')}
             value={cards.unassignedCount}
             sub={cards.unassignedSum > 0 ? `${fmtSum(cards.unassignedSum)} UZS` : t('dashboardHome.unassignedSubNoLeads')}
+            onClick={funnelStats[0] ? () => navigate(`/funnel/${funnelStats[0]._id}`) : undefined}
           />
         </div>
 

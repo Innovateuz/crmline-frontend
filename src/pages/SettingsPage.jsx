@@ -3894,7 +3894,7 @@ function UsersTab({ currentUser }) {
   const [userSearch, setUserSearch] = useState('');   // ism/telefon bo'yicha qidiruv
   const [roles, setRoles]         = useState([]);
   const [loading, setLoading]     = useState(true);
-  const [form, setForm] = useState({ name: '', phone: '', email: '', password: '', role: 'user' });
+  const [form, setForm] = useState({ name: '', phone: '', email: '', password: '', role: 'user', customRole: '' });
 
   const [modal, setModal] = useState(null); // { type: 'edit'|'password'|'delete', user }
   const [modalSaving, setModalSaving] = useState(false);
@@ -3980,9 +3980,10 @@ function UsersTab({ currentUser }) {
         email: form.email,
         password: form.password,
         role: form.role,
+        customRole: form.role === 'user' ? (form.customRole || null) : null,
       });
       toast.success(t('settings.users.added'));
-      setForm({ name: '', phone: '', email: '', password: '', role: 'user' });
+      setForm({ name: '', phone: '', email: '', password: '', role: 'user', customRole: '' });
       closeModal();
       fetchUsers();
     } catch (err) {
@@ -4020,7 +4021,7 @@ function UsersTab({ currentUser }) {
           </div>
           <button
             onClick={() => {
-              setForm({ name: '', phone: '', email: '', password: '', role: 'user' });
+              setForm({ name: '', phone: '', email: '', password: '', role: 'user', customRole: '' });
               setModal({ type: 'add' });
             }}
             className="btn-primary btn-md flex items-center gap-2"
@@ -4237,12 +4238,29 @@ function UsersTab({ currentUser }) {
 
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-ink mb-1.5">{t('settings.users.position')}</label>
-              <Dropdown value={form.role} onChange={(v) => setForm(p => ({ ...p, role: v }))}
+              <Dropdown value={form.role}
+                onChange={(v) => setForm(p => ({ ...p, role: v, customRole: v === 'user' ? p.customRole : '' }))}
                 options={[
                   { value: 'admin', label: roleLabel('admin') },
                   { value: 'user',  label: roleLabel('user')  },
                 ]} />
+              <p className="text-xs text-ink-tertiary mt-1">
+                {form.role === 'admin' ? t('settings.users.adminFullHint') : t('settings.users.roleHint')}
+              </p>
             </div>
+
+            {form.role === 'user' && (
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-ink mb-1.5">{t('settings.users.customRole')}</label>
+                <Dropdown value={form.customRole} placeholder={t('settings.users.customRoleNone')}
+                  onChange={(v) => setForm(p => ({ ...p, customRole: v }))}
+                  options={[
+                    { value: '', label: t('settings.users.customRoleNone') },
+                    ...roles.map(r => ({ value: r._id, label: r.name })),
+                  ]} />
+                <p className="text-xs text-ink-tertiary mt-1">{t('settings.users.customRoleHint')}</p>
+              </div>
+            )}
 
             <div className="md:col-span-2 flex justify-end gap-2 pt-1">
               <button type="button" onClick={closeModal} className="btn-secondary btn-md">{t('settings.users.cancel')}</button>

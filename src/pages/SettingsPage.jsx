@@ -6019,7 +6019,10 @@ function RolesTab() {
 
 /* ─── ATC (Telefoniya) tab ───────────────────────────────── */
 function AtcTab() {
-  const [form,    setForm]    = useState({ crmToken: '', apiToken: '', sipDomain: 'ibrat.sip.uz' });
+  const [form,    setForm]    = useState({
+    provider: 'ibrat', crmToken: '', apiToken: '', sipDomain: 'ibrat.sip.uz',
+    sipuniUser: '', sipuniSecretKey: '',
+  });
   const [loaded,  setLoaded]  = useState(false);
   const [saving,  setSaving]  = useState(false);
   const [connected, setConnected] = useState(false);
@@ -6028,7 +6031,14 @@ function AtcTab() {
     axios.get(`${API_URL}/atc/settings`)
       .then(r => {
         const a = r.data.atc || {};
-        setForm({ crmToken: a.crmToken || '', apiToken: a.apiToken || '', sipDomain: a.sipDomain || 'ibrat.sip.uz' });
+        setForm({
+          provider:        a.provider || 'ibrat',
+          crmToken:        a.crmToken || '',
+          apiToken:        a.apiToken || '',
+          sipDomain:       a.sipDomain || 'ibrat.sip.uz',
+          sipuniUser:      a.sipuniUser || '',
+          sipuniSecretKey: a.sipuniSecretKey || '',
+        });
         setConnected(!!a.connected);
       })
       .catch(() => {})
@@ -6053,7 +6063,7 @@ function AtcTab() {
     <div className="max-w-xl space-y-6">
       <div>
         <h2 className="text-base font-semibold text-ink mb-1">ATC / IP-ATS integratsiyasi</h2>
-        <p className="text-sm text-ink-tertiary">ibrat.sip.uz yoki boshqa SIP platforma webhook sozlamalari</p>
+        <p className="text-sm text-ink-tertiary">ibrat.sip.uz yoki Sipuni ATC webhook sozlamalari</p>
       </div>
 
       {/* Status */}
@@ -6062,6 +6072,27 @@ function AtcTab() {
         <span className={`text-sm font-medium ${connected ? 'text-emerald-700' : 'text-ink-tertiary'}`}>
           {connected ? 'Ulangan' : 'Ulanmagan'}
         </span>
+      </div>
+
+      {/* Provider */}
+      <div>
+        <label className="block text-xs font-semibold text-ink-secondary mb-1.5">ATC provayder</label>
+        <div className="flex gap-2">
+          {[{ v: 'ibrat', label: 'ibrat.sip.uz' }, { v: 'sipuni', label: 'Sipuni' }].map(p => (
+            <button
+              key={p.v}
+              type="button"
+              onClick={() => setForm(f => ({ ...f, provider: p.v }))}
+              className={`px-4 py-2 text-sm rounded-xl border transition-colors ${
+                form.provider === p.v
+                  ? 'bg-primary-600 text-white border-primary-600'
+                  : 'bg-surface-50 text-ink-secondary border-surface-200 hover:border-surface-300'
+              }`}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* CRM Token */}
@@ -6087,35 +6118,71 @@ function AtcTab() {
           >
             Nusxalash
           </button>
+          {form.provider === 'sipuni' && (
+            <p className="mt-2 text-xs text-ink-tertiary">
+              Sipuni kabinetida: Sozlamalar → API → «Событие звонка» (PBX Events) bo'limiga qo'ying.
+            </p>
+          )}
         </div>
       )}
 
-      {/* API Token */}
-      <div>
-        <label className="block text-xs font-semibold text-ink-secondary mb-1.5">API Token (Click-to-call uchun)</label>
-        <input
-          type="password"
-          className="w-full px-3 py-2 text-sm border border-surface-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-300 font-mono"
-          placeholder="Bearer token..."
-          value={form.apiToken}
-          onChange={e => setForm(f => ({ ...f, apiToken: e.target.value }))}
-        />
-        <p className="mt-1 text-xs text-ink-tertiary">ibrat.sip.uz management API tokeni (originate qo'ng'iroq uchun)</p>
-      </div>
+      {form.provider === 'ibrat' ? (
+        <>
+          {/* API Token */}
+          <div>
+            <label className="block text-xs font-semibold text-ink-secondary mb-1.5">API Token (Click-to-call uchun)</label>
+            <input
+              type="password"
+              className="w-full px-3 py-2 text-sm border border-surface-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-300 font-mono"
+              placeholder="Bearer token..."
+              value={form.apiToken}
+              onChange={e => setForm(f => ({ ...f, apiToken: e.target.value }))}
+            />
+            <p className="mt-1 text-xs text-ink-tertiary">ibrat.sip.uz management API tokeni (originate qo'ng'iroq uchun)</p>
+          </div>
 
-      {/* SIP Domain */}
-      <div>
-        <label className="block text-xs font-semibold text-ink-secondary mb-1.5">SIP Domain</label>
-        <input
-          className="w-full px-3 py-2 text-sm border border-surface-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-300 font-mono"
-          placeholder="ibrat.sip.uz"
-          value={form.sipDomain}
-          onChange={e => setForm(f => ({ ...f, sipDomain: e.target.value }))}
-        />
-        <p className="mt-1 text-xs text-ink-tertiary">
-          Faqat domen nomi. Click-to-call uchun: <code className="font-mono bg-surface-100 px-1 rounded">https://{"<domain>"}/crmapi/v1/originate</code>
-        </p>
-      </div>
+          {/* SIP Domain */}
+          <div>
+            <label className="block text-xs font-semibold text-ink-secondary mb-1.5">SIP Domain</label>
+            <input
+              className="w-full px-3 py-2 text-sm border border-surface-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-300 font-mono"
+              placeholder="ibrat.sip.uz"
+              value={form.sipDomain}
+              onChange={e => setForm(f => ({ ...f, sipDomain: e.target.value }))}
+            />
+            <p className="mt-1 text-xs text-ink-tertiary">
+              Faqat domen nomi. Click-to-call uchun: <code className="font-mono bg-surface-100 px-1 rounded">https://{"<domain>"}/crmapi/v1/originate</code>
+            </p>
+          </div>
+        </>
+      ) : (
+        <>
+          {/* Sipuni account number */}
+          <div>
+            <label className="block text-xs font-semibold text-ink-secondary mb-1.5">Sipuni akkaunt raqami (user)</label>
+            <input
+              className="w-full px-3 py-2 text-sm border border-surface-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-300 font-mono"
+              placeholder="012345"
+              value={form.sipuniUser}
+              onChange={e => setForm(f => ({ ...f, sipuniUser: e.target.value }))}
+            />
+            <p className="mt-1 text-xs text-ink-tertiary">Sipuni shaxsiy kabinetidagi akkaunt raqami</p>
+          </div>
+
+          {/* Sipuni secret key */}
+          <div>
+            <label className="block text-xs font-semibold text-ink-secondary mb-1.5">Sipuni Secret Key</label>
+            <input
+              type="password"
+              className="w-full px-3 py-2 text-sm border border-surface-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-300 font-mono"
+              placeholder="Secret key..."
+              value={form.sipuniSecretKey}
+              onChange={e => setForm(f => ({ ...f, sipuniSecretKey: e.target.value }))}
+            />
+            <p className="mt-1 text-xs text-ink-tertiary">Sipuni → Sozlamalar → API bo'limidagi maxfiy kalit (click-to-call uchun)</p>
+          </div>
+        </>
+      )}
 
       <button
         onClick={save}

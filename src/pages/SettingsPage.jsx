@@ -6063,7 +6063,7 @@ function AtcTab() {
     <div className="max-w-xl space-y-6">
       <div>
         <h2 className="text-base font-semibold text-ink mb-1">ATC / IP-ATS integratsiyasi</h2>
-        <p className="text-sm text-ink-tertiary">ibrat.sip.uz yoki Sipuni ATC webhook sozlamalari</p>
+        <p className="text-sm text-ink-tertiary">Mediateka (Sarkor Telekom) yoki Sipuni ATC webhook sozlamalari</p>
       </div>
 
       {/* Status */}
@@ -6078,7 +6078,7 @@ function AtcTab() {
       <div>
         <label className="block text-xs font-semibold text-ink-secondary mb-1.5">ATC provayder</label>
         <div className="flex gap-2">
-          {[{ v: 'ibrat', label: 'ibrat.sip.uz' }, { v: 'sipuni', label: 'Sipuni' }].map(p => (
+          {[{ v: 'ibrat', label: 'Mediateka' }, { v: 'sipuni', label: 'Sipuni' }].map(p => (
             <button
               key={p.v}
               type="button"
@@ -6138,7 +6138,7 @@ function AtcTab() {
               value={form.apiToken}
               onChange={e => setForm(f => ({ ...f, apiToken: e.target.value }))}
             />
-            <p className="mt-1 text-xs text-ink-tertiary">ibrat.sip.uz management API tokeni (originate qo'ng'iroq uchun)</p>
+            <p className="mt-1 text-xs text-ink-tertiary">Mediateka ATC (ibrat.sip.uz) management API tokeni (originate qo'ng'iroq uchun)</p>
           </div>
 
           {/* SIP Domain */}

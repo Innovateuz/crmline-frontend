@@ -19,7 +19,7 @@ const API = process.env.REACT_APP_API_URL || 'http://localhost:5002/api';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const EMPTY = { name: '', phone: '', email: '' };
+const EMPTY = { name: '', phone: '', email: '', assignedTo: '' };
 
 const FIELD_TYPES = [
   { value: 'text',        label: 'Matn' },
@@ -381,6 +381,7 @@ export default function ContactFormPage() {
   const [pendingFileUploads, setPendingFileUploads] = useState({});
   const [contactFiles,  setContactFiles]  = useState([]);
   const [uploadingFile, setUploadingFile] = useState(false);
+  const [users, setUsers] = useState([]);
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -396,20 +397,23 @@ export default function ContactFormPage() {
   useEffect(() => {
     const fetchOrg = axios.get(`${API}/organization/contact-fields`);
     const fetchContact = isEdit ? axios.get(`${API}/contacts/${id}`) : Promise.resolve(null);
+    const fetchUsers = axios.get(`${API}/organization/users`);
 
-    Promise.all([fetchOrg, fetchContact])
-      .then(([orgRes, contactRes]) => {
+    Promise.all([fetchOrg, fetchContact, fetchUsers])
+      .then(([orgRes, contactRes, usersRes]) => {
         const secs = Array.isArray(orgRes.data.sections) ? orgRes.data.sections : [];
         setOrgSections(secs);
         setOriginalOrgSections(JSON.parse(JSON.stringify(secs)));
         if (secs.length > 0) setActiveSectionId(secs[0].id);
+        setUsers(usersRes.data.users || []);
 
         if (contactRes) {
           const c = contactRes.data.contact;
           const loaded = {
-            name:  c.name  || '',
-            phone: c.phone || '',
-            email: c.email || '',
+            name:       c.name  || '',
+            phone:      c.phone || '',
+            email:      c.email || '',
+            assignedTo: c.assignedTo?._id || c.assignedTo || '',
           };
           setForm(loaded);
           setOriginalForm(loaded);
@@ -895,6 +899,17 @@ export default function ContactFormPage() {
                         value={form.email}
                         onChange={e => set('email', e.target.value)}
                       />
+                    </div>
+                    <div className="flex items-center gap-4 px-4 py-2.5">
+                      <span className="w-28 text-sm text-ink shrink-0">Mas'ul</span>
+                      <select
+                        className="flex-1 text-sm text-ink bg-transparent border-0 outline-none focus:outline-none focus:ring-0"
+                        value={form.assignedTo}
+                        onChange={e => set('assignedTo', e.target.value)}
+                      >
+                        <option value="">Biriktirilmagan</option>
+                        {users.map(u => <option key={u._id} value={u._id}>{u.name}</option>)}
+                      </select>
                     </div>
                     <div className="flex items-center gap-4 px-4 py-2.5">
                       <span className="w-28 text-sm text-ink shrink-0 flex items-center gap-1.5">

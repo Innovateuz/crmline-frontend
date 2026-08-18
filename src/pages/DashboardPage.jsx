@@ -66,6 +66,7 @@ export default function DashboardPage() {
           if (prev?.callId === call.callId) return prev;
           return { callId: call.callId, phone: call.phone, ext: call.ext,
             contactName: call.contact?.name || null, contactId: call.contact?._id || null,
+            assignedToName: call.assignedTo?.name || null,
             direction: call.direction, groupName: call.groupName, status: call.status };
         });
       } catch(e) { console.error('[ATC poll error]', e?.response?.status, e?.message); }

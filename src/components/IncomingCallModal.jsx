@@ -55,7 +55,9 @@ export default function IncomingCallModal({ call, onDismiss }) {
               </div>
               <div>
                 <p className="text-sm font-semibold text-ink">{call.contactName}</p>
-                <p className="text-xs text-ink-tertiary">CRM kontakt</p>
+                <p className="text-xs text-ink-tertiary">
+                  {call.assignedToName ? <>Mas'ul: <span className="font-medium text-primary-700">{call.assignedToName}</span></> : 'CRM kontakt'}
+                </p>
               </div>
               {call.contactId && (
                 <button

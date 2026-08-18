@@ -200,6 +200,21 @@ export default function DealDetailPage({ funnelId, dealId }) {
   const [loading,  setLoading]  = useState(true);
   const [saving,   setSaving]   = useState(false);
   const [tab,      setTab]      = useState('main');
+  const [calling,  setCalling]  = useState(false);
+
+  const handleAtcCall = async (phone) => {
+    if (!phone || calling) return;
+    setCalling(true);
+    try {
+      await axios.post(`${API}/atc/call`, { phone });
+      toast.success("Qo'ng'iroq boshlanmoqda...");
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Xato';
+      toast.error(msg.includes('ext') ? "Avval Akkaunt sozlamalarida ichki raqamingizni saqlang" : msg);
+    } finally {
+      setCalling(false);
+    }
+  };
 
   // Vazifa yaratish (shu lead/dealga bog'langan)
   const [showTaskModal,   setShowTaskModal]   = useState(false);
@@ -938,10 +953,11 @@ export default function DealDetailPage({ funnelId, dealId }) {
                       <ChevronDown className={`w-3.5 h-3.5 text-ink-tertiary shrink-0 transition-transform ${showContactPicker ? 'rotate-180' : ''}`} />
                     </button>
                     {(linkedContact || selectedContact)?.phone && (
-                      <a href={`tel:${(linkedContact || selectedContact).phone}`} title="Qo'ng'iroq qilish"
-                        className="p-1.5 rounded-lg text-green-600 hover:bg-green-50 transition-colors shrink-0">
-                        <PhoneCall className="w-4 h-4" />
-                      </a>
+                      <button type="button" onClick={() => handleAtcCall((linkedContact || selectedContact).phone)}
+                        disabled={calling} title="Qo'ng'iroq qilish"
+                        className="p-1.5 rounded-lg text-green-600 hover:bg-green-50 transition-colors shrink-0 disabled:opacity-50">
+                        {calling ? <Loader2 className="w-4 h-4 animate-spin" /> : <PhoneCall className="w-4 h-4" />}
+                      </button>
                     )}
                     <FloatingDropdown
                       anchorRef={contactAnchorRef}
@@ -1040,10 +1056,11 @@ export default function DealDetailPage({ funnelId, dealId }) {
                             </span>
                             <span className="flex-1 flex items-center justify-between gap-2 min-w-0">
                               <span className="text-sm text-ink">{linkedContact.phone}</span>
-                              <a href={`tel:${linkedContact.phone}`} title="Qo'ng'iroq qilish"
-                                className="p-1.5 rounded-lg text-green-600 hover:bg-green-50 transition-colors shrink-0">
-                                <PhoneCall className="w-3.5 h-3.5" />
-                              </a>
+                              <button type="button" onClick={() => handleAtcCall(linkedContact.phone)}
+                                disabled={calling} title="Qo'ng'iroq qilish"
+                                className="p-1.5 rounded-lg text-green-600 hover:bg-green-50 transition-colors shrink-0 disabled:opacity-50">
+                                {calling ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <PhoneCall className="w-3.5 h-3.5" />}
+                              </button>
                             </span>
                           </div>
                         )}

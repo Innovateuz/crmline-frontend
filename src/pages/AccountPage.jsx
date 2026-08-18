@@ -21,6 +21,7 @@ export default function AccountPage() {
 
   // Name form
   const [name,      setName]      = useState(user?.name || '');
+  const [atcExtension, setAtcExtension] = useState(user?.atcExtension || '');
   const [nameSaving, setNameSaving] = useState(false);
 
   // Password form
@@ -31,13 +32,15 @@ export default function AccountPage() {
   const [showNew,   setShowNew]   = useState(false);
   const [pwSaving,  setPwSaving]  = useState(false);
 
+  const nameDirty = name.trim() !== (user?.name || '') || atcExtension.trim() !== (user?.atcExtension || '');
+
   const handleSaveName = async (e) => {
     e.preventDefault();
-    if (!name.trim() || name.trim() === user?.name) return;
+    if (!name.trim() || !nameDirty) return;
     setNameSaving(true);
     try {
-      const res = await axios.put(`${API}/auth/update-profile`, { name: name.trim() });
-      dispatch(updateProfile(res.data.user || { name: name.trim() }));
+      const res = await axios.put(`${API}/auth/update-profile`, { name: name.trim(), atcExtension: atcExtension.trim() });
+      dispatch(updateProfile(res.data.user || { name: name.trim(), atcExtension: atcExtension.trim() }));
       toast.success('Saqlandi');
     } catch (err) {
       toast.error(err.response?.data?.message || 'Xato yuz berdi');
@@ -92,6 +95,20 @@ export default function AccountPage() {
               />
             </div>
 
+            {/* ATC extension — editable */}
+            <div className="flex items-center gap-4 px-4 py-3 border-b border-surface-100">
+              <span className="w-28 text-sm text-ink shrink-0">Ichki raqam</span>
+              <input
+                className="flex-1 text-sm text-ink bg-transparent border-0 outline-none focus:outline-none focus:ring-0 placeholder:text-ink-disabled font-mono"
+                value={atcExtension}
+                onChange={e => setAtcExtension(e.target.value)}
+                placeholder="Masalan: 209"
+              />
+            </div>
+            <p className="px-4 -mt-1 pb-2 text-xs text-ink-tertiary border-b border-surface-100">
+              ATC (Sipuni/ibrat.sip.uz) ichki raqamingiz — qo'ng'iroq qilishda har safar qayta kiritmasligingiz uchun.
+            </p>
+
             {/* Phone — read only */}
             <div className="flex items-center gap-4 px-4 py-3 border-b border-surface-100">
               <span className="w-28 text-sm text-ink shrink-0">{t('contactForm.phone')}</span>
@@ -116,7 +133,7 @@ export default function AccountPage() {
             <div className="px-4 py-3 flex justify-end">
               <button
                 type="submit"
-                disabled={nameSaving || !name.trim() || name.trim() === user?.name}
+                disabled={nameSaving || !name.trim() || !nameDirty}
                 className="btn-md btn-primary"
               >
                 {nameSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : t('contactForm.save')}

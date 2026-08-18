@@ -11,7 +11,7 @@ import {
   ArrowLeft, Loader2, Send, MessageSquare,
   Trash2, Pencil, Plus, X, Check, ChevronDown, Upload, FileText,
   MoreVertical, ShieldOff, Shield,
-  Phone, PhoneIncoming, PhoneOutgoing, PhoneMissed, Play, Pause,
+  Phone, PhoneCall, PhoneIncoming, PhoneOutgoing, PhoneMissed, Play, Pause,
   Bell, AlertCircle,
 } from 'lucide-react';
 
@@ -382,6 +382,21 @@ export default function ContactFormPage() {
   const [contactFiles,  setContactFiles]  = useState([]);
   const [uploadingFile, setUploadingFile] = useState(false);
   const [users, setUsers] = useState([]);
+  const [calling, setCalling] = useState(false);
+
+  const handleAtcCall = async (phone) => {
+    if (!phone || calling) return;
+    setCalling(true);
+    try {
+      await axios.post(`${API}/atc/call`, { phone });
+      toast.success("Qo'ng'iroq boshlanmoqda...");
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Xato';
+      toast.error(msg.includes('ext') ? "Avval Akkaunt sozlamalarida ichki raqamingizni saqlang" : msg);
+    } finally {
+      setCalling(false);
+    }
+  };
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -880,14 +895,27 @@ export default function ContactFormPage() {
                   <div className="divide-y divide-surface-100">
                     <div className="flex items-start gap-4 px-4 py-2.5">
                       <span className="w-28 text-sm text-ink shrink-0 pt-0.5">Telefon</span>
-                      <div className="flex-1 min-w-0">
-                        <input
-                          className="w-full text-sm text-ink bg-transparent border-0 outline-none focus:outline-none focus:ring-0 placeholder:text-ink-disabled"
-                          placeholder="+998901234567"
-                          value={form.phone}
-                          onChange={e => set('phone', e.target.value)}
-                        />
-                        <p className="text-[10px] text-ink-disabled mt-0.5">Format: +998XXXXXXXXX</p>
+                      <div className="flex-1 min-w-0 flex items-start gap-2">
+                        <div className="flex-1 min-w-0">
+                          <input
+                            className="w-full text-sm text-ink bg-transparent border-0 outline-none focus:outline-none focus:ring-0 placeholder:text-ink-disabled"
+                            placeholder="+998901234567"
+                            value={form.phone}
+                            onChange={e => set('phone', e.target.value)}
+                          />
+                          <p className="text-[10px] text-ink-disabled mt-0.5">Format: +998XXXXXXXXX</p>
+                        </div>
+                        {form.phone && (
+                          <button
+                            type="button"
+                            onClick={() => handleAtcCall(form.phone)}
+                            disabled={calling}
+                            title="Qo'ng'iroq qilish"
+                            className="shrink-0 w-7 h-7 rounded-full bg-emerald-50 hover:bg-emerald-100 text-emerald-600 flex items-center justify-center transition-colors disabled:opacity-50"
+                          >
+                            {calling ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <PhoneCall className="w-3.5 h-3.5" />}
+                          </button>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-4 px-4 py-2.5">

@@ -573,6 +573,20 @@ export default function FunnelPage({ funnelId }) {
   const [exporting,     setExporting]     = useState(false);
   const [toolbarOpen,   setToolbarOpen]   = useState(true);
 
+  // Bosqich ustunlari ekranga sig'sa markazga tortiladi; sig'masa (ko'p bosqich)
+  // odatdagidek chapdan boshlab scroll qilinadi.
+  const boardRef = useRef(null);
+  const [boardFits, setBoardFits] = useState(false);
+  useEffect(() => {
+    const el = boardRef.current;
+    if (!el) return;
+    const check = () => setBoardFits(el.scrollWidth <= el.clientWidth + 1);
+    check();
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [funnel, deals]);
+
   const sensors = useSensors(
     // Desktop: sichqoncha bilan 5px surilsa drag boshlanadi
     useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
@@ -915,8 +929,8 @@ export default function FunnelPage({ funnelId }) {
         </div>
       ) : (
         <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-          <div className="flex-1 overflow-x-auto overflow-y-hidden">
-            <div className="flex gap-4 h-full px-6 py-5 items-stretch justify-[safe_center]">
+          <div ref={boardRef} className="flex-1 overflow-x-auto overflow-y-hidden">
+            <div className={`flex gap-4 h-full px-6 py-5 items-stretch ${boardFits ? 'justify-center' : ''}`}>
               {funnel.stages.map((stage, idx) => (
                 <StageColumn
                   key={stage._id}

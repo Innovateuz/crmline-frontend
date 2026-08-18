@@ -185,7 +185,7 @@ function StageColumn({ stage, deals, onOpen, onDelete, onMove, onQuickAdd, curre
   const total = deals.reduce((s, d) => s + (d.value || 0), 0);
 
   return (
-    <div className="flex flex-col w-80 shrink-0 h-full">
+    <div className="flex flex-col flex-1 min-w-80 shrink-0 h-full">
       {/* Header — centered */}
       <div className="text-center mb-3 px-2">
         <div className="flex items-center justify-center gap-2 mb-1">

@@ -379,18 +379,29 @@ function FunnelsTab() {
   // form state
   const [fname,   setFname]   = useState('');
   const [stages,  setStages]  = useState([{ name: '', color: '#94a3b8' }]);
+  const [visibleToRoles, setVisibleToRoles] = useState([]);
+  const [roles,   setRoles]   = useState([]);
   const [saving,  setSaving]  = useState(false);
   const [deleting, setDeleting] = useState(null);
   const [reordering, setReordering] = useState(false);
 
+  useEffect(() => {
+    axios.get(`${API_URL}/organization/roles`).then(r => setRoles(r.data.roles || [])).catch(() => {});
+  }, []);
+
+  const toggleRole = (roleId) => {
+    setVisibleToRoles(prev => prev.includes(roleId) ? prev.filter(id => id !== roleId) : [...prev, roleId]);
+  };
+
   const openCreate = () => {
-    setEditId(null); setFname(''); setStages([{ name: '', color: '#94a3b8' }]); setShowCreate(true);
+    setEditId(null); setFname(''); setStages([{ name: '', color: '#94a3b8' }]); setVisibleToRoles([]); setShowCreate(true);
   };
 
   const openEdit = (f) => {
     setEditId(f._id);
     setFname(f.name);
     setStages(f.stages.length ? f.stages.map(s => ({ _id: s._id, name: s.name, color: s.color })) : [{ name: '', color: '#94a3b8' }]);
+    setVisibleToRoles((f.visibleToRoles || []).map(r => String(r._id || r)));
     setShowCreate(true);
   };
 
@@ -413,11 +424,11 @@ function FunnelsTab() {
     setSaving(true);
     try {
       if (editId) {
-        const res = await axios.put(`${API_URL}/funnels/${editId}`, { name: fname.trim(), stages: validStages });
+        const res = await axios.put(`${API_URL}/funnels/${editId}`, { name: fname.trim(), stages: validStages, visibleToRoles });
         dispatch(updateFunnelStore(res.data.funnel));
         toast.success('Saqlandi');
       } else {
-        const res = await axios.post(`${API_URL}/funnels`, { name: fname.trim(), stages: validStages });
+        const res = await axios.post(`${API_URL}/funnels`, { name: fname.trim(), stages: validStages, visibleToRoles });
         dispatch(addFunnel(res.data.funnel));
         toast.success('Varonka yaratildi');
       }
@@ -585,6 +596,29 @@ function FunnelsTab() {
                     </div>
                   ))}
                 </div>
+              </div>
+
+              {/* Visible to roles */}
+              <div>
+                <label className="block text-sm font-medium text-ink mb-1">Qaysi rollarga ko'rinsin</label>
+                <p className="text-xs text-ink-tertiary mb-2">Hech qaysisi tanlanmasa — hammaga ko'rinadi (standart).</p>
+                {roles.length === 0 ? (
+                  <p className="text-xs text-ink-disabled italic">Maxsus rol yaratilmagan</p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {roles.map(r => (
+                      <label key={r._id} className="flex items-center gap-2 text-sm text-ink cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={visibleToRoles.includes(r._id)}
+                          onChange={() => toggleRole(r._id)}
+                          className="rounded border-surface-300"
+                        />
+                        {r.name}
+                      </label>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 

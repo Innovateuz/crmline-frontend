@@ -916,7 +916,7 @@ export default function FunnelPage({ funnelId }) {
       ) : (
         <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
           <div className="flex-1 overflow-x-auto overflow-y-hidden">
-            <div className="flex gap-4 h-full px-6 py-5 items-stretch">
+            <div className="flex gap-4 h-full px-6 py-5 items-stretch justify-[safe_center]">
               {funnel.stages.map((stage, idx) => (
                 <StageColumn
                   key={stage._id}

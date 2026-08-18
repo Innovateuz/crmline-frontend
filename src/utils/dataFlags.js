@@ -12,4 +12,6 @@ export const OWN_SCOPES = [
   { key: 'contacts', navKey: 'contacts' },
   { key: 'tasks',    navKey: 'tasks' },
   { key: 'deals',    navKey: 'funnels' },
+  { key: 'calls',    navKey: 'calls' },
+  { key: 'inbox',    navKey: 'inbox' },
 ];

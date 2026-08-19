@@ -846,8 +846,8 @@ export default function FunnelPage({ funnelId }) {
       const body = { stageId: targetStageId };
       if (value !== undefined) body.value = value;
       await axios.put(`${API}/funnels/${funnelId}/deals/${deal._id}`, body);
-    } catch {
-      toast.error('Xato');
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Xato');
       load();
     }
   };
@@ -907,8 +907,8 @@ export default function FunnelPage({ funnelId }) {
     setDeals(prev => prev.filter(d => d._id !== dealId));
     try {
       await axios.delete(`${API}/funnels/${funnelId}/deals/${dealId}`);
-    } catch {
-      toast.error('Xato');
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Xato');
       load();
     }
   };

@@ -417,7 +417,7 @@ export default function ContactsPage() {
         dispatch(removeContact(deleting._id));
       }
       setDeleting(null);
-    } catch { toast.error(t('contacts.loadError')); }
+    } catch (e) { toast.error(e.response?.data?.message || t('contacts.loadError')); }
     finally { setDeleteLoading(false); }
   };
 

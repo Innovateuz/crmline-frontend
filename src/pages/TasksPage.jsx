@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { fetchTasks, invalidateTasks, upsertTask, removeTask as removeTaskAction } from '../store/tasksSlice';
 import axios from 'axios';
@@ -137,6 +138,7 @@ function TaskCard({ task, onView, onEdit, onArchive, onDelete, canEdit = true, c
   const overdue = isOverdue(task.dueDate);
   const pri = PRIORITY_MAP[task.priority] || PRIORITY_MAP.normal;
   const t = useT();
+  const navigate = useNavigate();
 
   const card = (
     <div className={`bg-white border rounded-xl p-3 shadow-sm select-none transition-all ${
@@ -209,6 +211,17 @@ function TaskCard({ task, onView, onEdit, onArchive, onDelete, canEdit = true, c
             </a>
           )}
         </div>
+      )}
+
+      {task.deal && (
+        <button
+          onPointerDown={e => { e.stopPropagation(); e.preventDefault(); }}
+          onClick={e => { e.stopPropagation(); e.preventDefault(); navigate(`/funnel/${task.deal.funnel}/deal/${task.deal._id}`); }}
+          className="flex items-center gap-1 mt-1.5 text-left hover:text-primary-600 transition-colors group/deal"
+        >
+          <CheckSquare2 className="w-3 h-3 text-primary-400 shrink-0" />
+          <span className="text-[11px] text-ink-tertiary group-hover/deal:text-primary-600 truncate">{task.deal.title}</span>
+        </button>
       )}
 
       {task.createdBy && (
@@ -740,7 +753,7 @@ function ArchiveModal({ stages, onClose, onRestored, canEdit = true, canDelete =
       setTasks(prev => prev.filter(x => x._id !== id));
       onRestored();
       toast.success(t('tasks.restored'));
-    } catch { toast.error(t('tasks.error')); }
+    } catch (e) { toast.error(e.response?.data?.message || t('tasks.error')); }
     finally { setBusyId(null); }
   };
 
@@ -751,7 +764,7 @@ function ArchiveModal({ stages, onClose, onRestored, canEdit = true, canDelete =
       await axios.delete(`${API_URL}/tasks/${id}`);
       setTasks(prev => prev.filter(x => x._id !== id));
       toast.success(t('tasks.deleted'));
-    } catch { toast.error(t('tasks.error')); }
+    } catch (e) { toast.error(e.response?.data?.message || t('tasks.error')); }
     finally { setBusyId(null); }
   };
 
@@ -906,8 +919,8 @@ export default function TasksPage() {
     try {
       const res = await axios.put(`${API_URL}/tasks/${active.id}`, { stageId: targetStageId });
       dispatch(upsertTask(res.data.task));
-    } catch {
-      toast.error('Xato');
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Xato');
       dispatch(invalidateTasks());
       load();
     }
@@ -948,8 +961,8 @@ export default function TasksPage() {
     try {
       await axios.delete(`${API_URL}/tasks/${id}`);
       toast.success(t('tasks.deleted'));
-    } catch {
-      toast.error(t('tasks.error'));
+    } catch (e) {
+      toast.error(e.response?.data?.message || t('tasks.error'));
       dispatch(invalidateTasks());
       load();
     }
@@ -960,8 +973,8 @@ export default function TasksPage() {
     try {
       await axios.put(`${API_URL}/tasks/${task._id}`, { archived: true });
       toast.success(t('tasks.archived'));
-    } catch {
-      toast.error(t('tasks.error'));
+    } catch (e) {
+      toast.error(e.response?.data?.message || t('tasks.error'));
       dispatch(invalidateTasks());
       load();
     }

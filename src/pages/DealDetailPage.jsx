@@ -191,7 +191,7 @@ export default function DealDetailPage({ funnelId, dealId }) {
   const t = useT();
   const currency  = useSelector(s => s.auth.user?.organization?.currency || 'UZS');
   const meId      = useSelector(s => s.auth.user?._id || s.auth.user?.id);
-  const allFunnels = useSelector(s => s.funnels.list);
+  const [allFunnelNames, setAllFunnelNames] = useState([]);
   const taskStages = useSelector(s => s.tasks.stages);
   const isNew     = dealId === 'new';
   const perm = usePermissions();
@@ -313,7 +313,7 @@ export default function DealDetailPage({ funnelId, dealId }) {
     const fetchAll = async () => {
       setLoading(true);
       try {
-        const [fRes, cRes, uRes, fieldsRes, sourcesRes] = await Promise.all([
+        const [fRes, cRes, uRes, fieldsRes, sourcesRes, nRes] = await Promise.all([
           isNew
             ? axios.get(`${API}/funnels/${funnelId}`)
             : axios.get(`${API}/funnels/${funnelId}/deals/${dealId}`),
@@ -321,8 +321,10 @@ export default function DealDetailPage({ funnelId, dealId }) {
           axios.get(`${API}/organization/users`),
           axios.get(`${API}/organization/deal-fields`),
           axios.get(`${API}/organization/deal-sources`),
+          axios.get(`${API}/funnels/names`),
         ]);
         setDealSources(sourcesRes.data.sources || []);
+        setAllFunnelNames(nRes.data.funnels || []);
 
         const funnelData = fRes.data.funnel;
         setFunnel(funnelData);
@@ -531,7 +533,7 @@ export default function DealDetailPage({ funnelId, dealId }) {
   };
 
   // ── Boshqa varonkaga o'tkazish ───────────────────────────────────────────
-  const moveTargetFunnels = allFunnels.filter(f => String(f._id) !== String(funnelId));
+  const moveTargetFunnels = allFunnelNames.filter(f => String(f._id) !== String(funnelId));
   const moveTargetFunnel  = moveTargetFunnels.find(f => String(f._id) === String(moveFunnelId));
 
   const openMoveFunnel = () => {

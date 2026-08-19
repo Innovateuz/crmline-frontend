@@ -566,7 +566,6 @@ export default function FunnelPage({ funnelId }) {
   const dispatch  = useDispatch();
   const t = useT();
   const currency  = useSelector(s => s.auth.user?.organization?.currency || 'UZS');
-  const allFunnels = useSelector(s => s.funnels.list);
   const perm = usePermissions();
   const canCreate = perm.can('funnels', 'create');
   const canEdit   = perm.can('funnels', 'edit');
@@ -593,6 +592,8 @@ export default function FunnelPage({ funnelId }) {
   const [showImport,    setShowImport]    = useState(false);
   const [exporting,     setExporting]     = useState(false);
   const [toolbarOpen,   setToolbarOpen]   = useState(true);
+  // Barcha voronka nomlari (ko'rinish cheklovisiz) - "boshqa voronkaga yuborish" tanlovi uchun
+  const [allFunnelNames, setAllFunnelNames] = useState([]);
 
   // Bosqich ustunlari ekranga sig'sa markazga tortiladi; sig'masa (ko'p bosqich)
   // odatdagidek chapdan boshlab scroll qilinadi.
@@ -619,15 +620,17 @@ export default function FunnelPage({ funnelId }) {
     if (!funnelId) return;
     setLoading(true);
     try {
-      const [fRes, cRes, uRes] = await Promise.all([
+      const [fRes, cRes, uRes, nRes] = await Promise.all([
         axios.get(`${API}/funnels/${funnelId}/deals`),
         axios.get(`${API}/contacts?limit=200`),
         axios.get(`${API}/organization/users`),
+        axios.get(`${API}/funnels/names`),
       ]);
       setFunnel(fRes.data.funnel);
       setDeals(fRes.data.deals);
       setContacts(cRes.data.contacts || []);
       setUsers(uRes.data.users || []);
+      setAllFunnelNames(nRes.data.funnels || []);
     } catch {
       toast.error(t('funnel.loadError'));
     } finally {
@@ -798,8 +801,9 @@ export default function FunnelPage({ funnelId }) {
     }
   };
 
-  // Boshqa varonkaga o'tkazish
-  const moveTargetFunnels = allFunnels.filter(f => String(f._id) !== String(funnelId));
+  // Boshqa varonkaga o'tkazish - ko'rinish cheklovisiz to'liq ro'yxatdan (allFunnelNames),
+  // shunda ko'ra olmagan voronkaga ham lid yuborish mumkin bo'ladi.
+  const moveTargetFunnels = allFunnelNames.filter(f => String(f._id) !== String(funnelId));
   const moveTargetFunnel  = moveTargetFunnels.find(f => String(f._id) === String(moveFunnelId));
 
   const openMoveModal = (deal) => {

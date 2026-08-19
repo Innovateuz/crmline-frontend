@@ -326,6 +326,19 @@ export default function CallsPage() {
   searchRef.current = search;
   const searchTimer = useRef(null);
 
+  // paramKey/lastFetch — har bir fetchdan keyin Redux'da o'zgaradi. Agar ular
+  // load()'ning useCallback deps'ida bo'lsa, load identifikatori har fetchdan
+  // keyin yangilanadi -> useEffect(load, [load]) qayta ishga tushadi -> yana
+  // fetch (chunki "Bugun"/"Bu hafta"/"Bu oy" uchun getDateRange() har chaqiriqda
+  // `to: new Date().toISOString()` bilan YANGI qiymat beradi, shuning uchun
+  // key hech qachon eski paramKey'ga teng bo'lmaydi) -> cheksiz tsikl. Shu
+  // sababli joriy qiymatlarni ref orqali o'qiymiz - load() qayta yaratilishiga
+  // sabab bo'lmasin.
+  const paramKeyRef = useRef(paramKey);
+  const lastFetchRef = useRef(lastFetch);
+  paramKeyRef.current = paramKey;
+  lastFetchRef.current = lastFetch;
+
   const load = useCallback(async () => {
     const params = { page, limit: LIMIT };
     if (dirFilter)          params.direction = dirFilter;
@@ -336,11 +349,11 @@ export default function CallsPage() {
     if (range.to)   params.to   = range.to;
     const key = JSON.stringify(params);
     setSelected(new Set());
-    if (key === paramKey && Date.now() - lastFetch < CALLS_TTL) return;
+    if (key === paramKeyRef.current && Date.now() - lastFetchRef.current < CALLS_TTL) return;
     try {
       await dispatch(fetchCalls(params)).unwrap();
     } catch { toast.error('Yuklanmadi'); }
-  }, [dispatch, page, dirFilter, statFilter, dateFilter, paramKey, lastFetch]);
+  }, [dispatch, page, dirFilter, statFilter, dateFilter]);
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => { setPage(1); }, [dirFilter, statFilter, dateFilter]);

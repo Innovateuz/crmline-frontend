@@ -151,24 +151,24 @@ function TaskCard({ task, onView, onEdit, onArchive, onDelete, overlay = false }
           {t(pri.labelKey)}
         </span>
         <div className="flex items-center gap-0.5 shrink-0">
-          <button onPointerDown={e => e.stopPropagation()}
-            onClick={e => { e.stopPropagation(); onView(task); }}
+          <button onPointerDown={e => { e.stopPropagation(); e.preventDefault(); }}
+            onClick={e => { e.stopPropagation(); e.preventDefault(); onView(task); }}
             className="p-1 rounded-md hover:bg-surface-100 text-ink-disabled hover:text-ink-tertiary transition-colors">
             <Eye className="w-3 h-3" />
           </button>
-          <button onPointerDown={e => e.stopPropagation()}
-            onClick={e => { e.stopPropagation(); onEdit(task); }}
+          <button onPointerDown={e => { e.stopPropagation(); e.preventDefault(); }}
+            onClick={e => { e.stopPropagation(); e.preventDefault(); onEdit(task); }}
             className="p-1 rounded-md hover:bg-surface-100 text-ink-disabled hover:text-ink-tertiary transition-colors">
             <Pencil className="w-3 h-3" />
           </button>
-          <button onPointerDown={e => e.stopPropagation()}
-            onClick={e => { e.stopPropagation(); onArchive(task); }}
+          <button onPointerDown={e => { e.stopPropagation(); e.preventDefault(); }}
+            onClick={e => { e.stopPropagation(); e.preventDefault(); onArchive(task); }}
             title="Arxivlash"
             className="p-1 rounded-md hover:bg-surface-100 text-ink-disabled hover:text-ink-tertiary transition-colors">
             <Archive className="w-3 h-3" />
           </button>
-          <button onPointerDown={e => e.stopPropagation()}
-            onClick={e => { e.stopPropagation(); onDelete(task._id); }}
+          <button onPointerDown={e => { e.stopPropagation(); e.preventDefault(); }}
+            onClick={e => { e.stopPropagation(); e.preventDefault(); onDelete(task._id); }}
             className="p-1 rounded-md hover:bg-red-50 text-ink-disabled hover:text-red-500 transition-colors">
             <Trash2 className="w-3 h-3" />
           </button>

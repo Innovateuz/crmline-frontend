@@ -7,6 +7,7 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import { invalidateContacts } from '../store/contactsSlice';
 import { getSocket } from '../utils/socket';
+import { usePermissions } from '../utils/permissions';
 import {
   DndContext, DragOverlay, MouseSensor, TouchSensor, useSensor, useSensors,
   closestCorners, useDroppable,
@@ -46,7 +47,7 @@ function initials(name) {
 }
 
 /* ── Deal card (draggable) ── */
-function DealCard({ deal, isLead, onEdit, onDelete, onMove, onClaim, currency, overlay = false }) {
+function DealCard({ deal, isLead, onEdit, onDelete, onMove, onClaim, currency, canEdit = true, canDelete = true, overlay = false }) {
   const t = useT();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: deal._id });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 };
@@ -55,22 +56,28 @@ function DealCard({ deal, isLead, onEdit, onDelete, onMove, onClaim, currency, o
 
   const actions = (
     <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-      <button
-        onClick={e => { e.stopPropagation(); e.preventDefault(); onEdit(deal); }}
-        className="p-1 rounded hover:bg-surface-100 text-ink-tertiary hover:text-ink transition-colors">
-        <Pencil className="w-3 h-3" />
-      </button>
-      <button
-        onClick={e => { e.stopPropagation(); e.preventDefault(); onMove(deal); }}
-        title={t('deals.moveToFunnel')}
-        className="p-1 rounded hover:bg-primary-50 text-ink-tertiary hover:text-primary-600 transition-colors">
-        <Layers className="w-3 h-3" />
-      </button>
-      <button
-        onClick={e => { e.stopPropagation(); e.preventDefault(); onDelete(deal._id); }}
-        className="p-1 rounded hover:bg-red-50 text-ink-tertiary hover:text-red-500 transition-colors">
-        <Trash2 className="w-3 h-3" />
-      </button>
+      {canEdit && (
+        <button
+          onClick={e => { e.stopPropagation(); e.preventDefault(); onEdit(deal); }}
+          className="p-1 rounded hover:bg-surface-100 text-ink-tertiary hover:text-ink transition-colors">
+          <Pencil className="w-3 h-3" />
+        </button>
+      )}
+      {canEdit && (
+        <button
+          onClick={e => { e.stopPropagation(); e.preventDefault(); onMove(deal); }}
+          title={t('deals.moveToFunnel')}
+          className="p-1 rounded hover:bg-primary-50 text-ink-tertiary hover:text-primary-600 transition-colors">
+          <Layers className="w-3 h-3" />
+        </button>
+      )}
+      {canDelete && (
+        <button
+          onClick={e => { e.stopPropagation(); e.preventDefault(); onDelete(deal._id); }}
+          className="p-1 rounded hover:bg-red-50 text-ink-tertiary hover:text-red-500 transition-colors">
+          <Trash2 className="w-3 h-3" />
+        </button>
+      )}
     </div>
   );
 
@@ -149,7 +156,7 @@ function DealCard({ deal, isLead, onEdit, onDelete, onMove, onClaim, currency, o
               </div>
               <span className="text-[11px] text-ink-tertiary truncate">{deal.assignedTo.name}</span>
             </div>
-          ) : onClaim ? (
+          ) : onClaim && canEdit ? (
             <button
               onClick={e => { e.stopPropagation(); e.preventDefault(); onClaim(deal._id); }}
               className="text-[11px] font-semibold px-2 py-1 rounded-lg bg-primary-50 text-primary-600 hover:bg-primary-100 transition-colors"
@@ -187,7 +194,7 @@ function DealCard({ deal, isLead, onEdit, onDelete, onMove, onClaim, currency, o
 }
 
 /* ── Stage column (droppable) ── */
-function StageColumn({ stage, deals, onOpen, onDelete, onMove, onClaim, onQuickAdd, currency, isFirst }) {
+function StageColumn({ stage, deals, onOpen, onDelete, onMove, onClaim, onQuickAdd, currency, isFirst, canCreate = true, canEdit = true, canDelete = true }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage._id });
   const total = deals.reduce((s, d) => s + (d.value || 0), 0);
 
@@ -198,13 +205,15 @@ function StageColumn({ stage, deals, onOpen, onDelete, onMove, onClaim, onQuickA
         <div className="flex items-center justify-center gap-2 mb-1">
           <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: stage.color }} />
           <span className="font-bold text-sm text-ink truncate">{stage.name}</span>
-          <button
-            onClick={() => onQuickAdd(stage._id)}
-            className="p-0.5 rounded hover:bg-surface-200 text-ink-disabled hover:text-primary-500 transition-colors"
-            title="Tez qo'shish"
-          >
-            <Plus className="w-3.5 h-3.5" />
-          </button>
+          {canCreate && (
+            <button
+              onClick={() => onQuickAdd(stage._id)}
+              className="p-0.5 rounded hover:bg-surface-200 text-ink-disabled hover:text-primary-500 transition-colors"
+              title="Tez qo'shish"
+            >
+              <Plus className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
         {isFirst ? (
           <span className="text-xs text-ink-tertiary">
@@ -226,7 +235,8 @@ function StageColumn({ stage, deals, onOpen, onDelete, onMove, onClaim, onQuickA
       >
         <SortableContext items={deals.map(d => d._id)} strategy={verticalListSortingStrategy}>
           {deals.map(deal => (
-            <DealCard key={deal._id} deal={deal} isLead={isFirst} currency={currency} onEdit={() => onOpen(deal._id)} onDelete={onDelete} onMove={onMove} onClaim={onClaim} />
+            <DealCard key={deal._id} deal={deal} isLead={isFirst} currency={currency} onEdit={() => onOpen(deal._id)} onDelete={onDelete} onMove={onMove} onClaim={onClaim}
+              canEdit={canEdit} canDelete={canDelete} />
           ))}
         </SortableContext>
       </div>
@@ -557,6 +567,10 @@ export default function FunnelPage({ funnelId }) {
   const t = useT();
   const currency  = useSelector(s => s.auth.user?.organization?.currency || 'UZS');
   const allFunnels = useSelector(s => s.funnels.list);
+  const perm = usePermissions();
+  const canCreate = perm.can('funnels', 'create');
+  const canEdit   = perm.can('funnels', 'edit');
+  const canDelete = perm.can('funnels', 'delete');
   const [funnel,      setFunnel]      = useState(null);
   const [deals,       setDeals]       = useState([]);
   const [loading,     setLoading]     = useState(true);
@@ -868,15 +882,17 @@ export default function FunnelPage({ funnelId }) {
               {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
               <span className="hidden sm:inline">{t('funnel.export')}</span>
             </button>
-            <button
-              onClick={() => setShowImport(true)}
-              title={t('funnel.import')}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium border border-surface-200 text-ink-secondary hover:border-surface-300 hover:text-ink transition-colors"
-            >
-              <Upload className="w-4 h-4" />
-              <span className="hidden sm:inline">{t('funnel.import')}</span>
-            </button>
-            {funnel.stages.length >= 1 && (
+            {canCreate && (
+              <button
+                onClick={() => setShowImport(true)}
+                title={t('funnel.import')}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium border border-surface-200 text-ink-secondary hover:border-surface-300 hover:text-ink transition-colors"
+              >
+                <Upload className="w-4 h-4" />
+                <span className="hidden sm:inline">{t('funnel.import')}</span>
+              </button>
+            )}
+            {funnel.stages.length >= 1 && canCreate && (
               <button
                 onClick={() => navigate(`/funnel/${funnelId}/deal/new`)}
                 className="btn-primary btn-md flex items-center gap-2 shrink-0"
@@ -962,6 +978,7 @@ export default function FunnelPage({ funnelId }) {
                   onMove={openMoveModal}
                   onClaim={handleClaimDeal}
                   onQuickAdd={setQuickStageId}
+                  canCreate={canCreate} canEdit={canEdit} canDelete={canDelete}
                 />
               ))}
             </div>

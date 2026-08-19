@@ -7,6 +7,7 @@ import toast from 'react-hot-toast';
 import { invalidateContacts, removeContact } from '../store/contactsSlice';
 import DateTimePicker from '../components/DateTimePicker';
 import { getSocket } from '../utils/socket';
+import { usePermissions } from '../utils/permissions';
 import {
   ArrowLeft, Loader2, Send, MessageSquare,
   Trash2, Pencil, Plus, X, Check, ChevronDown, Upload, FileText,
@@ -335,6 +336,9 @@ export default function ContactFormPage() {
   const { id }   = useParams();
   const isEdit   = Boolean(id);
   const t = useT();
+  const perm = usePermissions();
+  const canSave   = isEdit ? perm.can('contacts', 'edit') : perm.can('contacts', 'create');
+  const canDelete = perm.can('contacts', 'delete');
 
   // Contact form
   const [form, setForm]                 = useState(EMPTY);
@@ -785,7 +789,7 @@ export default function ContactFormPage() {
           )}
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          {isDirty && (
+          {isDirty && canSave && (
             <button onClick={handleSave} disabled={saving} className="btn-md btn-primary">
               {saving && <Loader2 className="w-4 h-4 animate-spin" />}
               {t('contactForm.save')}
@@ -803,21 +807,25 @@ export default function ContactFormPage() {
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
                   <div className="absolute right-0 top-full mt-1 z-20 bg-white border border-surface-100 rounded-xl shadow-lg py-1 min-w-[180px]">
-                    <button
-                      onClick={handleBlock}
-                      className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-ink hover:bg-surface-50 transition-colors"
-                    >
-                      {blocked ? <Shield className="w-4 h-4 text-green-500" /> : <ShieldOff className="w-4 h-4 text-orange-400" />}
-                      {blocked ? t('contactForm.unblock') : t('contactForm.block')}
-                    </button>
-                    <div className="my-1 border-t border-surface-100" />
-                    <button
-                      onClick={() => { setShowMenu(false); setConfirmDelete(true); }}
-                      className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                      {t('contactForm.delete')}
-                    </button>
+                    {canSave && (
+                      <button
+                        onClick={handleBlock}
+                        className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-ink hover:bg-surface-50 transition-colors"
+                      >
+                        {blocked ? <Shield className="w-4 h-4 text-green-500" /> : <ShieldOff className="w-4 h-4 text-orange-400" />}
+                        {blocked ? t('contactForm.unblock') : t('contactForm.block')}
+                      </button>
+                    )}
+                    {canSave && canDelete && <div className="my-1 border-t border-surface-100" />}
+                    {canDelete && (
+                      <button
+                        onClick={() => { setShowMenu(false); setConfirmDelete(true); }}
+                        className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        {t('contactForm.delete')}
+                      </button>
+                    )}
                   </div>
                 </>
               )}

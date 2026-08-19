@@ -7,6 +7,7 @@ import toast from 'react-hot-toast';
 import { fetchContacts, invalidateContacts, removeContact } from '../store/contactsSlice';
 import Pagination from '../components/Pagination';
 import { getSocket } from '../utils/socket';
+import { usePermissions } from '../utils/permissions';
 import {
   Plus, Search, Pencil, Trash2, Loader2, Users, SlidersHorizontal, Check,
   Download, Upload, Copy, X, AlertTriangle, AlertCircle, ChevronDown, BarChart2,
@@ -315,6 +316,10 @@ export default function ContactsPage() {
   const dispatch   = useDispatch();
   const t = useT();
   const colMenuRef = useRef(null);
+  const perm = usePermissions();
+  const canCreate = perm.can('contacts', 'create');
+  const canEdit   = perm.can('contacts', 'edit');
+  const canDelete = perm.can('contacts', 'delete');
 
   const { items: contacts, total, pages, loading, lastFetch, paramKey } = useSelector(s => s.contacts);
 
@@ -475,10 +480,12 @@ export default function ContactsPage() {
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium border border-surface-200 text-ink-secondary hover:border-surface-300 hover:text-ink transition-colors">
             <Download className="w-4 h-4" /> {t('contacts.export')}
           </button>
-          <button onClick={() => setShowImport(true)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium border border-surface-200 text-ink-secondary hover:border-surface-300 hover:text-ink transition-colors">
-            <Upload className="w-4 h-4" /> {t('contacts.import')}
-          </button>
+          {canCreate && (
+            <button onClick={() => setShowImport(true)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium border border-surface-200 text-ink-secondary hover:border-surface-300 hover:text-ink transition-colors">
+              <Upload className="w-4 h-4" /> {t('contacts.import')}
+            </button>
+          )}
           <button onClick={() => setShowDupes(true)} title="Takroriy raqamlarni aniqlash"
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium border border-surface-200 text-ink-secondary hover:border-amber-300 hover:text-amber-600 transition-colors">
             <Copy className="w-4 h-4" /> Takroriylar
@@ -487,9 +494,11 @@ export default function ContactsPage() {
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium border border-surface-200 text-ink-secondary hover:border-primary-300 hover:text-primary-600 transition-colors">
             Raqamlarni normallashtirish
           </button>
-          <button onClick={() => navigate('/contacts/new')} className="btn-md btn-primary shrink-0">
-            <Plus className="w-4 h-4" /> {t('contacts.newContact')}
-          </button>
+          {canCreate && (
+            <button onClick={() => navigate('/contacts/new')} className="btn-md btn-primary shrink-0">
+              <Plus className="w-4 h-4" /> {t('contacts.newContact')}
+            </button>
+          )}
         </div>
 
         {/* Mobil: faqat "+" va qolgan amallar "..." menyusida */}
@@ -511,10 +520,12 @@ export default function ContactsPage() {
                     className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-ink hover:bg-surface-50 transition-colors">
                     <Download className="w-4 h-4 text-ink-tertiary" /> {t('contacts.export')}
                   </button>
-                  <button onClick={() => { setShowMobileActions(false); setShowImport(true); }}
-                    className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-ink hover:bg-surface-50 transition-colors">
-                    <Upload className="w-4 h-4 text-ink-tertiary" /> {t('contacts.import')}
-                  </button>
+                  {canCreate && (
+                    <button onClick={() => { setShowMobileActions(false); setShowImport(true); }}
+                      className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-ink hover:bg-surface-50 transition-colors">
+                      <Upload className="w-4 h-4 text-ink-tertiary" /> {t('contacts.import')}
+                    </button>
+                  )}
                   <button onClick={() => { setShowMobileActions(false); setShowDupes(true); }}
                     className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-ink hover:bg-surface-50 transition-colors">
                     <Copy className="w-4 h-4 text-ink-tertiary" /> Takroriylar
@@ -527,9 +538,11 @@ export default function ContactsPage() {
               </>
             )}
           </div>
-          <button onClick={() => navigate('/contacts/new')} className="btn-md btn-primary shrink-0 px-3">
-            <Plus className="w-4 h-4" />
-          </button>
+          {canCreate && (
+            <button onClick={() => navigate('/contacts/new')} className="btn-md btn-primary shrink-0 px-3">
+              <Plus className="w-4 h-4" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -550,10 +563,12 @@ export default function ContactsPage() {
         {selected.size > 0 && (
           <div className="flex items-center gap-2">
             <span className="text-xs text-ink-secondary font-medium">{selected.size} ta tanlandi</span>
-            <button onClick={() => setDeleting('bulk')}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-50 text-red-600 hover:bg-red-100 text-xs font-medium transition-colors">
-              <Trash2 className="w-3.5 h-3.5" /> {t('contacts.deleteSelected').replace('{n}', selected.size)}
-            </button>
+            {canDelete && (
+              <button onClick={() => setDeleting('bulk')}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-50 text-red-600 hover:bg-red-100 text-xs font-medium transition-colors">
+                <Trash2 className="w-3.5 h-3.5" /> {t('contacts.deleteSelected').replace('{n}', selected.size)}
+              </button>
+            )}
             <button onClick={() => setSelected(new Set())} className="w-7 h-7 rounded-lg flex items-center justify-center text-ink-disabled hover:text-ink hover:bg-surface-100">
               <X className="w-3.5 h-3.5" />
             </button>
@@ -624,7 +639,7 @@ export default function ContactsPage() {
             </div>
             <p className="text-sm font-medium text-ink-secondary">Kontaktlar yo'q</p>
             <p className="text-xs text-ink-tertiary mt-1">{search ? 'Qidiruv natijasi topilmadi' : "Birinchi kontaktni qo'shing"}</p>
-            {!search && (
+            {!search && canCreate && (
               <button onClick={() => navigate('/contacts/new')} className="btn-md btn-primary mt-4">
                 <Plus className="w-4 h-4" /> Qo'shish
               </button>
@@ -709,10 +724,12 @@ export default function ContactsPage() {
                               className="p-1.5 rounded-lg text-ink-tertiary hover:text-primary-600 hover:bg-primary-50 transition-colors">
                               <Pencil className="w-3.5 h-3.5" />
                             </button>
-                            <button onClick={e => { e.stopPropagation(); setDeleting(c); }}
-                              className="p-1.5 rounded-lg text-ink-tertiary hover:text-red-600 hover:bg-red-50 transition-colors">
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                            {canDelete && (
+                              <button onClick={e => { e.stopPropagation(); setDeleting(c); }}
+                                className="p-1.5 rounded-lg text-ink-tertiary hover:text-red-600 hover:bg-red-50 transition-colors">
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>

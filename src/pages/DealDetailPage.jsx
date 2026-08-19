@@ -13,6 +13,7 @@ import {
   Mail, AlertCircle, ExternalLink, Layers,
 } from 'lucide-react';
 import { getSocket } from '../utils/socket';
+import { usePermissions } from '../utils/permissions';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:5002/api';
 
@@ -193,6 +194,10 @@ export default function DealDetailPage({ funnelId, dealId }) {
   const allFunnels = useSelector(s => s.funnels.list);
   const taskStages = useSelector(s => s.tasks.stages);
   const isNew     = dealId === 'new';
+  const perm = usePermissions();
+  const canSave      = isNew ? perm.can('funnels', 'create') : perm.can('funnels', 'edit');
+  const canDeleteDeal = perm.can('funnels', 'delete');
+  const canCreateTask = perm.can('tasks', 'create');
 
   // Core data
   const [funnel,   setFunnel]   = useState(null);
@@ -712,7 +717,7 @@ export default function DealDetailPage({ funnelId, dealId }) {
           )}
         </div>
         <div className="flex items-center gap-2 shrink-0 w-full lg:w-auto justify-end">
-          {isDirty && (
+          {isDirty && canSave && (
             <button onClick={handleSave} disabled={saving} className="btn-md btn-primary flex items-center gap-2">
               {saving && <Loader2 className="w-4 h-4 animate-spin" />}
               {t('deals.save')}
@@ -728,16 +733,18 @@ export default function DealDetailPage({ funnelId, dealId }) {
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
                   <div className="absolute right-0 top-full mt-1 z-20 bg-white border border-surface-100 rounded-xl shadow-lg py-1 min-w-[220px]">
-                    {moveTargetFunnels.length > 0 && (
+                    {moveTargetFunnels.length > 0 && canSave && (
                       <button onClick={openMoveFunnel}
                         className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-ink hover:bg-surface-100 transition-colors">
                         <Layers className="w-4 h-4" /> {t('deals.moveToFunnel')}
                       </button>
                     )}
-                    <button onClick={() => { setShowMenu(false); setConfirmDelete(true); }}
-                      className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors">
-                      <Trash2 className="w-4 h-4" /> {t('deals.delete')}
-                    </button>
+                    {canDeleteDeal && (
+                      <button onClick={() => { setShowMenu(false); setConfirmDelete(true); }}
+                        className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors">
+                        <Trash2 className="w-4 h-4" /> {t('deals.delete')}
+                      </button>
+                    )}
                   </div>
                 </>
               )}
@@ -1124,7 +1131,7 @@ export default function DealDetailPage({ funnelId, dealId }) {
                       )}
                       <ChevronDown className={`w-3.5 h-3.5 text-ink-tertiary ml-auto shrink-0 transition-transform ${showAssignedPicker ? 'rotate-180' : ''}`} />
                     </button>
-                    {!isNew && !assignedTo && (
+                    {!isNew && !assignedTo && canSave && (
                       <button
                         type="button"
                         onClick={handleClaim}
@@ -1448,7 +1455,7 @@ export default function DealDetailPage({ funnelId, dealId }) {
               <p className="text-sm font-semibold text-ink">{t('contactForm.tabActivity')}</p>
               <p className="text-xs text-ink-tertiary mt-0.5">{t('deals.activitySub')}</p>
             </div>
-            {!isNew && (
+            {!isNew && canCreateTask && (
               <button onClick={openTaskModal}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border border-surface-200 text-ink-secondary hover:border-primary-300 hover:text-primary-600 transition-colors shrink-0">
                 <CheckSquare2 className="w-3.5 h-3.5" /> {t('tasks.newTask')}

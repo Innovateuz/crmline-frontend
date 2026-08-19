@@ -1452,6 +1452,10 @@ function IntegrationsTab() {
   const [fbInfo,       setFbInfo]       = useState(null);
   const [fbConnecting, setFbConnecting] = useState(false);
   const [fbDisconnecting, setFbDisconnecting] = useState(false);
+  const [leadFunnels,  setLeadFunnels]  = useState([]);   // "target"dan kelgan lidlar uchun voronka tanlovi
+  const [leadFunnelId, setLeadFunnelId] = useState('');
+  const [leadStageId,  setLeadStageId]  = useState('');
+  const [leadSettingsSaving, setLeadSettingsSaving] = useState(false);
   const [waInfo,       setWaInfo]       = useState(null);
   const [waForm,       setWaForm]       = useState({ phoneNumberId: '', wabaId: '', accessToken: '', displayPhoneNumber: '' });
   const [waSaving,     setWaSaving]     = useState(false);
@@ -1513,7 +1517,8 @@ function IntegrationsTab() {
       axios.get(`${API_URL}/facebook/status`),
       axios.get(`${API_URL}/whatsapp/status`),
       axios.get(`${API_URL}/organization/telegram-accounts`),
-    ]).then(([tgRes, spRes, igRes, emailRes, fbRes, waRes, tgAccRes]) => {
+      axios.get(`${API_URL}/funnels/names`),
+    ]).then(([tgRes, spRes, igRes, emailRes, fbRes, waRes, tgAccRes, funnelsRes]) => {
       setBotInfo(tgRes.data);
       setTgAccounts(tgAccRes.data.accounts || []);
       setPacks(spRes.data.stickerPacks || []);
@@ -1528,6 +1533,9 @@ function IntegrationsTab() {
       }
       setFbInfo(fbRes.data);
       setWaInfo(waRes.data);
+      setLeadFunnels(funnelsRes.data.funnels || []);
+      setLeadFunnelId(fbRes.data.leadFunnel || '');
+      setLeadStageId(fbRes.data.leadStage || '');
     }).catch(() => toast.error('Yuklanishda xato'))
       .finally(() => setLoading(false));
   }, []);
@@ -1601,6 +1609,20 @@ function IntegrationsTab() {
       toast.error('Xato');
     } finally {
       setFbDisconnecting(false);
+    }
+  };
+
+  const leadStages = leadFunnels.find(f => String(f._id) === String(leadFunnelId))?.stages || [];
+
+  const saveLeadSettings = async () => {
+    setLeadSettingsSaving(true);
+    try {
+      await axios.put(`${API_URL}/facebook/lead-settings`, { funnelId: leadFunnelId || null, stageId: leadStageId || '' });
+      toast.success('Saqlandi');
+    } catch {
+      toast.error('Xato');
+    } finally {
+      setLeadSettingsSaving(false);
     }
   };
 
@@ -2337,6 +2359,34 @@ function IntegrationsTab() {
                 {fbDisconnecting ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />}
                 Uzib qo'yish
               </button>
+
+              {/* Instagram/Facebook "target" (Lead Ads) — qayerga tushsin */}
+              <div className="pt-3 mt-1 border-t border-surface-100">
+                <p className="text-sm font-medium text-ink mb-1">Target (Lead Ads) lidlari</p>
+                <p className="text-xs text-ink-tertiary mb-3">
+                  Instagram/Facebook reklamasidan (Lead Ads formasi orqali) kelgan lidlar shu voronka+bosqichga avtomatik tushadi.
+                </p>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <select className="input flex-1" value={leadFunnelId}
+                    onChange={e => { setLeadFunnelId(e.target.value); setLeadStageId(''); }}>
+                    <option value="">— Voronka tanlanmagan —</option>
+                    {leadFunnels.map(f => <option key={f._id} value={f._id}>{f.name}</option>)}
+                  </select>
+                  <select className="input flex-1" value={leadStageId} disabled={!leadFunnelId}
+                    onChange={e => setLeadStageId(e.target.value)}>
+                    <option value="">— Bosqich tanlanmagan —</option>
+                    {leadStages.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
+                  </select>
+                </div>
+                <button onClick={saveLeadSettings} disabled={leadSettingsSaving}
+                  className="mt-2 flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-primary-600 text-white hover:bg-primary-700 transition-colors disabled:opacity-60">
+                  {leadSettingsSaving && <Loader2 className="w-4 h-4 animate-spin" />}
+                  Saqlash
+                </button>
+                {!leadFunnelId && (
+                  <p className="text-xs text-amber-600 mt-2">Voronka tanlanmaguncha target lidlar CRM'ga tushmaydi.</p>
+                )}
+              </div>
             </>
           ) : (
             <>

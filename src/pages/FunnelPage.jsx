@@ -16,7 +16,7 @@ import {
   SortableContext, useSortable, verticalListSortingStrategy, arrayMove,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Plus, X, Loader2, Check, User, Phone, PhoneCall, DollarSign, Pencil, Trash2, Search, Clock, Calendar, Download, Upload, Layers, ChevronDown } from 'lucide-react';
+import { Plus, X, Loader2, Check, User, Phone, PhoneCall, DollarSign, Pencil, Trash2, Search, Clock, Calendar, Download, Upload, Layers, ChevronDown, BarChart2 } from 'lucide-react';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:5002/api';
 
@@ -561,6 +561,129 @@ function ImportLeadsModal({ funnelId, funnelName, onClose, onDone }) {
   );
 }
 
+/* ── Intake statistika (nechta lid keldi vs nechtasi menejerga biriktirildi) ── */
+function IntakeStatsPanel({ funnelId }) {
+  const [dateFilter, setDateFilter] = useState('week'); // 'today' | 'week' | 'month'
+  const [stats,   setStats]   = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [showTable, setShowTable] = useState(false);
+  const API = process.env.REACT_APP_API_URL || 'http://localhost:5002/api';
+
+  useEffect(() => {
+    const to = new Date();
+    const from = new Date(to);
+    if (dateFilter === 'today') { /* from = to */ }
+    else if (dateFilter === 'month') from.setDate(to.getDate() - 29);
+    else from.setDate(to.getDate() - 6);
+
+    setLoading(true);
+    axios.get(`${API}/funnels/${funnelId}/intake-stats`, {
+      params: { from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10) },
+    }).then(r => setStats(r.data)).catch(() => toast.error('Yuklanishda xato'))
+      .finally(() => setLoading(false));
+  }, [funnelId, dateFilter, API]);
+
+  if (loading) return <div className="flex-1 flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-ink-tertiary" /></div>;
+  if (!stats) return null;
+
+  const chart = stats.chart || [];
+  const maxVal = Math.max(1, ...chart.map(d => d.total));
+  const fmtDay = (iso) => { const d = new Date(iso); return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}`; };
+  // ~35px/bar minimum shown, tanlab (30 kunda hammasini emas, siyraklashtirib) label chiqariladi
+  const labelEvery = Math.ceil(chart.length / 10) || 1;
+
+  return (
+    <div className="flex-1 overflow-y-auto px-4 md:px-6 py-5">
+      <div className="max-w-3xl mx-auto space-y-5">
+        {/* Davr tanlash */}
+        <div className="flex items-center gap-1.5 bg-surface-100 rounded-xl p-1 w-fit">
+          {[['today', 'Bugun'], ['week', '7 kun'], ['month', '30 kun']].map(([key, label]) => (
+            <button key={key} onClick={() => setDateFilter(key)}
+              className={`px-3 py-1.5 text-xs rounded-lg font-medium transition-colors ${dateFilter === key ? 'bg-white text-ink shadow-sm' : 'text-ink-tertiary hover:text-ink'}`}>
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* Stat tiles */}
+        <div className="grid grid-cols-3 gap-3">
+          <div className="bg-white border border-surface-200 rounded-2xl p-4">
+            <p className="text-xs text-ink-tertiary mb-1">Jami tashrif</p>
+            <p className="text-2xl font-bold text-ink">{stats.total}</p>
+          </div>
+          <div className="bg-white border border-surface-200 rounded-2xl p-4">
+            <p className="text-xs text-ink-tertiary mb-1">Menejerga biriktirilgan</p>
+            <p className="text-2xl font-bold" style={{ color: '#059669' }}>{stats.assigned}</p>
+          </div>
+          <div className="bg-white border border-surface-200 rounded-2xl p-4">
+            <p className="text-xs text-ink-tertiary mb-1">Biriktirilish foizi</p>
+            <p className="text-2xl font-bold text-ink">{stats.assignRate}%</p>
+          </div>
+        </div>
+
+        {stats.total === 0 ? (
+          <div className="text-center py-14 text-ink-tertiary text-sm">Shu davrda lid kelmagan</div>
+        ) : (
+          <>
+            {/* Legend */}
+            <div className="flex items-center gap-4 text-xs text-ink-secondary">
+              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: '#3b82f6' }} /> Jami tashrif</span>
+              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: '#059669' }} /> Menejerga biriktirilgan</span>
+            </div>
+
+            {/* Bar chart */}
+            <div className="bg-white border border-surface-200 rounded-2xl p-4">
+              <svg viewBox={`0 0 ${chart.length * 28} 140`} className="w-full" style={{ height: 140 }} role="img" aria-label="Kunlar bo'yicha tashrif va biriktirish soni">
+                {chart.map((d, i) => {
+                  const x = i * 28 + 6;
+                  const totalH    = Math.round((d.total    / maxVal) * 100);
+                  const assignedH = Math.round((d.assigned / maxVal) * 100);
+                  return (
+                    <g key={d.date}>
+                      <title>{`${fmtDay(d.date)}: ${d.total} tashrif, ${d.assigned} biriktirilgan`}</title>
+                      <rect x={x} y={110 - totalH} width={16} height={totalH} rx={2} fill="#3b82f6" />
+                      {d.assigned > 0 && <rect x={x} y={110 - assignedH} width={16} height={assignedH} rx={2} fill="#059669" />}
+                      {i % labelEvery === 0 && (
+                        <text x={x + 8} y={126} textAnchor="middle" fontSize={8} fill="#94a3b8">{fmtDay(d.date)}</text>
+                      )}
+                    </g>
+                  );
+                })}
+              </svg>
+            </div>
+
+            <button onClick={() => setShowTable(v => !v)} className="text-xs text-primary-600 hover:underline">
+              {showTable ? 'Jadvalni yashirish' : 'Jadval ko\'rinishida ko\'rish'}
+            </button>
+            {showTable && (
+              <div className="bg-white border border-surface-200 rounded-2xl overflow-hidden overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-surface-50">
+                    <tr>
+                      <th className="text-left px-4 py-2 text-xs font-semibold text-ink-tertiary">Sana</th>
+                      <th className="text-right px-4 py-2 text-xs font-semibold text-ink-tertiary">Jami tashrif</th>
+                      <th className="text-right px-4 py-2 text-xs font-semibold text-ink-tertiary">Menejerga biriktirilgan</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {chart.map(d => (
+                      <tr key={d.date} className="border-t border-surface-100">
+                        <td className="px-4 py-2 text-ink-secondary">{fmtDay(d.date)}</td>
+                        <td className="px-4 py-2 text-right text-ink">{d.total}</td>
+                        <td className="px-4 py-2 text-right" style={{ color: '#059669' }}>{d.assigned}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function FunnelPage({ funnelId }) {
   const navigate  = useNavigate();
   const dispatch  = useDispatch();
@@ -592,6 +715,7 @@ export default function FunnelPage({ funnelId }) {
   const [showImport,    setShowImport]    = useState(false);
   const [exporting,     setExporting]     = useState(false);
   const [toolbarOpen,   setToolbarOpen]   = useState(true);
+  const [showStats,     setShowStats]     = useState(false);
   // Barcha voronka nomlari (ko'rinish cheklovisiz) - "boshqa voronkaga yuborish" tanlovi uchun
   const [allFunnelNames, setAllFunnelNames] = useState([]);
 
@@ -878,6 +1002,16 @@ export default function FunnelPage({ funnelId }) {
           </div>
           <div className="flex items-center gap-2 shrink-0 md:order-4">
             <button
+              onClick={() => setShowStats(v => !v)}
+              title="Statistika"
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium border transition-colors ${
+                showStats ? 'border-primary-300 bg-primary-50 text-primary-600' : 'border-surface-200 text-ink-secondary hover:border-surface-300 hover:text-ink'
+              }`}
+            >
+              <BarChart2 className="w-4 h-4" />
+              <span className="hidden sm:inline">Statistika</span>
+            </button>
+            <button
               onClick={handleExport}
               disabled={exporting}
               title={t('funnel.export')}
@@ -960,8 +1094,10 @@ export default function FunnelPage({ funnelId }) {
         )}
       </div>
 
-      {/* Kanban board */}
-      {funnel.stages.length === 0 ? (
+      {/* Statistika yoki Kanban board */}
+      {showStats ? (
+        <IntakeStatsPanel funnelId={funnelId} />
+      ) : funnel.stages.length === 0 ? (
         <div className="flex-1 flex items-center justify-center text-ink-tertiary text-sm flex-col gap-2">
           <p>Bu varonkada bosqichlar yo'q</p>
           <p className="text-xs">Sozlamalar → Varonkalar dan bosqich qo'shing</p>

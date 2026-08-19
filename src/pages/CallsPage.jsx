@@ -78,7 +78,7 @@ const DATE_FILTERS = [
 function getDateRange(key) {
   const now = new Date();
   if (key === 'today') { const s = new Date(now); s.setHours(0,0,0,0); return { from: s.toISOString(), to: now.toISOString() }; }
-  if (key === 'week')  { const s = new Date(now); s.setDate(now.getDate() - now.getDay() + 1); s.setHours(0,0,0,0); return { from: s.toISOString(), to: now.toISOString() }; }
+  if (key === 'week')  { const s = new Date(now); const diffToMonday = (now.getDay() + 6) % 7; s.setDate(now.getDate() - diffToMonday); s.setHours(0,0,0,0); return { from: s.toISOString(), to: now.toISOString() }; }
   if (key === 'month') { const s = new Date(now.getFullYear(), now.getMonth(), 1); return { from: s.toISOString(), to: now.toISOString() }; }
   return {};
 }
@@ -123,7 +123,8 @@ function AnalyticsPanel({ dateFilter }) {
 
   useEffect(() => {
     setLoading(true);
-    axios.get(`${API_URL}/atc/analytics`, { params: { dateFilter: dateFilter || 'week' } })
+    const range = getDateRange(dateFilter);
+    axios.get(`${API_URL}/atc/analytics`, { params: { dateFilter: dateFilter || 'week', ...range } })
       .then(r => setData(r.data))
       .catch(() => toast.error('Analitika yuklanmadi'))
       .finally(() => setLoading(false));

@@ -11,6 +11,7 @@ import {
   Plus, X, Check, ChevronDown, Upload, FileText, MoreVertical,
   User, DollarSign, Kanban, Phone, PhoneCall, CheckSquare2,
   Mail, AlertCircle, ExternalLink, Layers, Calendar,
+  Play, Pause, PhoneIncoming, PhoneOutgoing, PhoneMissed,
 } from 'lucide-react';
 import { getSocket } from '../utils/socket';
 import { usePermissions } from '../utils/permissions';
@@ -78,6 +79,59 @@ function formatTime(iso) {
   return d.toLocaleDateString('uz-UZ', { day: 'numeric', month: 'short' }) + ', ' + time;
 }
 function fmtNum(n) { return n ? n.toLocaleString('uz-UZ') : '0'; }
+function fmtCallDuration(s) {
+  if (!s) return '—';
+  const m = Math.floor(s / 60), sec = s % 60;
+  return m > 0 ? `${m}:${String(sec).padStart(2, '0')}` : `${sec}s`;
+}
+function fmtCallDateTime(d) {
+  if (!d) return '—';
+  const dt = new Date(d);
+  return `${String(dt.getDate()).padStart(2, '0')}.${String(dt.getMonth() + 1).padStart(2, '0')}.${dt.getFullYear()} ${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`;
+}
+
+// <audio> elementi faqat "Play" bosilgandagina yaratiladi (CallsPage'dagi kabi) -
+// aks holda lidga bog'liq qo'ng'iroqlar ko'p bo'lsa brauzerning WebMediaPlayer
+// chegarasiga urilib qolishi mumkin.
+function DealCallAudio({ url }) {
+  const [activated, setActivated] = useState(false);
+  const [playing,   setPlaying]   = useState(false);
+  const audioRef = useRef(null);
+  const toggle = () => {
+    if (!activated) { setActivated(true); setPlaying(true); return; }
+    if (!audioRef.current) return;
+    if (playing) { audioRef.current.pause(); setPlaying(false); }
+    else { audioRef.current.play(); setPlaying(true); }
+  };
+  if (!url) return null;
+  return (
+    <div className="flex items-center gap-1.5">
+      {activated && (
+        <audio ref={audioRef} src={url} autoPlay preload="none" onEnded={() => setPlaying(false)} />
+      )}
+      <button onClick={toggle}
+        className="w-6 h-6 rounded-full bg-primary-50 hover:bg-primary-100 flex items-center justify-center text-primary-600 transition-colors shrink-0">
+        {playing ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
+      </button>
+    </div>
+  );
+}
+
+function DealCallRow({ call }) {
+  const missed = call.status === 'missed' || call.status === 'cancelled';
+  const Icon = missed ? PhoneMissed : call.direction === 'out' ? PhoneOutgoing : PhoneIncoming;
+  const iconCls = missed ? 'text-red-400' : call.direction === 'out' ? 'text-blue-400' : 'text-emerald-400';
+  return (
+    <div className="flex items-center gap-3 px-3 py-2.5 border border-surface-100 rounded-xl">
+      <Icon className={`w-4 h-4 shrink-0 ${iconCls}`} />
+      <div className="flex-1 min-w-0">
+        <p className="text-xs text-ink-tertiary">{fmtCallDateTime(call.startedAt || call.createdAt)}</p>
+      </div>
+      <span className="text-xs text-ink-tertiary shrink-0">{fmtCallDuration(call.duration)}</span>
+      <DealCallAudio url={call.recordingUrl} />
+    </div>
+  );
+}
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -1336,6 +1390,23 @@ export default function DealDetailPage({ funnelId, dealId }) {
                         );
                       })}
                     </svg>
+                  </div>
+
+                  {/* Qo'ng'iroqlar tarixi — shu lid kontaktiga bog'liq barcha qo'ng'iroqlar (yozuvlari bilan) */}
+                  <div>
+                    <p className="text-[10px] font-semibold text-ink-tertiary uppercase tracking-wider mb-2 px-1">Qo'ng'iroqlar tarixi</p>
+                    {dealCalls.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-8 text-center border border-surface-100 rounded-xl">
+                        <Phone className="w-6 h-6 text-ink-disabled mb-2" />
+                        <p className="text-xs text-ink-tertiary">Hali qo'ng'iroq yo'q</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {[...dealCalls]
+                          .sort((a, b) => new Date(b.startedAt || b.createdAt) - new Date(a.startedAt || a.createdAt))
+                          .map(c => <DealCallRow key={c._id} call={c} />)}
+                      </div>
+                    )}
                   </div>
                 </div>
               );

@@ -17,7 +17,7 @@ import {
   Plus, X, Loader2, Check, ChevronDown,
   Calendar, CheckSquare2, Pencil, Trash2,
   AlertCircle, User, UserCheck, Link2, Search, Filter, Eye, Archive, ArchiveRestore,
-  Paperclip, Upload, FileText, Tag, Download, History, PhoneCall,
+  Paperclip, Upload, FileText, Tag, Download, History, PhoneCall, Lock,
 } from 'lucide-react';
 
 const isImageFile = (f) =>
@@ -139,6 +139,12 @@ function TaskCard({ task, onView, onEdit, onArchive, onDelete, canEdit = true, c
   const pri = PRIORITY_MAP[task.priority] || PRIORITY_MAP.normal;
   const t = useT();
   const navigate = useNavigate();
+  // Task ko'rinishi funnelVisible'dan mustaqil (masalan Call markaz Sotuv voronkasidagi
+  // lidga Reception uchun vazifa yaratishi mumkin, Reception esa Sotuv voronkasini
+  // ko'ra olmasligi kerak). Shu sababli voronka joriy foydalanuvchiga ko'rinmasa,
+  // lid nomi bosilmaydigan qilib ko'rsatiladi - havola 404'ga olib bormasin.
+  const visibleFunnels = useSelector(s => s.funnels.list);
+  const dealFunnelVisible = !task.deal || visibleFunnels.some(f => String(f._id) === String(task.deal.funnel));
 
   const card = (
     <div className={`bg-white border rounded-xl p-3 shadow-sm select-none transition-all ${
@@ -214,14 +220,21 @@ function TaskCard({ task, onView, onEdit, onArchive, onDelete, canEdit = true, c
       )}
 
       {task.deal && (
-        <button
-          onPointerDown={e => { e.stopPropagation(); e.preventDefault(); }}
-          onClick={e => { e.stopPropagation(); e.preventDefault(); navigate(`/funnel/${task.deal.funnel}/deal/${task.deal._id}`); }}
-          className="flex items-center gap-1 mt-1.5 text-left hover:text-primary-600 transition-colors group/deal"
-        >
-          <CheckSquare2 className="w-3 h-3 text-primary-400 shrink-0" />
-          <span className="text-[11px] text-ink-tertiary group-hover/deal:text-primary-600 truncate">{task.deal.title}</span>
-        </button>
+        dealFunnelVisible ? (
+          <button
+            onPointerDown={e => { e.stopPropagation(); e.preventDefault(); }}
+            onClick={e => { e.stopPropagation(); e.preventDefault(); navigate(`/funnel/${task.deal.funnel}/deal/${task.deal._id}`); }}
+            className="flex items-center gap-1 mt-1.5 text-left hover:text-primary-600 transition-colors group/deal"
+          >
+            <CheckSquare2 className="w-3 h-3 text-primary-400 shrink-0" />
+            <span className="text-[11px] text-ink-tertiary group-hover/deal:text-primary-600 truncate">{task.deal.title}</span>
+          </button>
+        ) : (
+          <div className="flex items-center gap-1 mt-1.5" title="Bu lidni ko'rish huquqi yo'q">
+            <Lock className="w-3 h-3 text-ink-disabled shrink-0" />
+            <span className="text-[11px] text-ink-tertiary truncate">{task.deal.title}</span>
+          </div>
+        )
       )}
 
       {task.createdBy && (

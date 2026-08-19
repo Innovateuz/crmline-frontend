@@ -6123,16 +6123,20 @@ function RolesTab() {
 function AtcTab() {
   const [form,    setForm]    = useState({
     provider: 'ibrat', crmToken: '', apiToken: '', sipDomain: 'ibrat.sip.uz',
-    sipuniUser: '', sipuniSecretKey: '',
+    sipuniUser: '', sipuniSecretKey: '', leadFunnel: '', leadStage: '',
   });
   const [loaded,  setLoaded]  = useState(false);
   const [saving,  setSaving]  = useState(false);
   const [connected, setConnected] = useState(false);
+  const [leadFunnels, setLeadFunnels] = useState([]);   // noma'lum raqamdan kelgan qo'ng'iroqdan lid qayerga tushsin
 
   useEffect(() => {
-    axios.get(`${API_URL}/atc/settings`)
-      .then(r => {
-        const a = r.data.atc || {};
+    Promise.all([
+      axios.get(`${API_URL}/atc/settings`),
+      axios.get(`${API_URL}/funnels/names`),
+    ])
+      .then(([settingsRes, funnelsRes]) => {
+        const a = settingsRes.data.atc || {};
         setForm({
           provider:        a.provider || 'ibrat',
           crmToken:        a.crmToken || '',
@@ -6140,12 +6144,17 @@ function AtcTab() {
           sipDomain:       a.sipDomain || 'ibrat.sip.uz',
           sipuniUser:      a.sipuniUser || '',
           sipuniSecretKey: a.sipuniSecretKey || '',
+          leadFunnel:      a.leadFunnel || '',
+          leadStage:       a.leadStage  || '',
         });
         setConnected(!!a.connected);
+        setLeadFunnels(funnelsRes.data.funnels || []);
       })
       .catch(() => {})
       .finally(() => setLoaded(true));
   }, []);
+
+  const leadStages = leadFunnels.find(f => String(f._id) === String(form.leadFunnel))?.stages || [];
 
   const save = async () => {
     setSaving(true);
@@ -6227,6 +6236,27 @@ function AtcTab() {
           )}
         </div>
       )}
+
+      {/* Noma'lum raqamdan kelgan qo'ng'iroq — kontakt har doim avtomatik yaratiladi;
+          lid esa faqat shu voronka+bosqich tanlangandagina yaratiladi. */}
+      <div className="pt-1 border-t border-surface-100">
+        <p className="text-sm font-medium text-ink mb-1 mt-3">Noma'lum raqamdan kelgan qo'ng'iroqlar</p>
+        <p className="text-xs text-ink-tertiary mb-3">
+          Mos kontakt topilmasa — kontakt avtomatik yaratiladi. Lid ham avtomatik yaratilishini xohlasangiz, qayerga tushishini tanlang (ixtiyoriy).
+        </p>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <select className="input flex-1" value={form.leadFunnel}
+            onChange={e => setForm(f => ({ ...f, leadFunnel: e.target.value, leadStage: '' }))}>
+            <option value="">— Lid yaratilmasin —</option>
+            {leadFunnels.map(f => <option key={f._id} value={f._id}>{f.name}</option>)}
+          </select>
+          <select className="input flex-1" value={form.leadStage} disabled={!form.leadFunnel}
+            onChange={e => setForm(f => ({ ...f, leadStage: e.target.value }))}>
+            <option value="">— Bosqich tanlanmagan —</option>
+            {leadStages.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
+          </select>
+        </div>
+      </div>
 
       {form.provider === 'ibrat' ? (
         <>

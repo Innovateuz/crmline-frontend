@@ -471,6 +471,18 @@ export default function DealDetailPage({ funnelId, dealId }) {
     }
   };
 
+  // "O'zimga olish" — pool'dagi (mas'ulsiz) lidni o'ziga biriktirib olish
+  const handleClaim = async () => {
+    try {
+      const res = await axios.post(`${API}/funnels/${funnelId}/deals/${dealId}/claim`);
+      setAssignedTo(res.data.deal.assignedTo?._id || res.data.deal.assignedTo || '');
+      setOrigAssignedTo(res.data.deal.assignedTo?._id || res.data.deal.assignedTo || '');
+      toast.success("O'zingizga oldingiz");
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Xato');
+    }
+  };
+
   // ── Delete ───────────────────────────────────────────────────────────────
   const handleDelete = async () => {
     try {
@@ -1112,6 +1124,15 @@ export default function DealDetailPage({ funnelId, dealId }) {
                       )}
                       <ChevronDown className={`w-3.5 h-3.5 text-ink-tertiary ml-auto shrink-0 transition-transform ${showAssignedPicker ? 'rotate-180' : ''}`} />
                     </button>
+                    {!isNew && !assignedTo && (
+                      <button
+                        type="button"
+                        onClick={handleClaim}
+                        className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-primary-50 text-primary-600 hover:bg-primary-100 transition-colors shrink-0"
+                      >
+                        O'zimga olish
+                      </button>
+                    )}
                     <FloatingDropdown
                       anchorRef={assignedAnchorRef}
                       open={showAssignedPicker}

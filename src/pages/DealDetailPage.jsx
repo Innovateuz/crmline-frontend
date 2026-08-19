@@ -5,12 +5,12 @@ import { useSelector, useDispatch } from 'react-redux';
 import { useT } from '../utils/translate';
 import axios from 'axios';
 import toast from 'react-hot-toast';
-import { fetchTasks, upsertTask } from '../store/tasksSlice';
+import { fetchTasks, upsertTask, removeTask as removeTaskAction } from '../store/tasksSlice';
 import {
   ArrowLeft, Loader2, Send, MessageSquare, Trash2, Pencil,
   Plus, X, Check, ChevronDown, Upload, FileText, MoreVertical,
   User, DollarSign, Kanban, Phone, PhoneCall, CheckSquare2,
-  Mail, AlertCircle, ExternalLink, Layers,
+  Mail, AlertCircle, ExternalLink, Layers, Calendar,
 } from 'lucide-react';
 import { getSocket } from '../utils/socket';
 import { usePermissions } from '../utils/permissions';
@@ -198,6 +198,7 @@ export default function DealDetailPage({ funnelId, dealId }) {
   const canSave      = isNew ? perm.can('funnels', 'create') : perm.can('funnels', 'edit');
   const canDeleteDeal = perm.can('funnels', 'delete');
   const canCreateTask = perm.can('tasks', 'create');
+  const canDeleteTask = perm.can('tasks', 'delete');
 
   // Core data
   const [funnel,   setFunnel]   = useState(null);
@@ -228,6 +229,9 @@ export default function DealDetailPage({ funnelId, dealId }) {
   const [newTaskAssignee, setNewTaskAssignee] = useState('');
   const [newTaskDueDate,  setNewTaskDueDate]  = useState('');
   const [newTaskPriority, setNewTaskPriority] = useState('normal');
+  // Shu lidga bog'langan vazifalar ro'yxati
+  const [dealTasks,     setDealTasks]     = useState([]);
+  const [dealTasksLoading, setDealTasksLoading] = useState(false);
 
   // Form state
   const [title,      setTitle]      = useState('');
@@ -591,6 +595,18 @@ export default function DealDetailPage({ funnelId, dealId }) {
   };
 
   // ── Task (shu leadga bog'langan vazifa) ─────────────────────────────────────
+  const loadDealTasks = useCallback(async () => {
+    if (isNew) return;
+    setDealTasksLoading(true);
+    try {
+      const res = await axios.get(`${API}/tasks`, { params: { deal: dealId, limit: 100 } });
+      setDealTasks(res.data.tasks || []);
+    } catch { /* jim - vazifalar ro'yxati ikkinchi darajali ma'lumot */ }
+    finally { setDealTasksLoading(false); }
+  }, [dealId, isNew]);
+
+  useEffect(() => { loadDealTasks(); }, [loadDealTasks]);
+
   const openTaskModal = () => {
     dispatch(fetchTasks());
     setNewTaskTitle(title || '');
@@ -616,12 +632,25 @@ export default function DealDetailPage({ funnelId, dealId }) {
         deal:       dealId,
       });
       dispatch(upsertTask(res.data.task));
+      setDealTasks(prev => [res.data.task, ...prev]);
       toast.success(t('tasks.created'));
       setShowTaskModal(false);
     } catch (e) {
       toast.error(e.response?.data?.message || t('tasks.error'));
     } finally {
       setTaskSaving(false);
+    }
+  };
+
+  const handleDeleteTask = async (taskId) => {
+    if (!window.confirm(t('tasks.deleteConfirm'))) return;
+    try {
+      await axios.delete(`${API}/tasks/${taskId}`);
+      setDealTasks(prev => prev.filter(x => x._id !== taskId));
+      dispatch(removeTaskAction(taskId));
+      toast.success(t('tasks.deleted'));
+    } catch (e) {
+      toast.error(e.response?.data?.message || t('tasks.error'));
     }
   };
 
@@ -1464,6 +1493,35 @@ export default function DealDetailPage({ funnelId, dealId }) {
               </button>
             )}
           </div>
+
+          {/* Shu lidga bog'langan vazifalar */}
+          {!isNew && (dealTasksLoading || dealTasks.length > 0) && (
+            <div className="px-5 py-3 bg-white border-b border-surface-100 shrink-0 space-y-1.5">
+              {dealTasksLoading ? (
+                <div className="flex items-center justify-center py-2"><Loader2 className="w-4 h-4 animate-spin text-ink-tertiary" /></div>
+              ) : dealTasks.map(dt => (
+                <div key={dt._id} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-surface-50 group">
+                  <CheckSquare2 className="w-3.5 h-3.5 text-primary-500 shrink-0" />
+                  <span className="text-xs text-ink truncate flex-1">{dt.title}</span>
+                  {dt.assignedTo?.name && (
+                    <span className="text-[10px] text-ink-tertiary shrink-0">{dt.assignedTo.name}</span>
+                  )}
+                  {dt.dueDate && (
+                    <span className="text-[10px] text-ink-tertiary shrink-0 flex items-center gap-0.5">
+                      <Calendar className="w-3 h-3" />{new Date(dt.dueDate).toLocaleDateString('uz-UZ')}
+                    </span>
+                  )}
+                  {canDeleteTask && (
+                    <button onClick={() => handleDeleteTask(dt._id)}
+                      className="opacity-0 group-hover:opacity-100 p-1 rounded-md text-ink-disabled hover:text-red-500 hover:bg-red-50 transition-colors shrink-0">
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
           <div className="min-h-[40vh] lg:min-h-0 lg:flex-1 lg:overflow-y-auto px-5 py-4">
             {isNew ? (
               <div className="flex flex-col items-center justify-center h-full text-center">

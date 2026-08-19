@@ -253,6 +253,9 @@ export default function DealDetailPage({ funnelId, dealId }) {
   const [addingField,          setAddingField]          = useState(false);
   const [newField,             setNewField]             = useState({ key: '', type: 'text', options: [] });
   const [newOption,            setNewOption]            = useState('');
+  const [editingFieldId,       setEditingFieldId]       = useState(null);
+  const [editField,            setEditField]            = useState({ key: '', options: [] });
+  const [editOption,           setEditOption]           = useState('');
 
   // Aux data
   const [contacts, setContacts] = useState([]);
@@ -705,6 +708,32 @@ export default function DealDetailPage({ funnelId, dealId }) {
     setNewField({ key: '', type: 'text', options: [] });
     setNewOption('');
     setAddingField(false);
+  };
+
+  const startEditField = (field) => {
+    setEditingFieldId(field.id);
+    setEditField({ key: field.key, options: field.options ? [...field.options] : [] });
+    setEditOption('');
+    setAddingField(false);
+  };
+  const cancelEditField = () => {
+    setEditingFieldId(null);
+    setEditField({ key: '', options: [] });
+    setEditOption('');
+  };
+  const confirmEditField = (secId, fieldType) => {
+    const key = editField.key.trim();
+    if (!key) return;
+    if (NEEDS_OPTIONS.includes(fieldType) && editField.options.length === 0) return;
+    setOrgSections(prev => prev.map(s =>
+      s.id !== secId ? s : {
+        ...s,
+        fields: s.fields.map(f => f.id !== editingFieldId ? f : {
+          ...f, key, ...(NEEDS_OPTIONS.includes(fieldType) ? { options: editField.options } : {}),
+        }),
+      }
+    ));
+    cancelEditField();
   };
 
   // ── Render helpers ────────────────────────────────────────────────────────
@@ -1399,7 +1428,7 @@ export default function DealDetailPage({ funnelId, dealId }) {
                     <p className="text-xs font-semibold text-ink-tertiary uppercase tracking-wider mb-3">Maydonlar</p>
                     <div className="flex gap-1.5 flex-wrap mb-3">
                       {orgSections.map(sec => (
-                        <button key={sec.id} onClick={() => { setActiveSectionId(sec.id); setAddingField(false); }}
+                        <button key={sec.id} onClick={() => { setActiveSectionId(sec.id); setAddingField(false); cancelEditField(); }}
                           className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${activeSectionId === sec.id ? 'bg-primary-500 text-white' : 'bg-surface-100 text-ink-secondary hover:bg-surface-200'}`}>
                           {sec.name}
                         </button>
@@ -1411,16 +1440,99 @@ export default function DealDetailPage({ funnelId, dealId }) {
                           <p className="text-xs text-ink-tertiary py-2">Hali maydon yo'q</p>
                         )}
                         {activeOrgSection.fields.map(field => (
-                          <div key={field.id} className="flex items-center gap-3 py-2 border-b border-surface-50 group/field">
-                            <span className="flex-1 text-sm text-ink">{field.key}</span>
-                            <span className="text-xs text-ink-tertiary bg-surface-100 px-2 py-0.5 rounded-full shrink-0">
-                              {FIELD_TYPES.find(t => t.value === field.type)?.label}
-                            </span>
-                            <button onClick={() => deleteCustomField(activeOrgSection.id, field.id)}
-                              className="shrink-0 opacity-0 group-hover/field:opacity-100 p-1 rounded text-ink-tertiary hover:text-red-500 transition-all">
-                              <X className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
+                          editingFieldId === field.id ? (
+                            <div key={field.id} className="py-2.5 border-b border-surface-50 space-y-2.5">
+                              <div className="flex gap-2">
+                                <input
+                                  autoFocus
+                                  className="input flex-1 text-sm"
+                                  placeholder="Maydon nomi..."
+                                  value={editField.key}
+                                  onChange={e => setEditField(f => ({ ...f, key: e.target.value }))}
+                                  onKeyDown={e => {
+                                    if (e.key === 'Enter' && !NEEDS_OPTIONS.includes(field.type)) confirmEditField(activeOrgSection.id, field.type);
+                                    if (e.key === 'Escape') cancelEditField();
+                                  }}
+                                />
+                                <span className="text-xs text-ink-tertiary bg-surface-100 px-2 py-0.5 rounded-full shrink-0 self-center">
+                                  {FIELD_TYPES.find(t => t.value === field.type)?.label}
+                                </span>
+                              </div>
+
+                              {NEEDS_OPTIONS.includes(field.type) && (
+                                <div className="pl-1 space-y-1.5">
+                                  <p className="text-xs text-ink-tertiary">Variantlar {editField.options.length === 0 && <span className="text-red-400">(kamida 1 ta)</span>}</p>
+                                  {editField.options.map((opt, i) => (
+                                    <div key={i} className="flex items-center gap-2">
+                                      <input
+                                        className="input flex-1 text-sm"
+                                        value={opt}
+                                        onChange={e => setEditField(f => ({ ...f, options: f.options.map((o, j) => j === i ? e.target.value : o) }))}
+                                      />
+                                      <button
+                                        onClick={() => setEditField(f => ({ ...f, options: f.options.filter((_, j) => j !== i) }))}
+                                        className="p-1 text-ink-tertiary hover:text-red-500 transition-colors"
+                                      >
+                                        <X className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                  ))}
+                                  <div className="flex gap-2">
+                                    <input
+                                      className="input flex-1 text-sm"
+                                      placeholder="Variant nomi..."
+                                      value={editOption}
+                                      onChange={e => setEditOption(e.target.value)}
+                                      onKeyDown={e => {
+                                        if (e.key === 'Enter') {
+                                          e.preventDefault();
+                                          if (editOption.trim()) {
+                                            setEditField(f => ({ ...f, options: [...f.options, editOption.trim()] }));
+                                            setEditOption('');
+                                          }
+                                        }
+                                      }}
+                                    />
+                                    <button
+                                      onClick={() => {
+                                        if (editOption.trim()) {
+                                          setEditField(f => ({ ...f, options: [...f.options, editOption.trim()] }));
+                                          setEditOption('');
+                                        }
+                                      }}
+                                      className="btn-sm btn-secondary shrink-0"
+                                    >
+                                      <Plus className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+
+                              <div className="flex gap-2">
+                                <button onClick={() => confirmEditField(activeOrgSection.id, field.type)} className="btn-sm btn-primary flex-1">
+                                  <Check className="w-3.5 h-3.5" /> Saqlash
+                                </button>
+                                <button onClick={cancelEditField} className="btn-sm btn-secondary flex-1">
+                                  Bekor
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div key={field.id} className="flex items-center gap-3 py-2 border-b border-surface-50 group/field">
+                              <span className="flex-1 text-sm text-ink">{field.key}</span>
+                              <span className="text-xs text-ink-tertiary bg-surface-100 px-2 py-0.5 rounded-full shrink-0">
+                                {FIELD_TYPES.find(t => t.value === field.type)?.label}
+                              </span>
+                              <button onClick={() => startEditField(field)}
+                                className="shrink-0 opacity-0 group-hover/field:opacity-100 p-1 rounded text-ink-tertiary hover:text-primary-600 transition-all">
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              <button onClick={() => deleteCustomField(activeOrgSection.id, field.id)}
+                                className="shrink-0 opacity-0 group-hover/field:opacity-100 p-1 rounded text-ink-tertiary hover:text-red-500 transition-all">
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          )
                         ))}
                         {addingField ? (
                           <div className="pt-3 space-y-2.5">
@@ -1465,7 +1577,7 @@ export default function DealDetailPage({ funnelId, dealId }) {
                             </div>
                           </div>
                         ) : (
-                          <button onClick={() => setAddingField(true)}
+                          <button onClick={() => { setAddingField(true); cancelEditField(); }}
                             className="mt-2 flex items-center gap-1.5 text-xs text-ink-tertiary hover:text-primary-600 transition-colors py-2">
                             <Plus className="w-3.5 h-3.5" /> Maydon qo'shish
                           </button>

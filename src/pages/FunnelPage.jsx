@@ -46,7 +46,7 @@ function initials(name) {
 }
 
 /* ── Deal card (draggable) ── */
-function DealCard({ deal, isLead, onEdit, onDelete, onMove, currency, overlay = false }) {
+function DealCard({ deal, isLead, onEdit, onDelete, onMove, onClaim, currency, overlay = false }) {
   const t = useT();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: deal._id });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 };
@@ -149,6 +149,13 @@ function DealCard({ deal, isLead, onEdit, onDelete, onMove, currency, overlay = 
               </div>
               <span className="text-[11px] text-ink-tertiary truncate">{deal.assignedTo.name}</span>
             </div>
+          ) : onClaim ? (
+            <button
+              onClick={e => { e.stopPropagation(); e.preventDefault(); onClaim(deal._id); }}
+              className="text-[11px] font-semibold px-2 py-1 rounded-lg bg-primary-50 text-primary-600 hover:bg-primary-100 transition-colors"
+            >
+              O'zimga olish
+            </button>
           ) : <div />}
           <div className="ml-auto flex items-center gap-1.5 shrink-0">
             <Clock className="w-3 h-3 text-ink-disabled" />
@@ -180,7 +187,7 @@ function DealCard({ deal, isLead, onEdit, onDelete, onMove, currency, overlay = 
 }
 
 /* ── Stage column (droppable) ── */
-function StageColumn({ stage, deals, onOpen, onDelete, onMove, onQuickAdd, currency, isFirst }) {
+function StageColumn({ stage, deals, onOpen, onDelete, onMove, onClaim, onQuickAdd, currency, isFirst }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage._id });
   const total = deals.reduce((s, d) => s + (d.value || 0), 0);
 
@@ -219,7 +226,7 @@ function StageColumn({ stage, deals, onOpen, onDelete, onMove, onQuickAdd, curre
       >
         <SortableContext items={deals.map(d => d._id)} strategy={verticalListSortingStrategy}>
           {deals.map(deal => (
-            <DealCard key={deal._id} deal={deal} isLead={isFirst} currency={currency} onEdit={() => onOpen(deal._id)} onDelete={onDelete} onMove={onMove} />
+            <DealCard key={deal._id} deal={deal} isLead={isFirst} currency={currency} onEdit={() => onOpen(deal._id)} onDelete={onDelete} onMove={onMove} onClaim={onClaim} />
           ))}
         </SortableContext>
       </div>
@@ -765,6 +772,18 @@ export default function FunnelPage({ funnelId }) {
     }
   };
 
+  // "O'zimga olish" — pool'dagi (mas'ulsiz) lidni o'ziga biriktirib olish
+  const handleClaimDeal = async (dealId) => {
+    try {
+      const res = await axios.post(`${API}/funnels/${funnelId}/deals/${dealId}/claim`);
+      setDeals(prev => prev.map(d => d._id === dealId ? res.data.deal : d));
+      toast.success("O'zingizga oldingiz");
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Xato');
+      load();
+    }
+  };
+
   // Boshqa varonkaga o'tkazish
   const moveTargetFunnels = allFunnels.filter(f => String(f._id) !== String(funnelId));
   const moveTargetFunnel  = moveTargetFunnels.find(f => String(f._id) === String(moveFunnelId));
@@ -941,6 +960,7 @@ export default function FunnelPage({ funnelId }) {
                   onOpen={(dealId) => navigate(`/funnel/${funnelId}/deal/${dealId}`)}
                   onDelete={handleDeleteDeal}
                   onMove={openMoveModal}
+                  onClaim={handleClaimDeal}
                   onQuickAdd={setQuickStageId}
                 />
               ))}

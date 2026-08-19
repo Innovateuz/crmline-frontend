@@ -400,7 +400,7 @@ function FunnelsTab() {
   const openEdit = (f) => {
     setEditId(f._id);
     setFname(f.name);
-    setStages(f.stages.length ? f.stages.map(s => ({ _id: s._id, name: s.name, color: s.color })) : [{ name: '', color: '#94a3b8' }]);
+    setStages(f.stages.length ? f.stages.map(s => ({ _id: s._id, name: s.name, color: s.color, isWon: !!s.isWon, isLost: !!s.isLost })) : [{ name: '', color: '#94a3b8' }]);
     setVisibleToRoles((f.visibleToRoles || []).map(r => String(r._id || r)));
     setShowCreate(true);
   };
@@ -581,6 +581,24 @@ function FunnelsTab() {
                         value={s.name}
                         onChange={e => updateStage(i, 'name', e.target.value)}
                       />
+                      <label className="flex items-center gap-1.5 shrink-0 px-2 py-1 rounded-lg hover:bg-surface-50 cursor-pointer" title="Bu bosqichga tushsa bitim avtomatik G'olib (savdo) deb belgilanadi">
+                        <input
+                          type="checkbox"
+                          className="accent-emerald-600 w-3.5 h-3.5 rounded"
+                          checked={!!s.isWon}
+                          onChange={e => updateStage(i, 'isWon', e.target.checked)}
+                        />
+                        <span className="text-xs text-ink-tertiary whitespace-nowrap">G'olib</span>
+                      </label>
+                      <label className="flex items-center gap-1.5 shrink-0 px-2 py-1 rounded-lg hover:bg-surface-50 cursor-pointer" title="Bu bosqichga tushsa bitim avtomatik Yo'qotilgan deb belgilanadi">
+                        <input
+                          type="checkbox"
+                          className="accent-red-500 w-3.5 h-3.5 rounded"
+                          checked={!!s.isLost}
+                          onChange={e => updateStage(i, 'isLost', e.target.checked)}
+                        />
+                        <span className="text-xs text-ink-tertiary whitespace-nowrap">Yo'qotilgan</span>
+                      </label>
                       <button type="button" onClick={() => moveStage(i, -1)} disabled={i === 0}
                         className="p-1.5 rounded-lg hover:bg-surface-100 text-ink-disabled hover:text-ink-tertiary disabled:opacity-30 transition-colors">
                         <ChevronUp className="w-3.5 h-3.5" />

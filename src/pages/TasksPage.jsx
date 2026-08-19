@@ -7,6 +7,7 @@ import { useT } from '../utils/translate';
 import { useModalOpen } from '../utils/modalLock';
 import { mediaUrl, mediaDownloadUrl } from '../utils/media';
 import { getSocket } from '../utils/socket';
+import { usePermissions } from '../utils/permissions';
 import {
   DndContext, DragOverlay, MouseSensor, TouchSensor, useSensor, useSensors,
   useDroppable, useDraggable,
@@ -131,7 +132,7 @@ function ContactSearch({ contactId, contactName, onChange }) {
 }
 
 /* ─── Draggable Task Card ─────────────────────────────────── */
-function TaskCard({ task, onView, onEdit, onArchive, onDelete, overlay = false }) {
+function TaskCard({ task, onView, onEdit, onArchive, onDelete, canEdit = true, canDelete = true, overlay = false }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: task._id });
   const overdue = isOverdue(task.dueDate);
   const pri = PRIORITY_MAP[task.priority] || PRIORITY_MAP.normal;
@@ -156,22 +157,28 @@ function TaskCard({ task, onView, onEdit, onArchive, onDelete, overlay = false }
             className="p-1 rounded-md hover:bg-surface-100 text-ink-disabled hover:text-ink-tertiary transition-colors">
             <Eye className="w-3 h-3" />
           </button>
-          <button onPointerDown={e => { e.stopPropagation(); e.preventDefault(); }}
-            onClick={e => { e.stopPropagation(); e.preventDefault(); onEdit(task); }}
-            className="p-1 rounded-md hover:bg-surface-100 text-ink-disabled hover:text-ink-tertiary transition-colors">
-            <Pencil className="w-3 h-3" />
-          </button>
-          <button onPointerDown={e => { e.stopPropagation(); e.preventDefault(); }}
-            onClick={e => { e.stopPropagation(); e.preventDefault(); onArchive(task); }}
-            title="Arxivlash"
-            className="p-1 rounded-md hover:bg-surface-100 text-ink-disabled hover:text-ink-tertiary transition-colors">
-            <Archive className="w-3 h-3" />
-          </button>
-          <button onPointerDown={e => { e.stopPropagation(); e.preventDefault(); }}
-            onClick={e => { e.stopPropagation(); e.preventDefault(); onDelete(task._id); }}
-            className="p-1 rounded-md hover:bg-red-50 text-ink-disabled hover:text-red-500 transition-colors">
-            <Trash2 className="w-3 h-3" />
-          </button>
+          {canEdit && (
+            <button onPointerDown={e => { e.stopPropagation(); e.preventDefault(); }}
+              onClick={e => { e.stopPropagation(); e.preventDefault(); onEdit(task); }}
+              className="p-1 rounded-md hover:bg-surface-100 text-ink-disabled hover:text-ink-tertiary transition-colors">
+              <Pencil className="w-3 h-3" />
+            </button>
+          )}
+          {canEdit && (
+            <button onPointerDown={e => { e.stopPropagation(); e.preventDefault(); }}
+              onClick={e => { e.stopPropagation(); e.preventDefault(); onArchive(task); }}
+              title="Arxivlash"
+              className="p-1 rounded-md hover:bg-surface-100 text-ink-disabled hover:text-ink-tertiary transition-colors">
+              <Archive className="w-3 h-3" />
+            </button>
+          )}
+          {canDelete && (
+            <button onPointerDown={e => { e.stopPropagation(); e.preventDefault(); }}
+              onClick={e => { e.stopPropagation(); e.preventDefault(); onDelete(task._id); }}
+              className="p-1 rounded-md hover:bg-red-50 text-ink-disabled hover:text-red-500 transition-colors">
+              <Trash2 className="w-3 h-3" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -257,7 +264,7 @@ function TaskCard({ task, onView, onEdit, onArchive, onDelete, overlay = false }
 }
 
 /* ─── Droppable Column ────────────────────────────────────── */
-function Column({ stage, tasks, onAdd, onView, onEdit, onArchive, onDelete }) {
+function Column({ stage, tasks, onAdd, onView, onEdit, onArchive, onDelete, canCreate = true, canEdit = true, canDelete = true }) {
   const { setNodeRef, isOver } = useDroppable({ id: String(stage._id || stage.name) });
   const overdueCount = tasks.filter(t => isOverdue(t.dueDate)).length;
   const t = useT();
@@ -273,16 +280,19 @@ function Column({ stage, tasks, onAdd, onView, onEdit, onArchive, onDelete }) {
             {overdueCount} {t('tasks.overdue')}
           </span>
         )}
-        <button onClick={() => onAdd(stage)} className="ml-auto p-1 rounded-lg hover:bg-surface-200 text-ink-disabled hover:text-ink transition-colors">
-          <Plus className="w-3.5 h-3.5" />
-        </button>
+        {canCreate && (
+          <button onClick={() => onAdd(stage)} className="ml-auto p-1 rounded-lg hover:bg-surface-200 text-ink-disabled hover:text-ink transition-colors">
+            <Plus className="w-3.5 h-3.5" />
+          </button>
+        )}
       </div>
       <div ref={setNodeRef}
         className={`flex-1 rounded-xl p-2 space-y-2 overflow-y-auto transition-colors ${
           isOver ? 'bg-primary-50 ring-2 ring-primary-300' : 'bg-surface-100'
         }`}>
         {tasks.map(task => (
-          <TaskCard key={task._id} task={task} onView={onView} onEdit={onEdit} onArchive={onArchive} onDelete={onDelete} />
+          <TaskCard key={task._id} task={task} onView={onView} onEdit={onEdit} onArchive={onArchive} onDelete={onDelete}
+            canEdit={canEdit} canDelete={canDelete} />
         ))}
       </div>
     </div>
@@ -707,7 +717,7 @@ function TaskModal({ initial, stages, users, allTags, onSave, onClose, saving, r
 }
 
 /* ─── Archive Modal ───────────────────────────────────────── */
-function ArchiveModal({ stages, onClose, onRestored }) {
+function ArchiveModal({ stages, onClose, onRestored, canEdit = true, canDelete = true }) {
   const t = useT();
   useModalOpen();
   const [tasks,   setTasks]   = useState([]);
@@ -772,15 +782,19 @@ function ArchiveModal({ stages, onClose, onRestored }) {
                     <p className="text-sm font-medium text-ink truncate">{task.title}</p>
                     <p className="text-xs text-ink-tertiary truncate">{stageName(task.stageId)}</p>
                   </div>
-                  <button onClick={() => restore(task._id)} disabled={busyId === task._id}
-                    title={t('tasks.restore')}
-                    className="p-1.5 rounded-lg text-ink-tertiary hover:bg-primary-50 hover:text-primary-600 transition-colors">
-                    <ArchiveRestore className="w-4 h-4" />
-                  </button>
-                  <button onClick={() => remove(task._id)} disabled={busyId === task._id}
-                    className="p-1.5 rounded-lg text-ink-tertiary hover:bg-red-50 hover:text-red-500 transition-colors">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  {canEdit && (
+                    <button onClick={() => restore(task._id)} disabled={busyId === task._id}
+                      title={t('tasks.restore')}
+                      className="p-1.5 rounded-lg text-ink-tertiary hover:bg-primary-50 hover:text-primary-600 transition-colors">
+                      <ArchiveRestore className="w-4 h-4" />
+                    </button>
+                  )}
+                  {canDelete && (
+                    <button onClick={() => remove(task._id)} disabled={busyId === task._id}
+                      className="p-1.5 rounded-lg text-ink-tertiary hover:bg-red-50 hover:text-red-500 transition-colors">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -796,6 +810,10 @@ export default function TasksPage() {
   const meId    = useSelector(s => s.auth.user?._id || s.auth.user?.id);
   const dispatch = useDispatch();
   const t = useT();
+  const perm = usePermissions();
+  const canCreate = perm.can('tasks', 'create');
+  const canEdit   = perm.can('tasks', 'edit');
+  const canDelete = perm.can('tasks', 'delete');
   const { tasks, stages, users, loading, total: tasksTotal } = useSelector(s => s.tasks);
 
   const [saving,   setSaving]   = useState(false);
@@ -806,8 +824,8 @@ export default function TasksPage() {
   // Filters
   const [filterSearch,   setFilterSearch]   = useState('');
   const [filterPriority, setFilterPriority] = useState('');
-  // Sahifa ochilganda "Menga biriktirilgan" filtri avtomatik yoqilgan bo'lsin.
-  const [filterAssignee, setFilterAssignee] = useState(meId || '');
+  // Sahifa ochilganda standart bo'yicha barcha vazifalar ko'rinsin (filtrsiz).
+  const [filterAssignee, setFilterAssignee] = useState('');
   const [filterTags,     setFilterTags]     = useState([]);
   const [filterCreatedByMe, setFilterCreatedByMe] = useState(false);
   const [showFilters,    setShowFilters]    = useState(false);
@@ -996,7 +1014,7 @@ export default function TasksPage() {
               </span>
             )}
             {/* Mobil: doim ko'rinadigan "Yangi vazifa" tugmasi (scroll strip ortida qolib ketmasin) */}
-            {stages.length > 0 && (
+            {stages.length > 0 && canCreate && (
               <button onClick={() => openCreate(stages[0])}
                 className="md:hidden ml-auto shrink-0 btn-primary btn-sm flex items-center gap-1.5">
                 <Plus className="w-4 h-4" /> {t('tasks.newTask')}
@@ -1063,9 +1081,11 @@ export default function TasksPage() {
               <Archive className="w-3.5 h-3.5" /> {t('tasks.archive')}
             </button>
 
-            <button onClick={() => openCreate(stages[0])} className="hidden md:flex btn-primary btn-md items-center gap-2">
-              <Plus className="w-4 h-4" /> {t('tasks.newTask')}
-            </button>
+            {canCreate && (
+              <button onClick={() => openCreate(stages[0])} className="hidden md:flex btn-primary btn-md items-center gap-2">
+                <Plus className="w-4 h-4" /> {t('tasks.newTask')}
+              </button>
+            )}
           </div>
         </div>
 
@@ -1133,7 +1153,8 @@ export default function TasksPage() {
           <div className="flex gap-4 h-full px-6 py-5 items-stretch">
             {stages.map(stage => (
               <Column key={stageKey(stage)} stage={stage} tasks={tasksForStage(stage)}
-                onAdd={openCreate} onView={openView} onEdit={openEdit} onArchive={handleArchive} onDelete={handleDelete} />
+                onAdd={openCreate} onView={openView} onEdit={openEdit} onArchive={handleArchive} onDelete={handleDelete}
+                canCreate={canCreate} canEdit={canEdit} canDelete={canDelete} />
             ))}
           </div>
           <DragOverlay>
@@ -1160,6 +1181,7 @@ export default function TasksPage() {
           stages={stages}
           onClose={() => setShowArchive(false)}
           onRestored={() => dispatch(invalidateTasks())}
+          canEdit={canEdit} canDelete={canDelete}
         />
       )}
     </div>

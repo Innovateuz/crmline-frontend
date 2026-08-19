@@ -1037,7 +1037,7 @@ export default function DealDetailPage({ funnelId, dealId }) {
                             </div>
                           </div>
                         ) : (
-                          <button type="button" onClick={() => setShowNewContact(true)}
+                          <button type="button" onClick={() => { setNewContact(f => ({ ...f, name: f.name || title })); setShowNewContact(true); }}
                             className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg border border-dashed border-surface-300 text-xs text-ink-tertiary hover:border-primary-400 hover:text-primary-600 transition-colors">
                             <Plus className="w-3.5 h-3.5" />
                             {t('funnel.createContact')}

@@ -817,8 +817,8 @@ export default function FunnelPage({ funnelId }) {
       title, stageId, value: Number(value) || 0, notes,
       assignedTo: assignedTo || null, contact: contact || null,
     });
-    setDeals(prev => [...prev, res.data.deal]);
-    toast.success(t('funnel.deleted'));
+    setDeals(prev => prev.some(d => d._id === res.data.deal._id) ? prev : [...prev, res.data.deal]);
+    toast.success('Lid qo\'shildi');
   };
 
   if (loading) return (

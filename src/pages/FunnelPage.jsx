@@ -270,7 +270,7 @@ function DealModal({ stageId, stages, contacts, users, deal, isLead, currency, o
     if (!newContact.name.trim() || savingContact) return;
     setSavingContact(true);
     try {
-      const res = await axios.post(`${API}/contacts`, newContact);
+      const res = await axios.post(`${API}/contacts`, { ...newContact, assignedTo: assignedTo || undefined });
       onContactCreated?.(res.data.contact);
       setContact(res.data.contact._id);
       toast.success(t('funnel.contactCreated'));

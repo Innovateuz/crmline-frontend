@@ -724,8 +724,8 @@ export default function ContactFormPage() {
       setBlocked(b => !b);
       dispatch(invalidateContacts());
       toast.success(blocked ? 'Blok olib tashlandi' : 'Kontakt bloklandi');
-    } catch {
-      toast.error('Xato yuz berdi');
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Xato yuz berdi');
     }
   };
 
@@ -735,8 +735,8 @@ export default function ContactFormPage() {
       dispatch(removeContact(id));
       toast.success("Kontakt o'chirildi");
       navigate('/contacts');
-    } catch {
-      toast.error("O'chirishda xato");
+    } catch (e) {
+      toast.error(e.response?.data?.message || "O'chirishda xato");
     }
   };
 

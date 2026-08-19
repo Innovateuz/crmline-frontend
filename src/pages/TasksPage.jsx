@@ -740,7 +740,7 @@ function ArchiveModal({ stages, onClose, onRestored, canEdit = true, canDelete =
       setTasks(prev => prev.filter(x => x._id !== id));
       onRestored();
       toast.success(t('tasks.restored'));
-    } catch { toast.error(t('tasks.error')); }
+    } catch (e) { toast.error(e.response?.data?.message || t('tasks.error')); }
     finally { setBusyId(null); }
   };
 
@@ -751,7 +751,7 @@ function ArchiveModal({ stages, onClose, onRestored, canEdit = true, canDelete =
       await axios.delete(`${API_URL}/tasks/${id}`);
       setTasks(prev => prev.filter(x => x._id !== id));
       toast.success(t('tasks.deleted'));
-    } catch { toast.error(t('tasks.error')); }
+    } catch (e) { toast.error(e.response?.data?.message || t('tasks.error')); }
     finally { setBusyId(null); }
   };
 
@@ -906,8 +906,8 @@ export default function TasksPage() {
     try {
       const res = await axios.put(`${API_URL}/tasks/${active.id}`, { stageId: targetStageId });
       dispatch(upsertTask(res.data.task));
-    } catch {
-      toast.error('Xato');
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Xato');
       dispatch(invalidateTasks());
       load();
     }
@@ -948,8 +948,8 @@ export default function TasksPage() {
     try {
       await axios.delete(`${API_URL}/tasks/${id}`);
       toast.success(t('tasks.deleted'));
-    } catch {
-      toast.error(t('tasks.error'));
+    } catch (e) {
+      toast.error(e.response?.data?.message || t('tasks.error'));
       dispatch(invalidateTasks());
       load();
     }
@@ -960,8 +960,8 @@ export default function TasksPage() {
     try {
       await axios.put(`${API_URL}/tasks/${task._id}`, { archived: true });
       toast.success(t('tasks.archived'));
-    } catch {
-      toast.error(t('tasks.error'));
+    } catch (e) {
+      toast.error(e.response?.data?.message || t('tasks.error'));
       dispatch(invalidateTasks());
       load();
     }

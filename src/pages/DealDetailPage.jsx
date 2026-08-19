@@ -496,8 +496,8 @@ export default function DealDetailPage({ funnelId, dealId }) {
       await axios.delete(`${API}/funnels/${funnelId}/deals/${dealId}`);
       toast.success("O'chirildi");
       navigate(`/funnel/${funnelId}`);
-    } catch {
-      toast.error(t('deals.loadError'));
+    } catch (e) {
+      toast.error(e.response?.data?.message || t('deals.loadError'));
     }
   };
 

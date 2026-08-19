@@ -34,9 +34,15 @@ function fmtDateTime(d) {
 
 /* ─── Audio Player ───────────────────────────────────────── */
 function AudioPlayer({ url }) {
-  const [playing, setPlaying] = useState(false);
+  const [playing,  setPlaying]  = useState(false);
+  // <audio> elementi faqat birinchi marta "Play" bosilgandagina yaratiladi (lazy).
+  // Aks holda ro'yxatdagi har bir qatorga (masalan 30 tasiga) darhol audio elementi
+  // yaratilib, brauzerning "WebMediaPlayer" chegarasiga tez urilib qolar edi -
+  // ayniqsa qo'ng'iroqlar ro'yxati real-time (socket) orqali tez-tez yangilanganda.
+  const [activated, setActivated] = useState(false);
   const audioRef = useRef(null);
   const toggle = () => {
+    if (!activated) { setActivated(true); setPlaying(true); return; }
     if (!audioRef.current) return;
     if (playing) { audioRef.current.pause(); setPlaying(false); }
     else { audioRef.current.play(); setPlaying(true); }
@@ -44,7 +50,9 @@ function AudioPlayer({ url }) {
   if (!url) return <span className="text-xs text-ink-disabled">—</span>;
   return (
     <div className="flex items-center gap-1.5">
-      <audio ref={audioRef} src={url} onEnded={() => setPlaying(false)} />
+      {activated && (
+        <audio ref={audioRef} src={url} autoPlay preload="none" onEnded={() => setPlaying(false)} />
+      )}
       <button onClick={toggle}
         className="w-7 h-7 rounded-full bg-primary-50 hover:bg-primary-100 flex items-center justify-center text-primary-600 transition-colors">
         {playing ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
@@ -344,13 +352,22 @@ export default function CallsPage() {
     return () => clearTimeout(searchTimer.current);
   }, [search]); // eslint-disable-line
 
-  // Socket refresh
+  // Socket refresh — band call-markazda har bir qo'ng'iroq voqeasida (incoming +
+  // ended, ya'ni har bir qo'ng'iroq uchun 2 marta) cheklovsiz qayta yuklash
+  // ro'yxatni (va undagi audio elementlarni) haddan tashqari tez-tez qayta
+  // chizardi. Endi bir nechta voqea ketma-ket kelsa ham, faqat 3 soniyada
+  // bir marta qayta yuklanadi.
   useEffect(() => {
     const socket = getSocket();
-    const refresh = () => { if (page === 1) { dispatch(invalidateCalls()); load(); } };
+    let debounceTimer = null;
+    const refresh = () => {
+      if (page !== 1) return;
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => { dispatch(invalidateCalls()); load(); }, 3000);
+    };
     socket.on('atc:incoming', refresh);
     socket.on('atc:ended',    refresh);
-    return () => { socket.off('atc:incoming', refresh); socket.off('atc:ended', refresh); };
+    return () => { clearTimeout(debounceTimer); socket.off('atc:incoming', refresh); socket.off('atc:ended', refresh); };
   }, [dispatch, load, page]);
 
   const handleClickToCall = (phone) => { setExtInput(''); setCallModal(phone); };

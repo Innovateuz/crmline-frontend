@@ -6121,9 +6121,10 @@ function RolesTab() {
 
 /* ─── ATC (Telefoniya) tab ───────────────────────────────── */
 function AtcTab() {
+  const dispatch = useDispatch();
   const [form,    setForm]    = useState({
     provider: 'ibrat', crmToken: '', apiToken: '', sipDomain: 'ibrat.sip.uz',
-    sipuniUser: '', sipuniSecretKey: '', leadFunnel: '', leadStage: '',
+    sipuniUser: '', sipuniSecretKey: '', leadFunnel: '', leadStage: '', callMode: 'both',
   });
   const [loaded,  setLoaded]  = useState(false);
   const [saving,  setSaving]  = useState(false);
@@ -6146,6 +6147,7 @@ function AtcTab() {
           sipuniSecretKey: a.sipuniSecretKey || '',
           leadFunnel:      a.leadFunnel || '',
           leadStage:       a.leadStage  || '',
+          callMode:        a.callMode   || 'both',
         });
         setConnected(!!a.connected);
         setLeadFunnels(funnelsRes.data.funnels || []);
@@ -6161,6 +6163,9 @@ function AtcTab() {
     try {
       const r = await axios.put(`${API_URL}/atc/settings`, form);
       setConnected(!!r.data.atc?.connected);
+      // Har bir "Qo'ng'iroq qilish" tugmasi shu qiymatlarni Redux'dan o'qiydi -
+      // saqlagandan keyin darhol yangilanishi uchun sahifani qayta yuklash shart emas.
+      dispatch(setOrganization({ atc: { connected: !!r.data.atc?.connected, callMode: r.data.atc?.callMode || 'both' } }));
       toast.success('Saqlandi');
     } catch (e) { toast.error(e.response?.data?.message || 'Xato'); }
     finally { setSaving(false); }
@@ -6204,6 +6209,35 @@ function AtcTab() {
             </button>
           ))}
         </div>
+      </div>
+
+      {/* Qo'ng'iroq qilish usuli */}
+      <div>
+        <label className="block text-xs font-semibold text-ink-secondary mb-1.5">"Qo'ng'iroq qilish" tugmasi</label>
+        <div className="flex flex-wrap gap-2">
+          {[
+            { v: 'atc',      label: 'Faqat ATC orqali' },
+            { v: 'personal', label: 'Faqat shaxsiy telefondan' },
+            { v: 'both',     label: 'Ikkalasi ham - xodim tanlaydi' },
+          ].map(p => (
+            <button
+              key={p.v}
+              type="button"
+              onClick={() => setForm(f => ({ ...f, callMode: p.v }))}
+              className={`px-4 py-2 text-sm rounded-xl border transition-colors ${
+                form.callMode === p.v
+                  ? 'bg-primary-600 text-white border-primary-600'
+                  : 'bg-surface-50 text-ink-secondary border-surface-200 hover:border-surface-300'
+              }`}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+        <p className="mt-1.5 text-xs text-ink-tertiary">
+          Contacts, Lid va Qo'ng'iroqlar sahifalaridagi barcha "Qo'ng'iroq qilish" tugmalariga taalluqli.
+          ATC ulanmagan bo'lsa, bu sozlamadan qat'i nazar har doim shaxsiy telefondan ishlaydi.
+        </p>
       </div>
 
       {/* CRM Token */}

@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { getSocket } from '../utils/socket';
+import CallButton from '../components/CallButton';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5002/api';
 
@@ -316,9 +317,6 @@ export default function CallsPage() {
   const [page,    setPage]    = useState(1);
   const [selected, setSelected] = useState(new Set());
   const [deleting, setDeleting] = useState(false);
-  const [callModal, setCallModal] = useState(null);
-  const [extInput,  setExtInput]  = useState('');
-  const [extCalling, setExtCalling] = useState(false);
   const [linkModal,  setLinkModal]  = useState(null);  // call object
   const LIMIT = 30;
 
@@ -382,19 +380,6 @@ export default function CallsPage() {
     socket.on('atc:ended',    refresh);
     return () => { clearTimeout(debounceTimer); socket.off('atc:incoming', refresh); socket.off('atc:ended', refresh); };
   }, [dispatch, load, page]);
-
-  const handleClickToCall = (phone) => { setExtInput(''); setCallModal(phone); };
-  const handleExtSubmit = async (e) => {
-    e.preventDefault();
-    if (!extInput.trim()) return;
-    setExtCalling(true);
-    try {
-      await axios.post(`${API_URL}/atc/call`, { phone: callModal, ext: extInput.trim() });
-      toast.success("Qo'ng'iroq boshlanmoqda...");
-      setCallModal(null);
-    } catch (err) { toast.error(err.response?.data?.message || 'Xato'); }
-    finally { setExtCalling(false); }
-  };
 
   const toggleOne = (id) => setSelected(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const toggleAll = () => { if (selected.size === calls.length) setSelected(new Set()); else setSelected(new Set(calls.map(c => c._id))); };
@@ -622,10 +607,8 @@ export default function CallsPage() {
                               className="w-7 h-7 rounded-lg hover:bg-primary-50 flex items-center justify-center text-ink-disabled hover:text-primary-600 transition-colors">
                               <Link2 className="w-3.5 h-3.5" />
                             </button>
-                            <button onClick={() => handleClickToCall(call.phone)} title="Qayta qo'ng'iroq"
-                              className="w-7 h-7 rounded-lg hover:bg-emerald-50 flex items-center justify-center text-ink-disabled hover:text-emerald-600 transition-colors">
-                              <Phone className="w-3.5 h-3.5" />
-                            </button>
+                            <CallButton phone={call.phone} title="Qayta qo'ng'iroq" iconClassName="w-3.5 h-3.5"
+                              className="w-7 h-7 rounded-lg hover:bg-emerald-50 flex items-center justify-center text-ink-disabled hover:text-emerald-600 transition-colors" />
                             <button onClick={(e) => handleDeleteOne(call._id, e)} title="O'chirish"
                               className="w-7 h-7 rounded-lg hover:bg-red-50 flex items-center justify-center text-ink-disabled hover:text-red-500 transition-colors">
                               <Trash2 className="w-3.5 h-3.5" />
@@ -657,34 +640,6 @@ export default function CallsPage() {
             </div>
           )}
         </>
-      )}
-
-      {/* Click-to-call modal */}
-      {callModal && (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setCallModal(null)} />
-          <div className="relative bg-white rounded-2xl shadow-modal w-full max-w-xs p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-ink text-sm">Qo'ng'iroq qilish</h3>
-              <button onClick={() => setCallModal(null)} className="p-1.5 rounded-lg text-ink-tertiary hover:bg-surface-100"><X className="w-4 h-4" /></button>
-            </div>
-            <p className="text-xs text-ink-tertiary mb-3">Raqam: <span className="font-mono font-semibold text-ink">{fmtPhone(callModal)}</span></p>
-            <form onSubmit={handleExtSubmit} className="space-y-3">
-              <div>
-                <label className="block text-xs font-medium text-ink-secondary mb-1">Kengaytma (ext)</label>
-                <input className="input" placeholder="Masalan: 701" value={extInput}
-                  onChange={e => setExtInput(e.target.value)} autoFocus required />
-              </div>
-              <div className="flex justify-end gap-2">
-                <button type="button" onClick={() => setCallModal(null)} className="btn-secondary btn-md">Bekor</button>
-                <button type="submit" disabled={extCalling} className="btn-primary btn-md flex items-center gap-2">
-                  {extCalling ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Phone className="w-3.5 h-3.5" />}
-                  Qo'ng'iroq
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
       )}
 
       {/* Link modal */}

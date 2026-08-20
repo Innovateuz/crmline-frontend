@@ -9,12 +9,13 @@ import { fetchTasks, upsertTask, removeTask as removeTaskAction } from '../store
 import {
   ArrowLeft, Loader2, Send, MessageSquare, Trash2, Pencil,
   Plus, X, Check, ChevronDown, Upload, FileText, MoreVertical,
-  User, DollarSign, Kanban, Phone, PhoneCall, CheckSquare2,
+  User, DollarSign, Kanban, Phone, CheckSquare2,
   Mail, AlertCircle, ExternalLink, Layers, Calendar,
   Play, Pause, PhoneIncoming, PhoneOutgoing, PhoneMissed,
 } from 'lucide-react';
 import { getSocket } from '../utils/socket';
 import { usePermissions } from '../utils/permissions';
+import CallButton from '../components/CallButton';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:5002/api';
 
@@ -260,21 +261,6 @@ export default function DealDetailPage({ funnelId, dealId }) {
   const [loading,  setLoading]  = useState(true);
   const [saving,   setSaving]   = useState(false);
   const [tab,      setTab]      = useState('main');
-  const [calling,  setCalling]  = useState(false);
-
-  const handleAtcCall = async (phone) => {
-    if (!phone || calling) return;
-    setCalling(true);
-    try {
-      await axios.post(`${API}/atc/call`, { phone });
-      toast.success("Qo'ng'iroq boshlanmoqda...");
-    } catch (err) {
-      const msg = err.response?.data?.message || 'Xato';
-      toast.error(msg.includes('ext') ? "Avval Akkaunt sozlamalarida ichki raqamingizni saqlang" : msg);
-    } finally {
-      setCalling(false);
-    }
-  };
 
   // Vazifa yaratish (shu lead/dealga bog'langan)
   const [showTaskModal,   setShowTaskModal]   = useState(false);
@@ -1085,13 +1071,8 @@ export default function DealDetailPage({ funnelId, dealId }) {
                       ) : <span className="text-sm text-ink-disabled">— Tanlang</span>}
                       <ChevronDown className={`w-3.5 h-3.5 text-ink-tertiary shrink-0 transition-transform ${showContactPicker ? 'rotate-180' : ''}`} />
                     </button>
-                    {(linkedContact || selectedContact)?.phone && (
-                      <button type="button" onClick={() => handleAtcCall((linkedContact || selectedContact).phone)}
-                        disabled={calling} title="Qo'ng'iroq qilish"
-                        className="p-1.5 rounded-lg text-green-600 hover:bg-green-50 transition-colors shrink-0 disabled:opacity-50">
-                        {calling ? <Loader2 className="w-4 h-4 animate-spin" /> : <PhoneCall className="w-4 h-4" />}
-                      </button>
-                    )}
+                    <CallButton phone={(linkedContact || selectedContact)?.phone}
+                      className="p-1.5 rounded-lg text-green-600 hover:bg-green-50 transition-colors shrink-0 disabled:opacity-50" />
                     <FloatingDropdown
                       anchorRef={contactAnchorRef}
                       open={showContactPicker}
@@ -1189,11 +1170,8 @@ export default function DealDetailPage({ funnelId, dealId }) {
                             </span>
                             <span className="flex-1 flex items-center justify-between gap-2 min-w-0">
                               <span className="text-sm text-ink">{linkedContact.phone}</span>
-                              <button type="button" onClick={() => handleAtcCall(linkedContact.phone)}
-                                disabled={calling} title="Qo'ng'iroq qilish"
-                                className="p-1.5 rounded-lg text-green-600 hover:bg-green-50 transition-colors shrink-0 disabled:opacity-50">
-                                {calling ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <PhoneCall className="w-3.5 h-3.5" />}
-                              </button>
+                              <CallButton phone={linkedContact.phone} iconClassName="w-3.5 h-3.5"
+                                className="p-1.5 rounded-lg text-green-600 hover:bg-green-50 transition-colors shrink-0 disabled:opacity-50" />
                             </span>
                           </div>
                         )}

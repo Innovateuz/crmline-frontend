@@ -6,12 +6,13 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import { fetchContacts, invalidateContacts, removeContact } from '../store/contactsSlice';
 import Pagination from '../components/Pagination';
+import CallButton from '../components/CallButton';
 import { getSocket } from '../utils/socket';
 import { usePermissions } from '../utils/permissions';
 import {
   Plus, Search, Pencil, Trash2, Loader2, Users, SlidersHorizontal, Check,
   Download, Upload, Copy, X, AlertTriangle, AlertCircle, ChevronDown, BarChart2,
-  ChevronRight, MoreVertical, PhoneCall,
+  ChevronRight, MoreVertical,
 } from 'lucide-react';
 
 function isReminderOverdue(reminderAt) {
@@ -701,10 +702,8 @@ export default function ContactsPage() {
                             {c.phone ? (
                               <span className="inline-flex items-center gap-1.5">
                                 <span className="text-sm text-ink-secondary">{c.phone}</span>
-                                <a href={`tel:${c.phone}`} onClick={e => e.stopPropagation()} title="Qo'ng'iroq qilish"
-                                  className="p-1 rounded-lg text-ink-tertiary hover:text-green-600 hover:bg-green-50 transition-colors">
-                                  <PhoneCall className="w-3.5 h-3.5" />
-                                </a>
+                                <CallButton phone={c.phone} iconClassName="w-3.5 h-3.5"
+                                  className="p-1 rounded-lg text-ink-tertiary hover:text-green-600 hover:bg-green-50 transition-colors" />
                               </span>
                             ) : <span className="text-ink-disabled">—</span>}
                           </td>
@@ -765,12 +764,7 @@ export default function ContactsPage() {
                       {(colVis.phone && c.phone) && <p className="text-xs text-ink-tertiary truncate mt-0.5">{c.phone}</p>}
                       {(colVis.email && c.email) && <p className="text-xs text-ink-tertiary truncate">{c.email}</p>}
                     </div>
-                    {c.phone && (
-                      <a href={`tel:${c.phone}`} onClick={e => e.stopPropagation()}
-                        className="p-2 rounded-xl text-green-600 bg-green-50 shrink-0">
-                        <PhoneCall className="w-4 h-4" />
-                      </a>
-                    )}
+                    <CallButton phone={c.phone} className="p-2 rounded-xl text-green-600 bg-green-50 shrink-0" />
                     <ChevronRight className="w-4 h-4 text-ink-disabled shrink-0" />
                   </div>
                 );

@@ -7,13 +7,14 @@ import toast from 'react-hot-toast';
 import { invalidateContacts, removeContact } from '../store/contactsSlice';
 import DateTimePicker from '../components/DateTimePicker';
 import CallButton from '../components/CallButton';
+import CallRecordingPlayer from '../components/CallRecordingPlayer';
 import { getSocket } from '../utils/socket';
 import { usePermissions } from '../utils/permissions';
 import {
   ArrowLeft, Loader2, Send, MessageSquare,
   Trash2, Pencil, Plus, X, Check, ChevronDown, Upload, FileText,
   MoreVertical, ShieldOff, Shield,
-  Phone, PhoneIncoming, PhoneOutgoing, PhoneMissed, Play, Pause,
+  Phone, PhoneIncoming, PhoneOutgoing, PhoneMissed,
   Bell, AlertCircle,
 } from 'lucide-react';
 
@@ -226,29 +227,6 @@ function fmtDT(d) {
   return `${String(dt.getDate()).padStart(2,'0')}.${String(dt.getMonth()+1).padStart(2,'0')}.${dt.getFullYear()} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
 }
 
-function MiniAudio({ url }) {
-  const [playing, setPlaying] = React.useState(false);
-  const ref = React.useRef(null);
-  if (!url) return null;
-  const toggle = () => {
-    if (!ref.current) return;
-    if (playing) { ref.current.pause(); setPlaying(false); }
-    else { ref.current.play(); setPlaying(true); }
-  };
-  return (
-    <div className="flex items-center gap-1.5 mt-1.5">
-      <audio ref={ref} src={url} onEnded={() => setPlaying(false)} />
-      <button
-        onClick={toggle}
-        className="w-6 h-6 rounded-full bg-primary-50 hover:bg-primary-100 flex items-center justify-center text-primary-600 transition-colors"
-      >
-        {playing ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
-      </button>
-      <span className="text-[11px] text-ink-tertiary">Audio yozuv</span>
-    </div>
-  );
-}
-
 const CALL_STATUS = {
   ringing:   { label: 'Jiringlagan',        cls: 'bg-amber-50 text-amber-600' },
   active:    { label: 'Faol',               cls: 'bg-emerald-50 text-emerald-600' },
@@ -277,7 +255,7 @@ function CallItem({ call }) {
           {call.duration ? <span className="text-[11px] text-ink-tertiary font-mono">{fmtDur(call.duration)}</span> : null}
         </div>
         <p className="text-[11px] text-ink-tertiary">{fmtDT(call.startedAt || call.createdAt)}{call.ext ? ` · Ext: ${call.ext}` : ''}</p>
-        <MiniAudio url={call.recordingUrl} />
+        {call.recordingUrl && <div className="mt-1.5"><CallRecordingPlayer url={call.recordingUrl} /></div>}
       </div>
     </div>
   );

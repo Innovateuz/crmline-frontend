@@ -11,11 +11,12 @@ import {
   Plus, X, Check, ChevronDown, Upload, FileText, MoreVertical,
   User, DollarSign, Kanban, Phone, CheckSquare2,
   Mail, AlertCircle, ExternalLink, Layers, Calendar,
-  Play, Pause, PhoneIncoming, PhoneOutgoing, PhoneMissed,
+  PhoneIncoming, PhoneOutgoing, PhoneMissed,
 } from 'lucide-react';
 import { getSocket } from '../utils/socket';
 import { usePermissions } from '../utils/permissions';
 import CallButton from '../components/CallButton';
+import CallRecordingPlayer from '../components/CallRecordingPlayer';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:5002/api';
 
@@ -91,33 +92,6 @@ function fmtCallDateTime(d) {
   return `${String(dt.getDate()).padStart(2, '0')}.${String(dt.getMonth() + 1).padStart(2, '0')}.${dt.getFullYear()} ${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`;
 }
 
-// <audio> elementi faqat "Play" bosilgandagina yaratiladi (CallsPage'dagi kabi) -
-// aks holda lidga bog'liq qo'ng'iroqlar ko'p bo'lsa brauzerning WebMediaPlayer
-// chegarasiga urilib qolishi mumkin.
-function DealCallAudio({ url }) {
-  const [activated, setActivated] = useState(false);
-  const [playing,   setPlaying]   = useState(false);
-  const audioRef = useRef(null);
-  const toggle = () => {
-    if (!activated) { setActivated(true); setPlaying(true); return; }
-    if (!audioRef.current) return;
-    if (playing) { audioRef.current.pause(); setPlaying(false); }
-    else { audioRef.current.play(); setPlaying(true); }
-  };
-  if (!url) return null;
-  return (
-    <div className="flex items-center gap-1.5">
-      {activated && (
-        <audio ref={audioRef} src={url} autoPlay preload="none" onEnded={() => setPlaying(false)} />
-      )}
-      <button onClick={toggle}
-        className="w-6 h-6 rounded-full bg-primary-50 hover:bg-primary-100 flex items-center justify-center text-primary-600 transition-colors shrink-0">
-        {playing ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
-      </button>
-    </div>
-  );
-}
-
 function DealCallRow({ call }) {
   const missed = call.status === 'missed' || call.status === 'cancelled';
   const Icon = missed ? PhoneMissed : call.direction === 'out' ? PhoneOutgoing : PhoneIncoming;
@@ -129,7 +103,7 @@ function DealCallRow({ call }) {
         <p className="text-xs text-ink-tertiary">{fmtCallDateTime(call.startedAt || call.createdAt)}</p>
       </div>
       <span className="text-xs text-ink-tertiary shrink-0">{fmtCallDuration(call.duration)}</span>
-      <DealCallAudio url={call.recordingUrl} />
+      <CallRecordingPlayer url={call.recordingUrl} />
     </div>
   );
 }

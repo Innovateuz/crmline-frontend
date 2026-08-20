@@ -6,12 +6,13 @@ import axios from 'axios';
 import { useT } from '../utils/translate';
 import {
   Phone, PhoneIncoming, PhoneOutgoing, PhoneMissed,
-  Loader2, Play, Pause, User, Search, Trash2, X, Check,
+  Loader2, User, Search, Trash2, X, Check,
   BarChart2, List, Link2, ChevronDown, TrendingDown,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { getSocket } from '../utils/socket';
 import CallButton from '../components/CallButton';
+import CallRecordingPlayer from '../components/CallRecordingPlayer';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5002/api';
 
@@ -31,36 +32,6 @@ function fmtDateTime(d) {
   if (!d) return '—';
   const dt = new Date(d);
   return `${String(dt.getDate()).padStart(2,'0')}.${String(dt.getMonth()+1).padStart(2,'0')}.${dt.getFullYear()} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
-}
-
-/* ─── Audio Player ───────────────────────────────────────── */
-function AudioPlayer({ url }) {
-  const [playing,  setPlaying]  = useState(false);
-  // <audio> elementi faqat birinchi marta "Play" bosilgandagina yaratiladi (lazy).
-  // Aks holda ro'yxatdagi har bir qatorga (masalan 30 tasiga) darhol audio elementi
-  // yaratilib, brauzerning "WebMediaPlayer" chegarasiga tez urilib qolar edi -
-  // ayniqsa qo'ng'iroqlar ro'yxati real-time (socket) orqali tez-tez yangilanganda.
-  const [activated, setActivated] = useState(false);
-  const audioRef = useRef(null);
-  const toggle = () => {
-    if (!activated) { setActivated(true); setPlaying(true); return; }
-    if (!audioRef.current) return;
-    if (playing) { audioRef.current.pause(); setPlaying(false); }
-    else { audioRef.current.play(); setPlaying(true); }
-  };
-  if (!url) return <span className="text-xs text-ink-disabled">—</span>;
-  return (
-    <div className="flex items-center gap-1.5">
-      {activated && (
-        <audio ref={audioRef} src={url} autoPlay preload="none" onEnded={() => setPlaying(false)} />
-      )}
-      <button onClick={toggle}
-        className="w-7 h-7 rounded-full bg-primary-50 hover:bg-primary-100 flex items-center justify-center text-primary-600 transition-colors">
-        {playing ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
-      </button>
-      <span className="text-xs text-ink-tertiary">Yozuv</span>
-    </div>
-  );
 }
 
 const STATUS_MAP = {
@@ -600,7 +571,7 @@ export default function CallsPage() {
                         <td className="px-4 py-3 font-mono text-sm text-ink-secondary">{fmtDuration(call.duration)}</td>
                         <td className="px-4 py-3 text-xs text-ink-tertiary font-mono">{call.ext || '—'}</td>
                         <td className="px-4 py-3 text-xs text-ink-tertiary whitespace-nowrap">{fmtDateTime(call.startedAt || call.createdAt)}</td>
-                        <td className="px-4 py-3"><AudioPlayer url={call.recordingUrl} /></td>
+                        <td className="px-4 py-3"><CallRecordingPlayer url={call.recordingUrl} /></td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-1 opacity-0 group-hover/row:opacity-100 transition-opacity">
                             <button onClick={() => setLinkModal(call)} title="Bog'lash"

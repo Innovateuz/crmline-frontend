@@ -8,6 +8,7 @@ import toast from 'react-hot-toast';
 import { invalidateContacts } from '../store/contactsSlice';
 import { getSocket } from '../utils/socket';
 import { usePermissions } from '../utils/permissions';
+import CallButton from '../components/CallButton';
 import {
   DndContext, DragOverlay, MouseSensor, TouchSensor, useSensor, useSensors,
   closestCorners, useDroppable,
@@ -16,7 +17,7 @@ import {
   SortableContext, useSortable, verticalListSortingStrategy, arrayMove,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Plus, X, Loader2, Check, User, Phone, PhoneCall, DollarSign, Pencil, Trash2, Search, Clock, Calendar, Download, Upload, Layers, ChevronDown, BarChart2 } from 'lucide-react';
+import { Plus, X, Loader2, Check, User, Phone, DollarSign, Pencil, Trash2, Search, Clock, Calendar, Download, Upload, Layers, ChevronDown, BarChart2 } from 'lucide-react';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:5002/api';
 
@@ -58,6 +59,7 @@ function DealCard({ deal, isLead, onEdit, onDelete, onMove, onClaim, currency, c
     <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
       {canEdit && (
         <button
+          onPointerDown={e => { e.stopPropagation(); e.preventDefault(); }}
           onClick={e => { e.stopPropagation(); e.preventDefault(); onEdit(deal); }}
           className="p-1 rounded hover:bg-surface-100 text-ink-tertiary hover:text-ink transition-colors">
           <Pencil className="w-3 h-3" />
@@ -65,6 +67,7 @@ function DealCard({ deal, isLead, onEdit, onDelete, onMove, onClaim, currency, c
       )}
       {canEdit && (
         <button
+          onPointerDown={e => { e.stopPropagation(); e.preventDefault(); }}
           onClick={e => { e.stopPropagation(); e.preventDefault(); onMove(deal); }}
           title={t('deals.moveToFunnel')}
           className="p-1 rounded hover:bg-primary-50 text-ink-tertiary hover:text-primary-600 transition-colors">
@@ -73,6 +76,7 @@ function DealCard({ deal, isLead, onEdit, onDelete, onMove, onClaim, currency, c
       )}
       {canDelete && (
         <button
+          onPointerDown={e => { e.stopPropagation(); e.preventDefault(); }}
           onClick={e => { e.stopPropagation(); e.preventDefault(); onDelete(deal._id); }}
           className="p-1 rounded hover:bg-red-50 text-ink-tertiary hover:text-red-500 transition-colors">
           <Trash2 className="w-3 h-3" />
@@ -127,10 +131,10 @@ function DealCard({ deal, isLead, onEdit, onDelete, onMove, onClaim, currency, c
           <div className="flex items-center gap-1.5 mb-1.5">
             <Phone className="w-3 h-3 text-ink-tertiary shrink-0" />
             <span className="text-xs text-ink-secondary font-medium">{deal.contact.phone}</span>
-            <a href={`tel:${deal.contact.phone}`} onClick={e => e.stopPropagation()} title="Qo'ng'iroq qilish"
-              className="p-1 rounded-lg text-green-600 hover:bg-green-50 transition-colors shrink-0">
-              <PhoneCall className="w-3 h-3" />
-            </a>
+            <span onPointerDown={e => { e.stopPropagation(); e.preventDefault(); }}>
+              <CallButton phone={deal.contact.phone} iconClassName="w-3 h-3"
+                className="p-1 rounded-lg text-green-600 hover:bg-green-50 transition-colors shrink-0" />
+            </span>
           </div>
         )}
         {/* Contact name */}
@@ -158,6 +162,7 @@ function DealCard({ deal, isLead, onEdit, onDelete, onMove, onClaim, currency, c
             </div>
           ) : onClaim && canEdit ? (
             <button
+              onPointerDown={e => { e.stopPropagation(); e.preventDefault(); }}
               onClick={e => { e.stopPropagation(); e.preventDefault(); onClaim(deal._id); }}
               className="text-[11px] font-semibold px-2 py-1 rounded-lg bg-primary-50 text-primary-600 hover:bg-primary-100 transition-colors"
             >

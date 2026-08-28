@@ -52,8 +52,20 @@ function hexA(hex, a) {
   return `rgba(${r || 0},${g || 0},${b || 0},${a})`;
 }
 
+// Forma URL'idagi manba parametri: ?src= / ?utm_source= / ?source= / ?ref=
+// Har Telegram guruhga alohida link tarqatib, lidlar qayerdan kelganini ajratamiz.
+function detectSource() {
+  try {
+    const q = new URLSearchParams(window.location.search);
+    return (q.get('src') || q.get('utm_source') || q.get('source') || q.get('ref') || '').trim().slice(0, 80);
+  } catch {
+    return '';
+  }
+}
+
 export default function LeadFormPage() {
   const { slug } = useParams();
+  const [source] = useState(detectSource);
   const [form,    setForm]    = useState(null);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState(false);
@@ -87,7 +99,7 @@ export default function LeadFormPage() {
     }
     setSending(true);
     try {
-      await axios.post(`${API_URL}/lead-forms/p/${slug}/submit`, { name, phone, answers });
+      await axios.post(`${API_URL}/lead-forms/p/${slug}/submit`, { name, phone, answers, source });
       setDone(true);
     } catch (err) {
       alert(err.response?.data?.message || tr.genericError);

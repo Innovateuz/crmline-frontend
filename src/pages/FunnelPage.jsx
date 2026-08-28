@@ -832,12 +832,13 @@ export default function FunnelPage({ funnelId }) {
     };
   }, [funnelId]);
 
-  /* Filtrlash mumkin bo'lgan custom maydonlar: qiymatlari cheklangan
-     (options yoki deal'lardagi mavjud qiymatlar, ≤30 xil). Kompaniya kabi
-     har xil qiymatли maydonlar tashlab yuboriladi. */
+  /* Filtrlash mumkin bo'lgan custom maydonlar: faqat tanlovli (dropdown/
+     multiselect) — teg, biznes yo'nalishi, hudud kabi. Matn/son maydonlar
+     (Kompaniya, Xodimlar soni, Izoh) filtrga chiqmaydi. Xavfsizlik uchun
+     ≤30 xil qiymat sharti ham qoladi. */
   const filterableFields = cfSections
     .flatMap(s => (s.fields || []))
-    .filter(f => f && f.id && f.type !== 'textarea')
+    .filter(f => f && f.id && (f.type === 'dropdown' || f.type === 'multiselect'))
     .map(f => {
       const fromOptions = Array.isArray(f.options) ? f.options.map(String) : [];
       const fromDeals = deals.flatMap(d => {

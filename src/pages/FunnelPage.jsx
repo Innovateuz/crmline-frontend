@@ -17,7 +17,7 @@ import {
   SortableContext, useSortable, verticalListSortingStrategy, arrayMove,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Plus, X, Loader2, Check, User, Phone, DollarSign, Pencil, Trash2, Search, Clock, Calendar, Download, Upload, Layers, ChevronDown, BarChart2 } from 'lucide-react';
+import { Plus, X, Loader2, Check, User, Phone, DollarSign, Pencil, Trash2, Search, Clock, Calendar, Download, Upload, Layers, ChevronDown, BarChart2, Tag } from 'lucide-react';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:5002/api';
 
@@ -704,6 +704,10 @@ export default function FunnelPage({ funnelId }) {
   const [activeId,    setActiveId]    = useState(null);
   const [search,      setSearch]      = useState('');
   const [filterAssignedTo, setFilterAssignedTo] = useState(''); // '' = hammasi
+  const [filterSource, setFilterSource] = useState('');         // '' = hammasi, '__none__' = manbasiz
+  const [filterCF,     setFilterCF]     = useState({});          // { [fieldId]: value } — dropdown/multiselect custom maydonlar
+  const [dealSources,  setDealSources]  = useState([]);
+  const [cfSections,   setCfSections]   = useState([]);
   const [pendingMove, setPendingMove] = useState(null);
   const [moveValue,   setMoveValue]   = useState('');
 
@@ -749,17 +753,21 @@ export default function FunnelPage({ funnelId }) {
     if (!funnelId) return;
     setLoading(true);
     try {
-      const [fRes, cRes, uRes, nRes] = await Promise.all([
+      const [fRes, cRes, uRes, nRes, sRes, dfRes] = await Promise.all([
         axios.get(`${API}/funnels/${funnelId}/deals`),
         axios.get(`${API}/contacts?limit=200`),
         axios.get(`${API}/organization/users`),
         axios.get(`${API}/funnels/names`),
+        axios.get(`${API}/organization/deal-sources`).catch(() => ({ data: {} })),
+        axios.get(`${API}/organization/deal-fields`).catch(() => ({ data: {} })),
       ]);
       setFunnel(fRes.data.funnel);
       setDeals(fRes.data.deals);
       setContacts(cRes.data.contacts || []);
       setUsers(uRes.data.users || []);
       setAllFunnelNames(nRes.data.funnels || []);
+      setDealSources(sRes.data.sources || []);
+      setCfSections(dfRes.data.sections || []);
     } catch {
       toast.error(t('funnel.loadError'));
     } finally {
@@ -824,15 +832,53 @@ export default function FunnelPage({ funnelId }) {
     };
   }, [funnelId]);
 
-  /* Search + "menga biriktirilgan" filtri */
+  /* Filtrlash mumkin bo'lgan custom maydonlar: qiymatlari cheklangan
+     (options yoki deal'lardagi mavjud qiymatlar, ≤30 xil). Kompaniya kabi
+     har xil qiymatли maydonlar tashlab yuboriladi. */
+  const filterableFields = cfSections
+    .flatMap(s => (s.fields || []))
+    .filter(f => f && f.id && f.type !== 'textarea')
+    .map(f => {
+      const fromOptions = Array.isArray(f.options) ? f.options.map(String) : [];
+      const fromDeals = deals.flatMap(d => {
+        const cv = d.customFieldValues?.[f.id];
+        if (Array.isArray(cv)) return cv.map(String);
+        return cv !== undefined && cv !== null && String(cv).trim() !== '' ? [String(cv)] : [];
+      });
+      return { ...f, _values: [...new Set([...fromOptions, ...fromDeals])] };
+    })
+    .filter(f => f._values.length > 0 && f._values.length <= 30);
+  /* Deal'larda uchraydigan, lekin ro'yxatda yo'q manbalar ham filtrда chiqsin */
+  const extraSources = [...new Set(
+    deals.map(d => d.source).filter(v => v && !dealSources.some(s => String(s._id) === String(v) || s.name === v))
+  )];
+
+  /* Search + mas'ul + manba + custom maydon filtrlari */
   const q = search.trim().toLowerCase();
+  const cfActive = Object.entries(filterCF).filter(([, v]) => v);
   const filteredDeals = deals
     .filter(d => !q ||
         d.title.toLowerCase().includes(q) ||
         d.contact?.name?.toLowerCase().includes(q) ||
         d.contact?.phone?.includes(q)
       )
-    .filter(d => !filterAssignedTo || String(d.assignedTo?._id || d.assignedTo || '') === String(filterAssignedTo));
+    .filter(d => !filterAssignedTo || String(d.assignedTo?._id || d.assignedTo || '') === String(filterAssignedTo))
+    .filter(d => {
+      if (!filterSource) return true;
+      if (filterSource === '__none__') return !d.source;
+      return String(d.source) === filterSource || d.source === filterSource;
+    })
+    .filter(d => {
+      for (const [fid, val] of cfActive) {
+        const cv = d.customFieldValues?.[fid];
+        if (val === '__none__') {
+          if (Array.isArray(cv) ? cv.length : (cv !== undefined && cv !== null && String(cv).trim() !== '')) return false;
+          continue;
+        }
+        if (Array.isArray(cv) ? !cv.map(String).includes(val) : String(cv ?? '') !== val) return false;
+      }
+      return true;
+    });
 
   /* Group deals by stage */
   const dealsByStage = (funnel?.stages || []).reduce((acc, s) => {
@@ -1077,6 +1123,41 @@ export default function FunnelPage({ funnelId }) {
               </select>
               <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-ink-disabled pointer-events-none" />
             </div>
+
+            {/* Manba bo'yicha filtr */}
+            {(dealSources.length > 0 || extraSources.length > 0) && (
+              <div className="relative shrink-0 md:order-2">
+                <Layers className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-ink-disabled pointer-events-none" />
+                <select
+                  className="pl-8 pr-8 py-2 text-sm bg-surface-50 border border-surface-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-300 appearance-none"
+                  value={filterSource}
+                  onChange={e => setFilterSource(e.target.value)}
+                >
+                  <option value="">Barcha manbalar</option>
+                  {dealSources.map(s => <option key={String(s._id)} value={String(s._id)}>{s.name}</option>)}
+                  {extraSources.map(v => <option key={v} value={v}>{v}</option>)}
+                  <option value="__none__">— Manbasiz —</option>
+                </select>
+                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-ink-disabled pointer-events-none" />
+              </div>
+            )}
+
+            {/* Custom maydon (Teg / Biznes yo'nalishi ...) bo'yicha filtrlar */}
+            {filterableFields.map(f => (
+              <div key={f.id} className="relative shrink-0 md:order-2">
+                <Tag className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-ink-disabled pointer-events-none" />
+                <select
+                  className="pl-8 pr-8 py-2 text-sm bg-surface-50 border border-surface-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-300 appearance-none"
+                  value={filterCF[f.id] || ''}
+                  onChange={e => setFilterCF(prev => ({ ...prev, [f.id]: e.target.value }))}
+                >
+                  <option value="">{f.key}: barchasi</option>
+                  {f._values.map(o => <option key={o} value={o}>{o}</option>)}
+                  <option value="__none__">— {f.key} yo'q —</option>
+                </select>
+                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-ink-disabled pointer-events-none" />
+              </div>
+            ))}
 
             {/* Stats */}
             {(leadSum > 0 || progressSum > 0 || dealSum > 0) && (

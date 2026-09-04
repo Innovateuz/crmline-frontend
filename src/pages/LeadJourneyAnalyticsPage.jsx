@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useT } from '../utils/translate';
-import { ArrowLeft, Loader2, Users, GitBranch, Layers, Phone, MessageSquare, Calendar, ArrowRight } from 'lucide-react';
+import { ArrowLeft, Loader2, Users, GitBranch, Layers, Phone, MessageSquare, Send, ArrowRight } from 'lucide-react';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5002/api';
 
@@ -35,8 +35,6 @@ function HBar({ label, count, max, color }) {
   );
 }
 
-const CONTACT_TYPE_ICON = { call: Phone, message: MessageSquare, meeting: Calendar };
-const CONTACT_TYPE_COLOR = { call: '#6366f1', message: '#0ea5e9', meeting: '#f59e0b' };
 
 export default function LeadJourneyAnalyticsPage() {
   const navigate = useNavigate();
@@ -92,7 +90,9 @@ export default function LeadJourneyAnalyticsPage() {
     load(cfrom, cto);
   };
 
-  const maxByType = contacts?.byType?.length ? Math.max(...contacts.byType.map(x => x.count)) : 1;
+  const maxSource = contacts?.interacted?.bySource
+    ? Math.max(1, ...Object.values(contacts.interacted.bySource))
+    : 1;
   const maxTransition = transitions?.transitions?.length ? Math.max(...transitions.transitions.map(x => x.count)) : 1;
 
   return (
@@ -137,33 +137,49 @@ export default function LeadJourneyAnalyticsPage() {
           <div className="text-center py-16 text-ink-tertiary">{error}</div>
         ) : (
           <>
-            {/* Widget 1 — contacts */}
-            <div className="bg-white rounded-2xl border border-surface-200 p-4">
-              <div className="flex items-start gap-3 mb-4">
-                <div className="w-10 h-10 rounded-xl bg-primary-50 flex items-center justify-center shrink-0">
-                  <Users className="w-5 h-5 text-primary-600" />
+            {/* Widget 1 — contacts: aloqa bo'lganlar va gaplashilganlar */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="bg-white rounded-2xl border border-surface-200 p-4">
+                <div className="flex items-start gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-xl bg-primary-50 flex items-center justify-center shrink-0">
+                    <Users className="w-5 h-5 text-primary-600" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-ink-tertiary">{t('leadJourney.interactedTitle')}</p>
+                    <p className="text-3xl font-bold text-ink leading-tight">{contacts?.interacted?.count ?? 0}</p>
+                    <p className="text-[10px] text-ink-disabled mt-0.5">{from} — {to}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs text-ink-tertiary">{t('leadJourney.contactsWidgetTitle')}</p>
-                  <p className="text-3xl font-bold text-ink leading-tight">{contacts?.uniqueLeadsContacted ?? 0}</p>
-                  <p className="text-[10px] text-ink-disabled mt-0.5">{t('leadJourney.uniqueLeadsContacted')} · {from} — {to}</p>
+                {!!contacts?.interacted?.bySource && (
+                  <div className="space-y-2.5">
+                    <div className="flex items-center gap-2">
+                      <GitBranch className="w-3.5 h-3.5 text-ink-tertiary shrink-0" />
+                      <HBar label={t('leadJourney.sourceFunnelChange')} count={contacts.interacted.bySource.funnelChange} max={maxSource} color="#f59e0b" />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <MessageSquare className="w-3.5 h-3.5 text-ink-tertiary shrink-0" />
+                      <HBar label={t('leadJourney.sourceComment')} count={contacts.interacted.bySource.comment} max={maxSource} color="#6366f1" />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Send className="w-3.5 h-3.5 text-ink-tertiary shrink-0" />
+                      <HBar label={t('leadJourney.sourceInbox')} count={contacts.interacted.bySource.inbox} max={maxSource} color="#0ea5e9" />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-white rounded-2xl border border-surface-200 p-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
+                    <Phone className="w-5 h-5 text-emerald-600" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-ink-tertiary">{t('leadJourney.calledTitle')}</p>
+                    <p className="text-3xl font-bold text-ink leading-tight">{contacts?.called?.count ?? 0}</p>
+                    <p className="text-[10px] text-ink-disabled mt-0.5">{t('leadJourney.calledHint')} · {from} — {to}</p>
+                  </div>
                 </div>
               </div>
-              {!!contacts?.byType?.length && (
-                <div className="space-y-3">
-                  <p className="text-xs font-semibold text-ink-secondary">{t('leadJourney.byType')}</p>
-                  {contacts.byType.map((x, i) => {
-                    const Icon = CONTACT_TYPE_ICON[x.contactType] || Phone;
-                    const label = t(`deals.contactType${(x.contactType || 'other').charAt(0).toUpperCase()}${(x.contactType || 'other').slice(1)}`) || x.contactType;
-                    return (
-                      <div key={i} className="flex items-center gap-2">
-                        <Icon className="w-3.5 h-3.5 text-ink-tertiary shrink-0" />
-                        <HBar label={label} count={x.count} max={maxByType} color={CONTACT_TYPE_COLOR[x.contactType]} />
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
             </div>
 
             {/* Widget 2 — transitions */}

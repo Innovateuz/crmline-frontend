@@ -1834,6 +1834,7 @@ export default {
     calledTitle: "Клиенты, с которыми поговорили",
     calledHint: "Дозвонились и пообщались",
     sourceFunnelChange: "Перевод между воронками",
+    sourceStageChange: "Перевод между этапами",
     sourceComment: "Комментарий",
     sourceInbox: "Сообщение (Telegram и др.)",
     transitionsWidgetTitle: "Переходы между воронками",

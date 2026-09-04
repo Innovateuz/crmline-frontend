@@ -1873,6 +1873,7 @@ export default {
     calledTitle: "Гаплашилган мижозлар",
     calledHint: "Қўнғироқ қилиб гаплашилган",
     sourceFunnelChange: "Воронка ўтказиш",
+    sourceStageChange: "Босқич ўтказиш",
     sourceComment: "Изоҳ қолдириш",
     sourceInbox: "Хабар (Telegram ва ҳ.к.)",
     transitionsWidgetTitle: "Воронкалараро ўтишлар",

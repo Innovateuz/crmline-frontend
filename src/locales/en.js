@@ -1900,6 +1900,7 @@ export default {
     calledTitle: "Customers spoken to",
     calledHint: "Reached by call and talked",
     sourceFunnelChange: "Funnel transition",
+    sourceStageChange: "Stage move",
     sourceComment: "Comment left",
     sourceInbox: "Message (Telegram, etc.)",
     transitionsWidgetTitle: "Funnel-to-funnel transitions",

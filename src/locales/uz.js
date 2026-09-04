@@ -1910,6 +1910,7 @@ export default {
     calledTitle: "Gaplashilgan mijozlar",
     calledHint: "Qo'ng'iroq qilib gaplashilgan",
     sourceFunnelChange: "Voronka o'tkazish",
+    sourceStageChange: "Bosqich o'tkazish",
     sourceComment: "Izoh qoldirish",
     sourceInbox: "Xabar (Telegram va h.k.)",
     transitionsWidgetTitle: "Voronkalararo o'tishlar",

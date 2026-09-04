@@ -157,6 +157,10 @@ export default function LeadJourneyAnalyticsPage() {
                       <HBar label={t('leadJourney.sourceFunnelChange')} count={contacts.interacted.bySource.funnelChange} max={maxSource} color="#f59e0b" />
                     </div>
                     <div className="flex items-center gap-2">
+                      <Layers className="w-3.5 h-3.5 text-ink-tertiary shrink-0" />
+                      <HBar label={t('leadJourney.sourceStageChange')} count={contacts.interacted.bySource.stageChange} max={maxSource} color="#8b5cf6" />
+                    </div>
+                    <div className="flex items-center gap-2">
                       <MessageSquare className="w-3.5 h-3.5 text-ink-tertiary shrink-0" />
                       <HBar label={t('leadJourney.sourceComment')} count={contacts.interacted.bySource.comment} max={maxSource} color="#6366f1" />
                     </div>

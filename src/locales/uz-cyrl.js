@@ -1690,6 +1690,7 @@ export default {
   },
 
   funnel: {
+    journeyAnalytics: "Лидлар йўли",
     newDeal: "Янги битим",
     addQuick: "Тез қўшиш",
     dealSearch: "Сделка, контакт исми ёки рақам...",
@@ -1767,6 +1768,8 @@ export default {
     moveFunnelLabel: "Воронка",
     moveFunnelPlaceholder: "Воронкани танланг...",
     moveStagePlaceholder: "Босқични танланг...",
+    moveReasonLabel: "Сабаб (ихтиёрий)",
+    moveReasonPlaceholder: "Нима учун бошқа воронкага ўтказилаяпти...",
     moveSubmit: "Ўтказиш",
     moveSuccess: "Воронкага ўтказилди",
     assignee: "Масъул",
@@ -1783,6 +1786,17 @@ export default {
     notePlaceholder: "Изоҳ ёзинг...",
     activityEmpty: "Фаолият йўқ",
     activityHint: "Биринчи изоҳни ёзинг",
+    noteTab: "Изоҳ",
+    communicationTab: "Контакт",
+    contactTypeCall: "Қўнғироқ",
+    contactTypeMessage: "Хабар",
+    contactTypeMeeting: "Учрашув",
+    durationLabel: "дақиқа",
+    outcomeInterested: "Қизиқди",
+    outcomeThinking: "Ўйлаяпти",
+    outcomeDeclined: "Рад этди",
+    outcomeNoAnswer: "Жавоб бермади",
+    outcomeOther: "Бошқа",
   },
 
   inboxAnalytics: {
@@ -1841,6 +1855,23 @@ export default {
     byOperator: "Оператор бўйича",
     noPhone: "Телефон рақамлар йўқ",
     noData: "Маълумот йўқ",
+    loadError: "Юкланмади",
+  },
+
+  leadJourney: {
+    title: "Лидлар йўли",
+    back: "Воронкалар",
+    preset30d: "30 кун",
+    presetMonth: "Бу ой",
+    preset90d: "90 кун",
+    presetCustom: "Махсус",
+    apply: "Қўллаш",
+    contactsWidgetTitle: "Бугунги/даврдаги контактлар",
+    uniqueLeadsContacted: "нойоб лид билан алоқа бўлди",
+    byType: "Тури бўйича",
+    transitionsWidgetTitle: "Воронкалараро ўтишлар",
+    transitionsEmpty: "Бу даврда воронкалараро ўтиш бўлмаган",
+    snapshotWidgetTitle: "Жорий ҳолат — воронка/босқич бўйича",
     loadError: "Юкланмади",
   },
 

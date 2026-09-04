@@ -17,7 +17,7 @@ import {
   SortableContext, useSortable, verticalListSortingStrategy, arrayMove,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Plus, X, Loader2, Check, User, Phone, DollarSign, Pencil, Trash2, Search, Clock, Calendar, Download, Upload, Layers, ChevronDown, BarChart2, Tag } from 'lucide-react';
+import { Plus, X, Loader2, Check, User, Phone, DollarSign, Pencil, Trash2, Search, Clock, Calendar, Download, Upload, Layers, ChevronDown, BarChart2, Tag, GitBranch } from 'lucide-react';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:5002/api';
 
@@ -1062,6 +1062,14 @@ export default function FunnelPage({ funnelId }) {
             >
               <BarChart2 className="w-4 h-4" />
               <span className="hidden sm:inline">Statistika</span>
+            </button>
+            <button
+              onClick={() => navigate('/funnel/journey-analytics')}
+              title={t('funnel.journeyAnalytics')}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium border border-surface-200 text-ink-secondary hover:border-surface-300 hover:text-ink transition-colors"
+            >
+              <GitBranch className="w-4 h-4" />
+              <span className="hidden sm:inline">{t('funnel.journeyAnalytics')}</span>
             </button>
             <button
               onClick={handleExport}

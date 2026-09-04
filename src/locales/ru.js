@@ -1651,6 +1651,7 @@ export default {
   },
 
   funnel: {
+    journeyAnalytics: "Путь лидов",
     newDeal: "Новая сделка",
     addQuick: "Быстро добавить",
     dealSearch: "Сделка, контакт или номер...",
@@ -1728,6 +1729,8 @@ export default {
     moveFunnelLabel: "Воронка",
     moveFunnelPlaceholder: "Выберите воронку...",
     moveStagePlaceholder: "Выберите этап...",
+    moveReasonLabel: "Причина (необязательно)",
+    moveReasonPlaceholder: "Почему лид переносится в другую воронку...",
     moveSubmit: "Перенести",
     moveSuccess: "Перенесено в другую воронку",
     assignee: "Ответственный",
@@ -1744,6 +1747,17 @@ export default {
     notePlaceholder: "Напишите заметку...",
     activityEmpty: "Нет активности",
     activityHint: "Напишите первую заметку",
+    noteTab: "Заметка",
+    communicationTab: "Контакт",
+    contactTypeCall: "Звонок",
+    contactTypeMessage: "Сообщение",
+    contactTypeMeeting: "Встреча",
+    durationLabel: "мин",
+    outcomeInterested: "Заинтересован",
+    outcomeThinking: "Думает",
+    outcomeDeclined: "Отказ",
+    outcomeNoAnswer: "Недозвон",
+    outcomeOther: "Другое",
   },
 
   inboxAnalytics: {
@@ -1802,6 +1816,23 @@ export default {
     byOperator: "По операторам",
     noPhone: "Телефонов нет",
     noData: "Данных нет",
+    loadError: "Не удалось загрузить",
+  },
+
+  leadJourney: {
+    title: "Путь лидов",
+    back: "Воронки",
+    preset30d: "30 дней",
+    presetMonth: "Этот месяц",
+    preset90d: "90 дней",
+    presetCustom: "Свой период",
+    apply: "Применить",
+    contactsWidgetTitle: "Контакты за период",
+    uniqueLeadsContacted: "уникальных лидов с контактом",
+    byType: "По типу",
+    transitionsWidgetTitle: "Переходы между воронками",
+    transitionsEmpty: "За этот период переходов не было",
+    snapshotWidgetTitle: "Текущий срез — по воронкам/этапам",
     loadError: "Не удалось загрузить",
   },
 

@@ -1717,6 +1717,7 @@ export default {
   },
 
   funnel: {
+    journeyAnalytics: "Lead journey",
     newDeal: "New deal",
     addQuick: "Quick add",
     dealSearch: "Deal, contact name or number...",
@@ -1794,6 +1795,8 @@ export default {
     moveFunnelLabel: "Funnel",
     moveFunnelPlaceholder: "Select a funnel...",
     moveStagePlaceholder: "Select a stage...",
+    moveReasonLabel: "Reason (optional)",
+    moveReasonPlaceholder: "Why is the lead moving to another funnel...",
     moveSubmit: "Move",
     moveSuccess: "Moved to another funnel",
     assignee: "Assignee",
@@ -1810,6 +1813,17 @@ export default {
     notePlaceholder: "Write a note...",
     activityEmpty: "No activity yet",
     activityHint: "Write the first note",
+    noteTab: "Note",
+    communicationTab: "Contact",
+    contactTypeCall: "Call",
+    contactTypeMessage: "Message",
+    contactTypeMeeting: "Meeting",
+    durationLabel: "min",
+    outcomeInterested: "Interested",
+    outcomeThinking: "Thinking",
+    outcomeDeclined: "Declined",
+    outcomeNoAnswer: "No answer",
+    outcomeOther: "Other",
   },
 
   inboxAnalytics: {
@@ -1868,6 +1882,23 @@ export default {
     byOperator: "By operator",
     noPhone: "No phone numbers",
     noData: "No data",
+    loadError: "Failed to load",
+  },
+
+  leadJourney: {
+    title: "Lead journey",
+    back: "Funnels",
+    preset30d: "30 days",
+    presetMonth: "This month",
+    preset90d: "90 days",
+    presetCustom: "Custom",
+    apply: "Apply",
+    contactsWidgetTitle: "Contacts for period",
+    uniqueLeadsContacted: "unique leads contacted",
+    byType: "By type",
+    transitionsWidgetTitle: "Funnel-to-funnel transitions",
+    transitionsEmpty: "No transitions in this period",
+    snapshotWidgetTitle: "Current snapshot — by funnel/stage",
     loadError: "Failed to load",
   },
 

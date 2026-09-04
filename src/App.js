@@ -19,6 +19,7 @@ import UserProfilePage from './pages/UserProfilePage';
 import AccountPage from './pages/AccountPage';
 import InboxAnalyticsPage from './pages/InboxAnalyticsPage';
 import ContactAnalyticsPage from './pages/ContactAnalyticsPage';
+import LeadJourneyAnalyticsPage from './pages/LeadJourneyAnalyticsPage';
 import LockScreen from './components/LockScreen';
 import UpdatePrompt from './components/UpdatePrompt';
 import { subscribeToPush } from './utils/swRegister';
@@ -136,6 +137,7 @@ function AppInit() {
         <Route path="/inbox/analytics"         element={<PrivateRoute><InboxAnalyticsPage /></PrivateRoute>} />
         <Route path="/reviews"                 element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
         <Route path="/calls"                   element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
+        <Route path="/funnel/journey-analytics" element={<PrivateRoute><LeadJourneyAnalyticsPage /></PrivateRoute>} />
         <Route path="/funnel/:id"              element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
         <Route path="/funnel/:id/deal/new"     element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
         <Route path="/funnel/:id/deal/:dealId" element={<PrivateRoute><DashboardPage /></PrivateRoute>} />

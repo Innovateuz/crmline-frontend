@@ -1727,6 +1727,7 @@ export default {
   },
 
   funnel: {
+    journeyAnalytics: "Lidlar yo'li",
     newDeal: "Yangi bitim",
     addQuick: "Tez qo'shish",
     dealSearch: "Sdelka, kontakt ismi yoki raqam...",
@@ -1804,6 +1805,8 @@ export default {
     moveFunnelLabel: "Varonka",
     moveFunnelPlaceholder: "Varonkani tanlang...",
     moveStagePlaceholder: "Bosqichni tanlang...",
+    moveReasonLabel: "Sabab (ixtiyoriy)",
+    moveReasonPlaceholder: "Nima uchun boshqa voronkaga o'tkazilyapti...",
     moveSubmit: "O'tkazish",
     moveSuccess: "Varonkaga o'tkazildi",
     assignee: "Mas'ul",
@@ -1820,6 +1823,17 @@ export default {
     notePlaceholder: "Izoh yozing...",
     activityEmpty: "Faoliyat yo'q",
     activityHint: "Birinchi izohni yozing",
+    noteTab: "Izoh",
+    communicationTab: "Kontakt",
+    contactTypeCall: "Qo'ng'iroq",
+    contactTypeMessage: "Xabar",
+    contactTypeMeeting: "Uchrashuv",
+    durationLabel: "daqiqa",
+    outcomeInterested: "Qiziqdi",
+    outcomeThinking: "O'ylayapti",
+    outcomeDeclined: "Rad etdi",
+    outcomeNoAnswer: "Javob bermadi",
+    outcomeOther: "Boshqa",
   },
 
   inboxAnalytics: {
@@ -1878,6 +1892,23 @@ export default {
     byOperator: "Operator bo'yicha",
     noPhone: "Telefon raqamlar yo'q",
     noData: "Ma'lumot yo'q",
+    loadError: "Yuklanmadi",
+  },
+
+  leadJourney: {
+    title: "Lidlar yo'li",
+    back: "Voronkalar",
+    preset30d: "30 kun",
+    presetMonth: "Bu oy",
+    preset90d: "90 kun",
+    presetCustom: "Maxsus",
+    apply: "Qo'llash",
+    contactsWidgetTitle: "Bugungi/davrdagi kontaktlar",
+    uniqueLeadsContacted: "noyob lid bilan aloqa bo'ldi",
+    byType: "Turi bo'yicha",
+    transitionsWidgetTitle: "Voronkalararo o'tishlar",
+    transitionsEmpty: "Bu davrda voronkalararo o'tish bo'lmagan",
+    snapshotWidgetTitle: "Joriy holat — voronka/bosqich bo'yicha",
     loadError: "Yuklanmadi",
   },
 

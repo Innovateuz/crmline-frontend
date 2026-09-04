@@ -164,10 +164,11 @@ function CustomFieldInput({ field, value, onChange }) {
 
 function SystemEvent({ activity }) {
   const colorMap = {
-    created:       'text-ink-tertiary',
-    stage_changed: 'text-primary-600',
-    won:           'text-emerald-600',
-    lost:          'text-red-500',
+    created:        'text-ink-tertiary',
+    stage_changed:  'text-primary-600',
+    funnel_changed: 'text-amber-600',
+    won:            'text-emerald-600',
+    lost:           'text-red-500',
   };
   const labelMap = { created: 'Yaratildi' };
   const text = labelMap[activity.type] || activity.text || '';
@@ -179,6 +180,60 @@ function SystemEvent({ activity }) {
         {text} · {formatTime(activity.createdAt)}
       </span>
       <div className="flex-1 h-px bg-surface-100" />
+    </div>
+  );
+}
+
+const CONTACT_TYPE_ICON = { call: Phone, message: MessageSquare, meeting: Calendar };
+const OUTCOME_COLOR = {
+  interested: 'bg-emerald-50 text-emerald-600',
+  thinking:   'bg-amber-50 text-amber-600',
+  declined:   'bg-red-50 text-red-500',
+  no_answer:  'bg-surface-100 text-ink-tertiary',
+  other:      'bg-surface-100 text-ink-secondary',
+};
+
+function CommunicationItem({ activity, onDelete, currentUserId }) {
+  const t = useT();
+  const name  = activity.createdBy?.name || 'Foydalanuvchi';
+  const isOwn = activity.createdBy?._id === currentUserId || activity.createdBy === currentUserId;
+  const meta  = activity.meta || {};
+  const ContactIcon = CONTACT_TYPE_ICON[meta.contactType] || Phone;
+  return (
+    <div className="flex items-start gap-2.5 py-1 group/note">
+      <div className="w-7 h-7 rounded-full bg-primary-100 flex items-center justify-center shrink-0 mt-0.5">
+        <span className="text-[10px] font-bold text-primary-600">{initials(name)}</span>
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-baseline gap-2 mb-1">
+          <span className="text-xs font-semibold text-ink">{name}</span>
+          <span className="text-[10px] text-ink-tertiary">{formatTime(activity.createdAt)}</span>
+        </div>
+        <div className="relative">
+          <div className="bg-white border border-surface-200 shadow-sm rounded-xl rounded-tl-sm px-3 py-2 text-sm text-ink leading-relaxed">
+            <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
+              <span className="flex items-center gap-1 text-[10px] font-medium text-primary-600 bg-primary-50 px-1.5 py-0.5 rounded-full">
+                <ContactIcon className="w-2.5 h-2.5" /> {t(`deals.contactType${meta.contactType?.charAt(0).toUpperCase()}${meta.contactType?.slice(1)}`) || meta.contactType}
+              </span>
+              {meta.contactType === 'call' && meta.duration > 0 && (
+                <span className="text-[10px] text-ink-tertiary">{Math.round(meta.duration / 60)} {t('deals.durationLabel')}</span>
+              )}
+              {meta.outcomeTag && (
+                <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${OUTCOME_COLOR[meta.outcomeTag] || 'bg-surface-100 text-ink-secondary'}`}>
+                  {t(`deals.outcome${meta.outcomeTag.charAt(0).toUpperCase()}${meta.outcomeTag.slice(1).replace(/_([a-z])/g, (_, c) => c.toUpperCase())}`) || meta.outcomeTag}
+                </span>
+              )}
+            </div>
+            <div className="whitespace-pre-wrap break-words">{activity.text}</div>
+          </div>
+          {isOwn && (
+            <button onClick={() => onDelete(activity._id)}
+              className="absolute -top-1 -right-1 opacity-0 group-hover/note:opacity-100 transition-opacity w-5 h-5 bg-white border border-surface-100 rounded-full flex items-center justify-center text-ink-tertiary hover:text-red-500 hover:border-red-200">
+              <Trash2 className="w-2.5 h-2.5" />
+            </button>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -290,6 +345,7 @@ export default function DealDetailPage({ funnelId, dealId }) {
   const [showMoveFunnel,     setShowMoveFunnel]     = useState(false);
   const [moveFunnelId,       setMoveFunnelId]       = useState('');
   const [moveStageId,        setMoveStageId]        = useState('');
+  const [moveReason,         setMoveReason]         = useState('');
   const [moving,             setMoving]             = useState(false);
 
   // Files
@@ -301,6 +357,10 @@ export default function DealDetailPage({ funnelId, dealId }) {
   const [actLoading,   setActLoading]  = useState(false);
   const [noteText,     setNoteText]    = useState('');
   const [noteSending,  setNoteSending] = useState(false);
+  const [noteMode,        setNoteMode]        = useState('note'); // 'note' | 'communication'
+  const [commContactType, setCommContactType] = useState('call'); // call | message | meeting
+  const [commDuration,    setCommDuration]    = useState('');     // daqiqa
+  const [commOutcome,     setCommOutcome]     = useState('');
 
   // Deal calls (statistika uchun)
   const [dealCalls,    setDealCalls]   = useState([]);
@@ -561,6 +621,7 @@ export default function DealDetailPage({ funnelId, dealId }) {
     setShowMenu(false);
     setMoveFunnelId('');
     setMoveStageId('');
+    setMoveReason('');
     setShowMoveFunnel(true);
   };
 
@@ -569,7 +630,7 @@ export default function DealDetailPage({ funnelId, dealId }) {
     setMoving(true);
     try {
       const res = await axios.post(`${API}/funnels/${funnelId}/deals/${dealId}/move`, {
-        targetFunnelId: moveFunnelId, targetStageId: moveStageId,
+        targetFunnelId: moveFunnelId, targetStageId: moveStageId, reason: moveReason.trim(),
       });
       toast.success(t('deals.moveSuccess'));
       setShowMoveFunnel(false);
@@ -676,9 +737,19 @@ export default function DealDetailPage({ funnelId, dealId }) {
     if (!noteText.trim() || isNew) return;
     setNoteSending(true);
     try {
-      const r = await axios.post(`${API}/funnels/${funnelId}/deals/${dealId}/activities`, { text: noteText.trim() });
+      const body = noteMode === 'communication'
+        ? {
+            text: noteText.trim(),
+            contactType: commContactType,
+            duration: commContactType === 'call' && commDuration ? Math.round(Number(commDuration) * 60) : 0,
+            outcomeTag: commOutcome,
+          }
+        : { text: noteText.trim() };
+      const r = await axios.post(`${API}/funnels/${funnelId}/deals/${dealId}/activities`, body);
       setActivities(prev => prev.some(a => a._id === r.data.activity._id) ? prev : [...prev, r.data.activity]);
       setNoteText('');
+      setCommDuration('');
+      setCommOutcome('');
       if (textareaRef.current) textareaRef.current.style.height = 'auto';
       textareaRef.current?.focus();
     } catch {
@@ -920,6 +991,15 @@ export default function DealDetailPage({ funnelId, dealId }) {
               <option value="">{t('deals.moveStagePlaceholder')}</option>
               {(moveTargetFunnel?.stages || []).map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
             </select>
+
+            <label className="block text-xs font-medium text-ink-secondary mb-1">{t('deals.moveReasonLabel')}</label>
+            <textarea
+              className="input w-full mb-5 resize-none"
+              rows={2}
+              value={moveReason}
+              onChange={e => setMoveReason(e.target.value)}
+              placeholder={t('deals.moveReasonPlaceholder')}
+            />
 
             <div className="flex gap-2">
               <button onClick={() => setShowMoveFunnel(false)} className="btn-md btn-secondary flex-1">{t('deals.cancel')}</button>
@@ -1683,6 +1763,8 @@ export default function DealDetailPage({ funnelId, dealId }) {
                 {activities.map(a =>
                   a.type === 'note'
                     ? <NoteItem key={a._id} activity={a} onDelete={handleDeleteNote} currentUserId={meId} />
+                    : a.type === 'communication'
+                    ? <CommunicationItem key={a._id} activity={a} onDelete={handleDeleteNote} currentUserId={meId} />
                     : <SystemEvent key={a._id} activity={a} />
                 )}
                 <div ref={bottomRef} />
@@ -1691,6 +1773,44 @@ export default function DealDetailPage({ funnelId, dealId }) {
           </div>
           {!isNew && (
             <div className="shrink-0 border-t border-surface-100 bg-white px-4 py-3">
+              <div className="flex items-center gap-1 bg-surface-100 rounded-xl p-1 w-fit mb-2">
+                <button type="button" onClick={() => setNoteMode('note')}
+                  className={`px-3 py-1 text-xs font-medium rounded-lg transition-all ${noteMode === 'note' ? 'bg-white text-ink shadow-sm' : 'text-ink-tertiary hover:text-ink'}`}>
+                  {t('deals.noteTab')}
+                </button>
+                <button type="button" onClick={() => setNoteMode('communication')}
+                  className={`px-3 py-1 text-xs font-medium rounded-lg transition-all ${noteMode === 'communication' ? 'bg-white text-ink shadow-sm' : 'text-ink-tertiary hover:text-ink'}`}>
+                  {t('deals.communicationTab')}
+                </button>
+              </div>
+
+              {noteMode === 'communication' && (
+                <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                  {['call', 'message', 'meeting'].map(ct => {
+                    const Icon = CONTACT_TYPE_ICON[ct];
+                    return (
+                      <button key={ct} type="button" onClick={() => setCommContactType(ct)}
+                        className={`flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-full border transition-colors ${commContactType === ct ? 'bg-primary-500 border-primary-500 text-white' : 'bg-transparent border-surface-200 text-ink-secondary hover:border-primary-300'}`}>
+                        <Icon className="w-3 h-3" /> {t(`deals.contactType${ct.charAt(0).toUpperCase()}${ct.slice(1)}`)}
+                      </button>
+                    );
+                  })}
+                  {commContactType === 'call' && (
+                    <input type="number" min="0" placeholder={t('deals.durationLabel')} value={commDuration}
+                      onChange={e => setCommDuration(e.target.value)}
+                      className="w-24 input text-xs h-7" />
+                  )}
+                  <div className="w-full flex flex-wrap gap-1.5 mt-1">
+                    {['interested', 'thinking', 'declined', 'no_answer', 'other'].map(tag => (
+                      <button key={tag} type="button" onClick={() => setCommOutcome(commOutcome === tag ? '' : tag)}
+                        className={`text-[11px] font-medium px-2 py-0.5 rounded-full border transition-colors ${commOutcome === tag ? (OUTCOME_COLOR[tag] || 'bg-primary-500 text-white') + ' border-transparent' : 'bg-transparent border-surface-200 text-ink-tertiary hover:border-primary-300'}`}>
+                        {t(`deals.outcome${tag.charAt(0).toUpperCase()}${tag.slice(1).replace(/_([a-z])/g, (_, c) => c.toUpperCase())}`)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="flex items-end bg-surface-50 rounded-xl border border-surface-200 focus-within:border-primary-300 focus-within:bg-white focus-within:shadow-sm transition-all duration-200">
                 <textarea ref={textareaRef}
                   className="flex-1 min-w-0 bg-transparent text-sm text-ink placeholder:text-ink-tertiary resize-none border-0 outline-none focus:outline-none focus:ring-0 leading-relaxed px-4 py-3"

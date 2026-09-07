@@ -48,9 +48,9 @@ function initials(name) {
 }
 
 /* ── Deal card (draggable) ── */
-function DealCard({ deal, isLead, onEdit, onDelete, onMove, onClaim, currency, canEdit = true, canDelete = true, overlay = false }) {
+function DealCard({ deal, isLead, onEdit, onDelete, onMove, onClaim, currency, canEdit = true, canDelete = true, overlay = false, selectMode = false, selected = false, onToggleSelect }) {
   const t = useT();
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: deal._id });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: deal._id, disabled: selectMode });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 };
 
   const days = daysSince(deal.createdAt);
@@ -185,21 +185,34 @@ function DealCard({ deal, isLead, onEdit, onDelete, onMove, onClaim, currency, c
 
   if (overlay) return card;
   return (
-    <div ref={setNodeRef} style={style}>
-      <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing"
+    <div ref={setNodeRef} style={style} className="relative">
+      {selectMode && (
+        <button
+          onPointerDown={e => e.stopPropagation()}
+          onClick={e => { e.stopPropagation(); e.preventDefault(); onToggleSelect(deal._id); }}
+          className={`absolute top-2 left-2 z-10 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors ${
+            selected ? 'bg-primary-600 border-primary-600' : 'bg-white border-surface-300'
+          }`}
+        >
+          {selected && <Check className="w-3.5 h-3.5 text-white" />}
+        </button>
+      )}
+      <div {...(selectMode ? {} : { ...attributes, ...listeners })}
+        className={selectMode ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing'}
         onClick={e => {
+          if (selectMode) { onToggleSelect(deal._id); return; }
           // Only navigate if it wasn't a real drag (distance constraint handles this, but
           // we additionally skip if the user clicked on action buttons)
           if (!isDragging && !e.defaultPrevented) onEdit(deal);
         }}>
-        {card}
+        <div className={selectMode && selected ? 'ring-2 ring-primary-400 rounded-xl' : ''}>{card}</div>
       </div>
     </div>
   );
 }
 
 /* ── Stage column (droppable) ── */
-function StageColumn({ stage, deals, onOpen, onDelete, onMove, onClaim, onQuickAdd, currency, isFirst, canCreate = true, canEdit = true, canDelete = true }) {
+function StageColumn({ stage, deals, onOpen, onDelete, onMove, onClaim, onQuickAdd, currency, isFirst, canCreate = true, canEdit = true, canDelete = true, selectMode = false, selectedIds, onToggleSelect }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage._id });
   const total = deals.reduce((s, d) => s + (d.value || 0), 0);
 
@@ -241,7 +254,8 @@ function StageColumn({ stage, deals, onOpen, onDelete, onMove, onClaim, onQuickA
         <SortableContext items={deals.map(d => d._id)} strategy={verticalListSortingStrategy}>
           {deals.map(deal => (
             <DealCard key={deal._id} deal={deal} isLead={isFirst} currency={currency} onEdit={() => onOpen(deal._id)} onDelete={onDelete} onMove={onMove} onClaim={onClaim}
-              canEdit={canEdit} canDelete={canDelete} />
+              canEdit={canEdit} canDelete={canDelete}
+              selectMode={selectMode} selected={selectedIds?.has(deal._id)} onToggleSelect={onToggleSelect} />
           ))}
         </SortableContext>
       </div>
@@ -717,6 +731,15 @@ export default function FunnelPage({ funnelId }) {
   const [moveStageId,       setMoveStageId]       = useState('');
   const [movingFunnel,      setMovingFunnel]      = useState(false);
 
+  // Ommaviy (bulk) amallar: bir nechta lidni tanlab bosqich/varonka o'zgartirish
+  const [selectMode,        setSelectMode]        = useState(false);
+  const [selectedIds,       setSelectedIds]       = useState(() => new Set());
+  const [bulkMovingStage,   setBulkMovingStage]   = useState(false);
+  const [bulkMoveOpen,      setBulkMoveOpen]      = useState(false);
+  const [bulkMoveFunnelId,  setBulkMoveFunnelId]  = useState('');
+  const [bulkMoveStageId,   setBulkMoveStageId]   = useState('');
+  const [bulkMovingFunnel,  setBulkMovingFunnel]  = useState(false);
+
   // F-13: quick-add modal
   const [contacts,      setContacts]      = useState([]);
   const [users,         setUsers]         = useState([]);
@@ -889,6 +912,20 @@ export default function FunnelPage({ funnelId }) {
 
   const activeDeal = activeId ? deals.find(d => d._id === activeId) : null;
 
+  /* Ommaviy tanlash */
+  const toggleSelect = (dealId) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(dealId)) next.delete(dealId); else next.add(dealId);
+      return next;
+    });
+  };
+  const exitSelectMode = () => { setSelectMode(false); setSelectedIds(new Set()); };
+  const allSelected = filteredDeals.length > 0 && filteredDeals.every(d => selectedIds.has(d._id));
+  const toggleSelectAll = () => {
+    setSelectedIds(allSelected ? new Set() : new Set(filteredDeals.map(d => d._id)));
+  };
+
   /* DnD handlers */
   const handleDragStart = ({ active }) => setActiveId(active.id);
 
@@ -1005,6 +1042,50 @@ export default function FunnelPage({ funnelId }) {
     }
   };
 
+  // Ommaviy: tanlangan lidlarni shu varonka ichida boshqa bosqichga o'tkazish
+  const handleBulkStageMove = async (stageId) => {
+    if (!stageId || selectedIds.size === 0) return;
+    setBulkMovingStage(true);
+    try {
+      const res = await axios.post(`${API}/funnels/${funnelId}/deals/bulk-move`, {
+        dealIds: [...selectedIds], targetStageId: stageId,
+      });
+      const moved = res.data.moved || [];
+      setDeals(prev => prev.map(d => moved.find(m => m._id === d._id) || d));
+      toast.success(`${moved.length} ta lid ko'chirildi${res.data.skipped ? `, ${res.data.skipped} tasi o'tkazib yuborildi` : ''}`);
+      exitSelectMode();
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Xato');
+    } finally {
+      setBulkMovingStage(false);
+    }
+  };
+
+  // Ommaviy: tanlangan lidlarni boshqa varonkaga o'tkazish
+  const bulkMoveTargetFunnel = moveTargetFunnels.find(f => String(f._id) === String(bulkMoveFunnelId));
+  const openBulkMoveModal = () => {
+    setBulkMoveFunnelId(''); setBulkMoveStageId(''); setBulkMoveOpen(true);
+  };
+  const handleBulkMoveFunnel = async () => {
+    if (!bulkMoveFunnelId || !bulkMoveStageId || selectedIds.size === 0) return;
+    setBulkMovingFunnel(true);
+    try {
+      const res = await axios.post(`${API}/funnels/${funnelId}/deals/bulk-move`, {
+        dealIds: [...selectedIds], targetFunnelId: bulkMoveFunnelId, targetStageId: bulkMoveStageId,
+      });
+      const moved = res.data.moved || [];
+      const movedIds = new Set(moved.map(d => d._id));
+      setDeals(prev => prev.filter(d => !movedIds.has(d._id)));
+      toast.success(`${moved.length} ta lid o'tkazildi${res.data.skipped ? `, ${res.data.skipped} tasi o'tkazib yuborildi` : ''}`);
+      setBulkMoveOpen(false);
+      exitSelectMode();
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Xato');
+    } finally {
+      setBulkMovingFunnel(false);
+    }
+  };
+
   // F-13: quick create deal from column header
   const handleQuickCreate = async ({ title, stageId, value, notes, assignedTo, contact }) => {
     const res = await axios.post(`${API}/funnels/${funnelId}/deals`, {
@@ -1053,6 +1134,18 @@ export default function FunnelPage({ funnelId }) {
             </button>
           </div>
           <div className="flex items-center gap-2 shrink-0 md:order-4">
+            {canEdit && (
+              <button
+                onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))}
+                title="Ommaviy tanlash"
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium border transition-colors ${
+                  selectMode ? 'border-primary-300 bg-primary-50 text-primary-600' : 'border-surface-200 text-ink-secondary hover:border-surface-300 hover:text-ink'
+                }`}
+              >
+                <Check className="w-4 h-4" />
+                <span className="hidden sm:inline">{selectMode ? 'Bekor qilish' : 'Tanlash'}</span>
+              </button>
+            )}
             <button
               onClick={() => setShowStats(v => !v)}
               title="Statistika"
@@ -1189,6 +1282,41 @@ export default function FunnelPage({ funnelId }) {
         )}
       </div>
 
+      {/* Ommaviy amallar paneli */}
+      {selectMode && (
+        <div className="px-4 md:px-6 py-2 border-b border-primary-100 bg-primary-50 flex flex-wrap items-center gap-3 shrink-0">
+          <label className="flex items-center gap-2 text-sm font-medium text-ink cursor-pointer select-none">
+            <input type="checkbox" checked={allSelected} onChange={toggleSelectAll} className="w-4 h-4 rounded border-surface-300" />
+            Hammasini tanlash
+          </label>
+          <span className="text-sm font-semibold text-primary-700">{selectedIds.size} ta tanlandi</span>
+          <div className="flex items-center gap-2 ml-auto">
+            <div className="relative shrink-0">
+              <select
+                className="pl-3 pr-8 py-2 text-sm bg-white border border-surface-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-300 appearance-none disabled:opacity-60"
+                value=""
+                disabled={selectedIds.size === 0 || bulkMovingStage}
+                onChange={e => { if (e.target.value) handleBulkStageMove(e.target.value); }}
+              >
+                <option value="">Bosqichga o'tkazish...</option>
+                {funnel.stages.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
+              </select>
+              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-ink-disabled pointer-events-none" />
+            </div>
+            <button
+              onClick={openBulkMoveModal}
+              disabled={selectedIds.size === 0}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium border border-surface-200 text-ink-secondary hover:border-surface-300 hover:text-ink transition-colors disabled:opacity-60"
+            >
+              <Layers className="w-4 h-4" /> Boshqa varonkaga
+            </button>
+            <button onClick={exitSelectMode} className="p-2 rounded-lg text-ink-tertiary hover:bg-surface-100" title="Yopish">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Statistika yoki Kanban board */}
       {showStats ? (
         <IntakeStatsPanel funnelId={funnelId} />
@@ -1214,6 +1342,7 @@ export default function FunnelPage({ funnelId }) {
                   onClaim={handleClaimDeal}
                   onQuickAdd={setQuickStageId}
                   canCreate={canCreate} canEdit={canEdit} canDelete={canDelete}
+                  selectMode={selectMode} selectedIds={selectedIds} onToggleSelect={toggleSelect}
                 />
               ))}
             </div>
@@ -1327,6 +1456,51 @@ export default function FunnelPage({ funnelId }) {
                 className="btn-md btn-primary flex-1 flex items-center justify-center gap-2"
               >
                 {movingFunnel && <Loader2 className="w-4 h-4 animate-spin" />}
+                {t('deals.moveSubmit')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Ommaviy: boshqa varonkaga o'tkazish modal */}
+      {bulkMoveOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
+            <p className="text-base font-semibold text-ink mb-1">Boshqa varonkaga o'tkazish</p>
+            <p className="text-sm text-ink-tertiary mb-4">
+              <span className="font-medium text-ink">{selectedIds.size} ta lid</span> tanlandi
+            </p>
+
+            <label className="block text-xs font-medium text-ink-secondary mb-1">{t('deals.moveFunnelLabel')}</label>
+            <select
+              className="input w-full mb-3"
+              value={bulkMoveFunnelId}
+              onChange={e => { setBulkMoveFunnelId(e.target.value); setBulkMoveStageId(''); }}
+            >
+              <option value="">{t('deals.moveFunnelPlaceholder')}</option>
+              {moveTargetFunnels.map(f => <option key={f._id} value={f._id}>{f.name}</option>)}
+            </select>
+
+            <label className="block text-xs font-medium text-ink-secondary mb-1">{t('deals.stage')}</label>
+            <select
+              className="input w-full mb-5"
+              value={bulkMoveStageId}
+              onChange={e => setBulkMoveStageId(e.target.value)}
+              disabled={!bulkMoveTargetFunnel}
+            >
+              <option value="">{t('deals.moveStagePlaceholder')}</option>
+              {(bulkMoveTargetFunnel?.stages || []).map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
+            </select>
+
+            <div className="flex gap-2">
+              <button onClick={() => setBulkMoveOpen(false)} className="btn-md btn-secondary flex-1">{t('deals.cancel')}</button>
+              <button
+                onClick={handleBulkMoveFunnel}
+                disabled={!bulkMoveFunnelId || !bulkMoveStageId || bulkMovingFunnel}
+                className="btn-md btn-primary flex-1 flex items-center justify-center gap-2"
+              >
+                {bulkMovingFunnel && <Loader2 className="w-4 h-4 animate-spin" />}
                 {t('deals.moveSubmit')}
               </button>
             </div>

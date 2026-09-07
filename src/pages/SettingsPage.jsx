@@ -6526,6 +6526,14 @@ export default function SettingsPage() {
   const urlTab = new URLSearchParams(location.search).get('tab');
   const initialTab = TABS.some(x => x.key === urlTab) ? urlTab : 'users';
   const [tab, setTab] = useState(initialTab);
+  // Tab tanlanganda URL'ga ham yozib qo'yamiz — aks holda sahifa refresh qilinganda
+  // joriy tab yo'qolib, standart ('users') tabga qaytib ketadi.
+  const changeTab = (key) => {
+    setTab(key);
+    const params = new URLSearchParams(location.search);
+    params.set('tab', key);
+    navigate({ pathname: location.pathname, search: params.toString() }, { replace: true });
+  };
   // Strip'da ko'rinadigan tablar: yashirinlardan tashqari + (URL orqali ochilgan bo'lsa) joriy yashirin tab.
   const visibleTabs = TABS.filter(x => !HIDDEN_TAB_KEYS.includes(x.key) || x.key === tab);
   // Joriy tab qaysi guruhga tegishli bo'lsa — shu guruh faol; sub-tab strip shu guruh ichidagilarga cheklanadi.
@@ -6561,7 +6569,7 @@ export default function SettingsPage() {
             return (
               <button
                 key={g.key}
-                onClick={() => { if (!isActive) setTab(g.tabs[0]); }}
+                onClick={() => { if (!isActive) changeTab(g.tabs[0]); }}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium transition-colors shrink-0 whitespace-nowrap ${
                   isActive
                     ? 'bg-primary-600 text-white shadow-sm'
@@ -6582,7 +6590,7 @@ export default function SettingsPage() {
           {subTabs.map(({ key, icon: Icon, label }) => (
             <button
               key={key}
-              onClick={() => setTab(key)}
+              onClick={() => changeTab(key)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium transition-colors shrink-0 whitespace-nowrap ${
                 tab === key
                   ? 'bg-primary-600 text-white shadow-sm'

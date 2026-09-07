@@ -778,7 +778,10 @@ export default function FunnelPage({ funnelId }) {
     try {
       const [fRes, cRes, uRes, nRes, sRes, dfRes] = await Promise.all([
         axios.get(`${API}/funnels/${funnelId}/deals`),
-        axios.get(`${API}/contacts?limit=200`),
+        // Contacts moduli alohida RBAC bilan boshqariladi (masalan "operator" kabi
+        // rol funnels'ga ega bo'lib, contacts'ga ega bo'lmasligi mumkin) — shu sabab
+        // 403 bo'lsa ham butun boardni yuklashni to'xtatmaymiz, kontaktlar bo'sh qoladi.
+        axios.get(`${API}/contacts?limit=200`).catch(() => ({ data: {} })),
         axios.get(`${API}/organization/users`),
         axios.get(`${API}/funnels/names`),
         axios.get(`${API}/organization/deal-sources`).catch(() => ({ data: {} })),
@@ -791,7 +794,8 @@ export default function FunnelPage({ funnelId }) {
       setAllFunnelNames(nRes.data.funnels || []);
       setDealSources(sRes.data.sources || []);
       setCfSections(dfRes.data.sections || []);
-    } catch {
+    } catch (e) {
+      console.error('[funnel] load error:', e.response?.data?.message || e.message);
       toast.error(t('funnel.loadError'));
     } finally {
       setLoading(false);

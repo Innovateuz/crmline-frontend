@@ -1470,6 +1470,7 @@ function IntegrationsTab() {
   const [fbInfo,       setFbInfo]       = useState(null);
   const [fbConnecting, setFbConnecting] = useState(false);
   const [fbDisconnecting, setFbDisconnecting] = useState(false);
+  const [fbConfirmDisconnect, setFbConfirmDisconnect] = useState(false);
   const [leadFunnels,  setLeadFunnels]  = useState([]);   // "target"dan kelgan lidlar uchun voronka tanlovi
   const [leadFunnelId, setLeadFunnelId] = useState('');
   const [leadStageId,  setLeadStageId]  = useState('');
@@ -1617,7 +1618,7 @@ function IntegrationsTab() {
   };
 
   const fbDisconnect = async () => {
-    if (!window.confirm("Facebook'ni uzib qo'yishni tasdiqlaysizmi?")) return;
+    setFbConfirmDisconnect(false);
     setFbDisconnecting(true);
     try {
       await axios.delete(`${API_URL}/facebook/disconnect`);
@@ -2372,11 +2373,26 @@ function IntegrationsTab() {
                   <p className="text-xs text-ink-tertiary mt-0.5">Facebook Page ulangan</p>
                 </div>
               </div>
-              <button onClick={fbDisconnect} disabled={fbDisconnecting}
-                className="w-full py-2 rounded-lg border border-red-200 text-red-600 text-sm font-medium hover:bg-red-50 transition-colors flex items-center justify-center gap-2">
-                {fbDisconnecting ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />}
-                Uzib qo'yish
-              </button>
+              {fbConfirmDisconnect ? (
+                <div className="flex items-center gap-2">
+                  <p className="flex-1 text-sm text-ink">Rostdan uzasizmi?</p>
+                  <button onClick={() => setFbConfirmDisconnect(false)} disabled={fbDisconnecting}
+                    className="px-3 py-2 rounded-lg border border-surface-200 text-ink-tertiary text-sm font-medium hover:bg-surface-50 transition-colors">
+                    Bekor qilish
+                  </button>
+                  <button onClick={fbDisconnect} disabled={fbDisconnecting}
+                    className="px-3 py-2 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition-colors flex items-center justify-center gap-2">
+                    {fbDisconnecting ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />}
+                    Ha, uzish
+                  </button>
+                </div>
+              ) : (
+                <button onClick={() => setFbConfirmDisconnect(true)}
+                  className="w-full py-2 rounded-lg border border-red-200 text-red-600 text-sm font-medium hover:bg-red-50 transition-colors flex items-center justify-center gap-2">
+                  <X className="w-4 h-4" />
+                  Uzib qo'yish
+                </button>
+              )}
 
               {/* Instagram/Facebook "target" (Lead Ads) — qayerga tushsin */}
               <div className="pt-3 mt-1 border-t border-surface-100">

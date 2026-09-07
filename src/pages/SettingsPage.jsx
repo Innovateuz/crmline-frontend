@@ -1623,8 +1623,8 @@ function IntegrationsTab() {
       await axios.delete(`${API_URL}/facebook/disconnect`);
       setFbInfo({ connected: false, pageName: '', pageId: '' });
       toast.success("Facebook uzildi");
-    } catch {
-      toast.error('Xato');
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Xato');
     } finally {
       setFbDisconnecting(false);
     }

@@ -1260,19 +1260,10 @@ export default function FunnelPage({ funnelId }) {
     </div>
   );
 
-  const sumOf = (arr) => arr.reduce((s, d) => s + (d.value || 0), 0);
-  const firstStageId = funnel.stages[0]?._id;
-  const lastStageId  = funnel.stages[funnel.stages.length - 1]?._id;
-  const leadSum     = sumOf(dealsByStage[firstStageId] || []);
-  const dealSum     = sumOf(dealsByStage[lastStageId] || []);
-  const progressSum = funnel.stages.length > 2
-    ? funnel.stages.slice(1, -1).reduce((s, st) => s + sumOf(dealsByStage[st._id] || []), 0)
-    : 0;
-
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="px-4 md:px-6 py-2 md:py-4 border-b border-surface-100 bg-white shrink-0 flex flex-col md:flex-row md:items-center gap-2 md:gap-4 md:min-h-[68px]">
+      <div className="px-4 md:px-6 py-2 md:py-4 border-b border-surface-100 bg-white shrink-0 flex flex-col md:flex-row md:flex-wrap md:items-center gap-2 md:gap-4 md:min-h-[68px]">
         {/* Title + Action (mobile: same row; desktop: split via order) */}
         <div className="flex items-center justify-between gap-3 md:contents">
           <div className="flex items-center gap-1.5 shrink-0 md:order-1">
@@ -1423,23 +1414,6 @@ export default function FunnelPage({ funnelId }) {
               </div>
             ))}
 
-            {/* Stats */}
-            {(leadSum > 0 || progressSum > 0 || dealSum > 0) && (
-              <div className="flex items-center gap-3 shrink-0 text-xs font-semibold overflow-x-auto no-scrollbar md:order-3">
-                <span className="flex items-center gap-1.5 text-amber-600 whitespace-nowrap">
-                  <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />
-                  Zayavka: {fmt(leadSum)} {currency}
-                </span>
-                <span className="flex items-center gap-1.5 text-blue-600 whitespace-nowrap">
-                  <span className="w-2 h-2 rounded-full bg-blue-400 shrink-0" />
-                  Jarayonda: {fmt(progressSum)} {currency}
-                </span>
-                <span className="flex items-center gap-1.5 text-green-600 whitespace-nowrap">
-                  <span className="w-2 h-2 rounded-full bg-green-500 shrink-0" />
-                  Deal: {fmt(dealSum)} {currency}
-                </span>
-              </div>
-            )}
           </>
         )}
       </div>

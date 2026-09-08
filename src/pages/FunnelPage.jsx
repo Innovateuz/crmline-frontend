@@ -1263,20 +1263,20 @@ export default function FunnelPage({ funnelId }) {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="px-4 md:px-6 py-2 md:py-4 border-b border-surface-100 bg-white shrink-0 flex flex-col md:flex-row md:flex-wrap md:items-center gap-2 md:gap-4 md:min-h-[68px]">
-        {/* Title + Action (mobile: same row; desktop: split via order) */}
-        <div className="flex items-center justify-between gap-3 md:contents">
-          <div className="flex items-center gap-1.5 shrink-0 md:order-1">
+      <div className="px-4 md:px-6 py-2 md:py-4 border-b border-surface-100 bg-white shrink-0 flex flex-col gap-2 md:gap-3">
+        {/* Title + Action buttons — o'z qatorida, filtrlardan mustaqil, kerak bo'lsa o'zi ichida buklanadi */}
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-1.5 shrink-0">
             <h1 className="text-lg font-bold text-ink">{funnel.name}</h1>
             <button
               onClick={() => setToolbarOpen(v => !v)}
-              title={toolbarOpen ? "Yig'ish" : "Ochish"}
+              title={toolbarOpen ? "Filtrlarni yig'ish" : "Filtrlarni ochish"}
               className="p-1 rounded-lg text-ink-tertiary hover:text-ink hover:bg-surface-100 transition-colors"
             >
               <ChevronDown className={`w-4 h-4 transition-transform ${toolbarOpen ? 'rotate-180' : ''}`} />
             </button>
           </div>
-          <div className="flex items-center gap-2 shrink-0 md:order-4">
+          <div className="flex items-center gap-2 flex-wrap justify-end">
             {canEdit && (
               <button
                 onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))}
@@ -1348,9 +1348,9 @@ export default function FunnelPage({ funnelId }) {
         </div>
 
         {toolbarOpen && (
-          <>
+          <div className="flex flex-wrap items-center gap-2">
             {/* Search */}
-            <div className="relative flex-1 min-w-0 md:order-2">
+            <div className="relative flex-1 min-w-[160px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-tertiary pointer-events-none" />
               <input
                 className="input pl-9 text-sm h-8 md:h-9 w-full"
@@ -1366,7 +1366,7 @@ export default function FunnelPage({ funnelId }) {
             </div>
 
             {/* Mas'ul bo'yicha filtr — istalgan xodimni tanlash */}
-            <div className="relative shrink-0 md:order-2">
+            <div className="relative shrink-0">
               <User className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-ink-disabled pointer-events-none" />
               <select
                 className="pl-8 pr-8 py-2 text-sm bg-surface-50 border border-surface-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-300 appearance-none"
@@ -1381,7 +1381,7 @@ export default function FunnelPage({ funnelId }) {
 
             {/* Manba bo'yicha filtr */}
             {(dealSources.length > 0 || extraSources.length > 0) && (
-              <div className="relative shrink-0 md:order-2">
+              <div className="relative shrink-0">
                 <Layers className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-ink-disabled pointer-events-none" />
                 <select
                   className="pl-8 pr-8 py-2 text-sm bg-surface-50 border border-surface-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-300 appearance-none"
@@ -1399,7 +1399,7 @@ export default function FunnelPage({ funnelId }) {
 
             {/* Custom maydon (Teg / Biznes yo'nalishi ...) bo'yicha filtrlar */}
             {filterableFields.map(f => (
-              <div key={f.id} className="relative shrink-0 md:order-2">
+              <div key={f.id} className="relative shrink-0">
                 <Tag className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-ink-disabled pointer-events-none" />
                 <select
                   className="pl-8 pr-8 py-2 text-sm bg-surface-50 border border-surface-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-300 appearance-none"
@@ -1413,8 +1413,7 @@ export default function FunnelPage({ funnelId }) {
                 <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-ink-disabled pointer-events-none" />
               </div>
             ))}
-
-          </>
+          </div>
         )}
       </div>
 

@@ -212,15 +212,21 @@ function DealCard({ deal, isLead, onEdit, onDelete, onMove, onClaim, currency, c
 }
 
 /* ── Stage column (droppable) ── */
-function StageColumn({ stage, deals, onOpen, onDelete, onMove, onClaim, onQuickAdd, currency, isFirst, canCreate = true, canEdit = true, canDelete = true, selectMode = false, selectedIds, onToggleSelect }) {
+function StageColumn({ stage, deals, onOpen, onDelete, onMove, onClaim, onQuickAdd, currency, isFirst, canCreate = true, canEdit = true, canDelete = true, selectMode = false, selectedIds, onToggleSelect, onSelectAllStage }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage._id });
   const total = deals.reduce((s, d) => s + (d.value || 0), 0);
+  const stageAllSelected = selectMode && deals.length > 0 && deals.every(d => selectedIds?.has(d._id));
 
   return (
     <div className="flex flex-col w-80 shrink-0 h-full">
       {/* Header — centered */}
       <div className="text-center mb-3 px-2">
         <div className="flex items-center justify-center gap-2 mb-1">
+          {selectMode && deals.length > 0 && (
+            <input type="checkbox" checked={stageAllSelected} onChange={() => onSelectAllStage(stage._id)}
+              title="Shu bosqichdagilarni tanlash"
+              className="w-3.5 h-3.5 rounded border-surface-300 shrink-0" />
+          )}
           <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: stage.color }} />
           <span className="font-bold text-sm text-ink truncate">{stage.name}</span>
           {canCreate && (
@@ -1018,9 +1024,15 @@ export default function FunnelPage({ funnelId }) {
     });
   };
   const exitSelectMode = () => { setSelectMode(false); setSelectedIds(new Set()); setBulkDeleteConfirm(false); };
-  const allSelected = filteredDeals.length > 0 && filteredDeals.every(d => selectedIds.has(d._id));
-  const toggleSelectAll = () => {
-    setSelectedIds(allSelected ? new Set() : new Set(filteredDeals.map(d => d._id)));
+  // Bosqich bo'yicha "hammasini tanlash" — faqat o'sha bosqichdagi lidlarga tegishli
+  const toggleSelectStage = (stageId) => {
+    const stageDealIds = (dealsByStage[stageId] || []).map(d => d._id);
+    const allIn = stageDealIds.length > 0 && stageDealIds.every(id => selectedIds.has(id));
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      stageDealIds.forEach(id => allIn ? next.delete(id) : next.add(id));
+      return next;
+    });
   };
 
   /* DnD handlers */
@@ -1420,10 +1432,6 @@ export default function FunnelPage({ funnelId }) {
       {/* Ommaviy amallar paneli */}
       {selectMode && (
         <div className="px-4 md:px-6 py-2 border-b border-primary-100 bg-primary-50 flex flex-wrap items-center gap-3 shrink-0">
-          <label className="flex items-center gap-2 text-sm font-medium text-ink cursor-pointer select-none">
-            <input type="checkbox" checked={allSelected} onChange={toggleSelectAll} className="w-4 h-4 rounded border-surface-300" />
-            Hammasini tanlash
-          </label>
           <span className="text-sm font-semibold text-primary-700">{selectedIds.size} ta tanlandi</span>
           <div className="flex items-center gap-2 ml-auto">
             <div className="relative shrink-0">
@@ -1521,7 +1529,7 @@ export default function FunnelPage({ funnelId }) {
                   onClaim={handleClaimDeal}
                   onQuickAdd={setQuickStageId}
                   canCreate={canCreate} canEdit={canEdit} canDelete={canDelete}
-                  selectMode={selectMode} selectedIds={selectedIds} onToggleSelect={toggleSelect}
+                  selectMode={selectMode} selectedIds={selectedIds} onToggleSelect={toggleSelect} onSelectAllStage={toggleSelectStage}
                 />
               ))}
             </div>

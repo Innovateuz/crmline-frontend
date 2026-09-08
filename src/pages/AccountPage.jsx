@@ -3,7 +3,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { updateProfile } from '../store/authSlice';
-import { Loader2, KeyRound, Eye, EyeOff } from 'lucide-react';
+import { Loader2, KeyRound, Eye, EyeOff, Phone } from 'lucide-react';
 import { useT } from '../utils/translate';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:5002/api';
@@ -22,6 +22,7 @@ export default function AccountPage() {
   // Name form
   const [name,      setName]      = useState(user?.name || '');
   const [atcExtension, setAtcExtension] = useState(user?.atcExtension || '');
+  const [phone,     setPhone]     = useState((user?.phone || '').replace(/^\+?998/, ''));
   const [nameSaving, setNameSaving] = useState(false);
 
   // Password form
@@ -32,15 +33,22 @@ export default function AccountPage() {
   const [showNew,   setShowNew]   = useState(false);
   const [pwSaving,  setPwSaving]  = useState(false);
 
-  const nameDirty = name.trim() !== (user?.name || '') || atcExtension.trim() !== (user?.atcExtension || '');
+  const currentPhoneDigits = (user?.phone || '').replace(/^\+?998/, '');
+  const nameDirty = name.trim() !== (user?.name || '') || atcExtension.trim() !== (user?.atcExtension || '') || phone !== currentPhoneDigits;
 
   const handleSaveName = async (e) => {
     e.preventDefault();
     if (!name.trim() || !nameDirty) return;
+    if (phone !== currentPhoneDigits && phone.length !== 9) {
+      toast.error("Telefon raqam 9 ta raqamdan iborat bo'lishi kerak");
+      return;
+    }
     setNameSaving(true);
     try {
-      const res = await axios.put(`${API}/auth/update-profile`, { name: name.trim(), atcExtension: atcExtension.trim() });
-      dispatch(updateProfile(res.data.user || { name: name.trim(), atcExtension: atcExtension.trim() }));
+      const body = { name: name.trim(), atcExtension: atcExtension.trim() };
+      if (phone !== currentPhoneDigits) body.phone = '+998' + phone;
+      const res = await axios.put(`${API}/auth/update-profile`, body);
+      dispatch(updateProfile(res.data.user || { name: name.trim(), atcExtension: atcExtension.trim(), phone: body.phone }));
       toast.success('Saqlandi');
     } catch (err) {
       toast.error(err.response?.data?.message || 'Xato yuz berdi');
@@ -109,11 +117,24 @@ export default function AccountPage() {
               ATC (Sipuni/ibrat.sip.uz) ichki raqamingiz — qo'ng'iroq qilishda har safar qayta kiritmasligingiz uchun.
             </p>
 
-            {/* Phone — read only */}
+            {/* Phone — editable (login uchun ham ishlatiladi) */}
             <div className="flex items-center gap-4 px-4 py-3 border-b border-surface-100">
               <span className="w-28 text-sm text-ink shrink-0">{t('contactForm.phone')}</span>
-              <span className="flex-1 text-sm text-ink-secondary">{user?.phone || '—'}</span>
+              <div className="flex-1 flex items-center gap-1.5">
+                <Phone className="w-3.5 h-3.5 text-ink-tertiary shrink-0" />
+                <span className="text-sm text-ink-secondary shrink-0">+998</span>
+                <input
+                  className="flex-1 text-sm text-ink bg-transparent border-0 outline-none focus:outline-none focus:ring-0 placeholder:text-ink-disabled font-mono"
+                  value={phone}
+                  onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 9))}
+                  inputMode="numeric" maxLength={9}
+                  placeholder="901234567"
+                />
+              </div>
             </div>
+            <p className="px-4 -mt-1 pb-2 text-xs text-ink-tertiary border-b border-surface-100">
+              Bu raqam tizimga kirish (login) uchun ham ishlatiladi — o'zgartirsangiz, keyingi safar yangi raqam bilan kiring.
+            </p>
 
             {/* Email — read only */}
             <div className="flex items-center gap-4 px-4 py-3 border-b border-surface-100">

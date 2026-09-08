@@ -4403,6 +4403,21 @@ function UsersTab({ currentUser }) {
               />
             </div>
             <div>
+              <label className="block text-sm font-medium text-ink mb-1.5">{t('settings.users.phone')}</label>
+              <div className="flex">
+                <div className="flex items-center gap-1 px-3 bg-surface-100 border border-r-0 border-surface-200 rounded-l-lg text-sm text-ink-secondary shrink-0">
+                  <Phone className="w-3.5 h-3.5 text-ink-tertiary" />
+                  +998
+                </div>
+                <input
+                  type="tel" value={(editForm.phone || '').replace(/^\+?998/, '')}
+                  onChange={e => setEditForm(p => ({ ...p, phone: '+998' + e.target.value.replace(/\D/g, '').slice(0, 9) }))}
+                  className="input rounded-l-none flex-1" placeholder={t('settings.users.phonePlaceholder')}
+                  inputMode="numeric" maxLength={9} required
+                />
+              </div>
+            </div>
+            <div>
               <label className="block text-sm font-medium text-ink mb-1.5">{t('settings.users.email')}</label>
               <input
                 type="email" value={editForm.email || ''}

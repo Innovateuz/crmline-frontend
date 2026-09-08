@@ -711,6 +711,7 @@ function IntakeStatsPanel({ funnelId }) {
 
 /* ── Arxivlangan lidlar ── */
 function DealArchiveModal({ funnelId, stages, onClose, onRestored, canEdit = true, canDelete = true }) {
+  const navigate = useNavigate();
   useModalOpen();
   const [deals,   setDeals]   = useState([]);
   const [loading, setLoading] = useState(true);
@@ -768,11 +769,25 @@ function DealArchiveModal({ funnelId, stages, onClose, onRestored, canEdit = tru
           ) : (
             <div className="space-y-2">
               {deals.map(deal => (
-                <div key={deal._id} className="flex items-center gap-3 p-3 border border-surface-100 rounded-xl">
-                  <div className="flex-1 min-w-0">
+                <div key={deal._id} className="flex items-start gap-3 p-3 border border-surface-100 rounded-xl">
+                  <button
+                    onClick={() => { onClose(); navigate(`/funnel/${funnelId}/deal/${deal._id}`); }}
+                    className="flex-1 min-w-0 text-left hover:bg-surface-50 -m-1 p-1 rounded-lg transition-colors"
+                    title="Sdelkani ochish"
+                  >
                     <p className="text-sm font-medium text-ink truncate">{deal.title}</p>
                     <p className="text-xs text-ink-tertiary truncate">{stageName(deal.stageId)}</p>
-                  </div>
+                    {deal.contact?.phone && (
+                      <p className="text-xs text-ink-secondary truncate mt-0.5">
+                        {deal.contact.name ? `${deal.contact.name} — ` : ''}{deal.contact.phone}
+                      </p>
+                    )}
+                    {deal.archiveReason && (
+                      <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-2 py-1 mt-1.5">
+                        {deal.archiveReason}
+                      </p>
+                    )}
+                  </button>
                   {canEdit && (
                     <button onClick={() => restore(deal._id)} disabled={busyId === deal._id}
                       title="Qaytarish"
@@ -835,6 +850,8 @@ export default function FunnelPage({ funnelId }) {
   const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
   const [bulkDeleting,      setBulkDeleting]      = useState(false);
   const [bulkArchiving,     setBulkArchiving]     = useState(false);
+  const [bulkArchiveOpen,   setBulkArchiveOpen]   = useState(false);
+  const [bulkArchiveReason, setBulkArchiveReason] = useState('');
   const [bulkAssigning,     setBulkAssigning]     = useState(false);
   const [showArchive,       setShowArchive]       = useState(false);
 
@@ -1212,17 +1229,23 @@ export default function FunnelPage({ funnelId }) {
     }
   };
 
-  // Ommaviy: tanlangan lidlarni arxivlash
-  const handleBulkArchive = async () => {
+  // Ommaviy: tanlangan lidlarni arxivlash — sabab (izoh) so'ralgandan keyin
+  const openBulkArchiveModal = () => {
     if (selectedIds.size === 0) return;
+    setBulkArchiveReason('');
+    setBulkArchiveOpen(true);
+  };
+  const handleBulkArchive = async () => {
+    if (selectedIds.size === 0 || !bulkArchiveReason.trim()) return;
     setBulkArchiving(true);
     try {
       const res = await axios.post(`${API}/funnels/${funnelId}/deals/bulk-archive`, {
-        dealIds: [...selectedIds], archived: true,
+        dealIds: [...selectedIds], archived: true, reason: bulkArchiveReason.trim(),
       });
       const archivedIds = selectedIds;
       setDeals(prev => prev.filter(d => !archivedIds.has(d._id)));
       toast.success(`${res.data.updated} ta lid arxivlandi${res.data.skipped ? `, ${res.data.skipped} tasi o'tkazib yuborildi` : ''}`);
+      setBulkArchiveOpen(false);
       exitSelectMode();
     } catch (e) {
       toast.error(e.response?.data?.message || 'Xato');
@@ -1468,11 +1491,11 @@ export default function FunnelPage({ funnelId }) {
               <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-ink-disabled pointer-events-none" />
             </div>
             <button
-              onClick={handleBulkArchive}
-              disabled={selectedIds.size === 0 || bulkArchiving}
+              onClick={openBulkArchiveModal}
+              disabled={selectedIds.size === 0}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium border border-surface-200 text-ink-secondary hover:border-surface-300 hover:text-ink transition-colors disabled:opacity-60"
             >
-              {bulkArchiving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Archive className="w-4 h-4" />} Arxivlash
+              <Archive className="w-4 h-4" /> Arxivlash
             </button>
             {canDelete && (
               bulkDeleteConfirm ? (
@@ -1689,6 +1712,42 @@ export default function FunnelPage({ funnelId }) {
               >
                 {bulkMovingFunnel && <Loader2 className="w-4 h-4 animate-spin" />}
                 {t('deals.moveSubmit')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Ommaviy: arxivlash sababi modal */}
+      {bulkArchiveOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
+            <p className="text-base font-semibold text-ink mb-1 flex items-center gap-2">
+              <Archive className="w-4 h-4" /> Arxivlash
+            </p>
+            <p className="text-sm text-ink-tertiary mb-4">
+              <span className="font-medium text-ink">{selectedIds.size} ta lid</span> arxivlanadi
+            </p>
+
+            <label className="block text-xs font-medium text-ink-secondary mb-1">Sabab (izoh) *</label>
+            <textarea
+              autoFocus
+              className="input w-full mb-5 resize-none"
+              rows={3}
+              value={bulkArchiveReason}
+              onChange={e => setBulkArchiveReason(e.target.value)}
+              placeholder="Nima uchun arxivlanyapti?"
+            />
+
+            <div className="flex gap-2">
+              <button onClick={() => setBulkArchiveOpen(false)} className="btn-md btn-secondary flex-1">{t('deals.cancel')}</button>
+              <button
+                onClick={handleBulkArchive}
+                disabled={!bulkArchiveReason.trim() || bulkArchiving}
+                className="btn-md btn-primary flex-1 flex items-center justify-center gap-2"
+              >
+                {bulkArchiving && <Loader2 className="w-4 h-4 animate-spin" />}
+                Arxivlash
               </button>
             </div>
           </div>

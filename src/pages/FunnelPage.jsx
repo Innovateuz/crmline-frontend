@@ -17,7 +17,7 @@ import {
   SortableContext, useSortable, verticalListSortingStrategy, arrayMove,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Plus, X, Loader2, Check, User, Phone, DollarSign, Pencil, Trash2, Search, Clock, Calendar, Download, Upload, Layers, ChevronDown, BarChart2, Tag, GitBranch } from 'lucide-react';
+import { Plus, X, Loader2, Check, User, UserCheck, Phone, DollarSign, Pencil, Trash2, Search, Clock, Calendar, Download, Upload, Layers, ChevronDown, BarChart2, Tag, GitBranch, Archive, ArchiveRestore } from 'lucide-react';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:5002/api';
 
@@ -703,6 +703,93 @@ function IntakeStatsPanel({ funnelId }) {
   );
 }
 
+/* ── Arxivlangan lidlar ── */
+function DealArchiveModal({ funnelId, stages, onClose, onRestored, canEdit = true, canDelete = true }) {
+  useModalOpen();
+  const [deals,   setDeals]   = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [busyId,  setBusyId]  = useState(null);
+
+  useEffect(() => {
+    axios.get(`${API}/funnels/${funnelId}/deals`, { params: { archived: true } })
+      .then(r => setDeals(r.data.deals || []))
+      .catch(() => toast.error('Yuklanishda xato'))
+      .finally(() => setLoading(false));
+  }, [funnelId]);
+
+  const stageName = (id) => stages.find(s => String(s._id) === String(id))?.name || '—';
+
+  const restore = async (id) => {
+    setBusyId(id);
+    try {
+      await axios.post(`${API}/funnels/${funnelId}/deals/bulk-archive`, { dealIds: [id], archived: false });
+      setDeals(prev => prev.filter(x => x._id !== id));
+      onRestored();
+      toast.success('Arxivdan qaytarildi');
+    } catch (e) { toast.error(e.response?.data?.message || 'Xato'); }
+    finally { setBusyId(null); }
+  };
+
+  const remove = async (id) => {
+    setBusyId(id);
+    try {
+      await axios.delete(`${API}/funnels/${funnelId}/deals`, { data: { dealIds: [id] } });
+      setDeals(prev => prev.filter(x => x._id !== id));
+      toast.success("O'chirildi");
+    } catch (e) { toast.error(e.response?.data?.message || 'Xato'); }
+    finally { setBusyId(null); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[80dvh] flex flex-col">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-surface-100 shrink-0">
+          <h2 className="font-semibold text-ink flex items-center gap-2">
+            <Archive className="w-4 h-4" /> Arxiv
+          </h2>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-surface-100 text-ink-tertiary">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="flex-1 min-h-0 overflow-y-auto px-5 py-3">
+          {loading ? (
+            <div className="flex items-center justify-center py-10">
+              <Loader2 className="w-6 h-6 animate-spin text-primary-400" />
+            </div>
+          ) : deals.length === 0 ? (
+            <p className="text-sm text-ink-tertiary text-center py-10">Arxiv bo'sh</p>
+          ) : (
+            <div className="space-y-2">
+              {deals.map(deal => (
+                <div key={deal._id} className="flex items-center gap-3 p-3 border border-surface-100 rounded-xl">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-ink truncate">{deal.title}</p>
+                    <p className="text-xs text-ink-tertiary truncate">{stageName(deal.stageId)}</p>
+                  </div>
+                  {canEdit && (
+                    <button onClick={() => restore(deal._id)} disabled={busyId === deal._id}
+                      title="Qaytarish"
+                      className="p-1.5 rounded-lg text-ink-tertiary hover:bg-primary-50 hover:text-primary-600 transition-colors">
+                      <ArchiveRestore className="w-4 h-4" />
+                    </button>
+                  )}
+                  {canDelete && (
+                    <button onClick={() => remove(deal._id)} disabled={busyId === deal._id}
+                      className="p-1.5 rounded-lg text-ink-tertiary hover:bg-red-50 hover:text-red-500 transition-colors">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function FunnelPage({ funnelId }) {
   const navigate  = useNavigate();
   const dispatch  = useDispatch();
@@ -739,6 +826,11 @@ export default function FunnelPage({ funnelId }) {
   const [bulkMoveFunnelId,  setBulkMoveFunnelId]  = useState('');
   const [bulkMoveStageId,   setBulkMoveStageId]   = useState('');
   const [bulkMovingFunnel,  setBulkMovingFunnel]  = useState(false);
+  const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
+  const [bulkDeleting,      setBulkDeleting]      = useState(false);
+  const [bulkArchiving,     setBulkArchiving]     = useState(false);
+  const [bulkAssigning,     setBulkAssigning]     = useState(false);
+  const [showArchive,       setShowArchive]       = useState(false);
 
   // F-13: quick-add modal
   const [contacts,      setContacts]      = useState([]);
@@ -885,6 +977,7 @@ export default function FunnelPage({ funnelId }) {
   const q = search.trim().toLowerCase();
   const cfActive = Object.entries(filterCF).filter(([, v]) => v);
   const filteredDeals = deals
+    .filter(d => !d.archived)
     .filter(d => !q ||
         d.title.toLowerCase().includes(q) ||
         d.contact?.name?.toLowerCase().includes(q) ||
@@ -924,7 +1017,7 @@ export default function FunnelPage({ funnelId }) {
       return next;
     });
   };
-  const exitSelectMode = () => { setSelectMode(false); setSelectedIds(new Set()); };
+  const exitSelectMode = () => { setSelectMode(false); setSelectedIds(new Set()); setBulkDeleteConfirm(false); };
   const allSelected = filteredDeals.length > 0 && filteredDeals.every(d => selectedIds.has(d._id));
   const toggleSelectAll = () => {
     setSelectedIds(allSelected ? new Set() : new Set(filteredDeals.map(d => d._id)));
@@ -1090,6 +1183,61 @@ export default function FunnelPage({ funnelId }) {
     }
   };
 
+  // Ommaviy: tanlangan lidlarni o'chirish
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    setBulkDeleting(true);
+    try {
+      const res = await axios.delete(`${API}/funnels/${funnelId}/deals`, { data: { dealIds: [...selectedIds] } });
+      const deletedIds = selectedIds;
+      setDeals(prev => prev.filter(d => !deletedIds.has(d._id)));
+      toast.success(`${res.data.deleted} ta lid o'chirildi${res.data.skipped ? `, ${res.data.skipped} tasi o'tkazib yuborildi` : ''}`);
+      exitSelectMode();
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Xato');
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
+  // Ommaviy: tanlangan lidlarni arxivlash
+  const handleBulkArchive = async () => {
+    if (selectedIds.size === 0) return;
+    setBulkArchiving(true);
+    try {
+      const res = await axios.post(`${API}/funnels/${funnelId}/deals/bulk-archive`, {
+        dealIds: [...selectedIds], archived: true,
+      });
+      const archivedIds = selectedIds;
+      setDeals(prev => prev.filter(d => !archivedIds.has(d._id)));
+      toast.success(`${res.data.updated} ta lid arxivlandi${res.data.skipped ? `, ${res.data.skipped} tasi o'tkazib yuborildi` : ''}`);
+      exitSelectMode();
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Xato');
+    } finally {
+      setBulkArchiving(false);
+    }
+  };
+
+  // Ommaviy: tanlangan lidlarni kimgadir biriktirish
+  const handleBulkAssign = async (userId) => {
+    if (selectedIds.size === 0) return;
+    setBulkAssigning(true);
+    try {
+      const res = await axios.post(`${API}/funnels/${funnelId}/deals/bulk-assign`, {
+        dealIds: [...selectedIds], assignedTo: userId || null,
+      });
+      const assignee = users.find(u => u._id === userId);
+      setDeals(prev => prev.map(d => selectedIds.has(d._id) ? { ...d, assignedTo: assignee || null } : d));
+      toast.success(`${res.data.updated} ta lidga biriktirildi${res.data.skipped ? `, ${res.data.skipped} tasi o'tkazib yuborildi` : ''}`);
+      exitSelectMode();
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Xato');
+    } finally {
+      setBulkAssigning(false);
+    }
+  };
+
   // F-13: quick create deal from column header
   const handleQuickCreate = async ({ title, stageId, value, notes, assignedTo, contact }) => {
     const res = await axios.post(`${API}/funnels/${funnelId}/deals`, {
@@ -1148,6 +1296,16 @@ export default function FunnelPage({ funnelId }) {
               >
                 <Check className="w-4 h-4" />
                 <span className="hidden sm:inline">{selectMode ? 'Bekor qilish' : 'Tanlash'}</span>
+              </button>
+            )}
+            {canEdit && (
+              <button
+                onClick={() => setShowArchive(true)}
+                title="Arxiv"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium border border-surface-200 text-ink-secondary hover:border-surface-300 hover:text-ink transition-colors"
+              >
+                <Archive className="w-4 h-4" />
+                <span className="hidden sm:inline">Arxiv</span>
               </button>
             )}
             <button
@@ -1314,6 +1472,50 @@ export default function FunnelPage({ funnelId }) {
             >
               <Layers className="w-4 h-4" /> Boshqa varonkaga
             </button>
+            <div className="relative shrink-0">
+              <select
+                className="pl-8 pr-8 py-2 text-sm bg-white border border-surface-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-300 appearance-none disabled:opacity-60"
+                value=""
+                disabled={selectedIds.size === 0 || bulkAssigning}
+                onChange={e => { if (e.target.value === '__unassign__') handleBulkAssign(null); else if (e.target.value) handleBulkAssign(e.target.value); }}
+              >
+                <option value="">Biriktirish...</option>
+                {users.map(u => <option key={u._id} value={u._id}>{u.name}</option>)}
+                <option value="__unassign__">— Biriktirmaslik —</option>
+              </select>
+              <UserCheck className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-ink-disabled pointer-events-none" />
+              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-ink-disabled pointer-events-none" />
+            </div>
+            <button
+              onClick={handleBulkArchive}
+              disabled={selectedIds.size === 0 || bulkArchiving}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium border border-surface-200 text-ink-secondary hover:border-surface-300 hover:text-ink transition-colors disabled:opacity-60"
+            >
+              {bulkArchiving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Archive className="w-4 h-4" />} Arxivlash
+            </button>
+            {canDelete && (
+              bulkDeleteConfirm ? (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm text-ink">Rostdan o'chirilsinmi?</span>
+                  <button onClick={() => setBulkDeleteConfirm(false)} disabled={bulkDeleting}
+                    className="px-2.5 py-2 rounded-xl text-sm font-medium border border-surface-200 text-ink-secondary hover:bg-surface-50 transition-colors">
+                    Yo'q
+                  </button>
+                  <button onClick={handleBulkDelete} disabled={bulkDeleting}
+                    className="flex items-center gap-1.5 px-2.5 py-2 rounded-xl bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition-colors">
+                    {bulkDeleting && <Loader2 className="w-4 h-4 animate-spin" />} Ha, o'chirish
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setBulkDeleteConfirm(true)}
+                  disabled={selectedIds.size === 0}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium border border-red-200 text-red-600 hover:bg-red-50 transition-colors disabled:opacity-60"
+                >
+                  <Trash2 className="w-4 h-4" /> O'chirish
+                </button>
+              )
+            )}
             <button onClick={exitSelectMode} className="p-2 rounded-lg text-ink-tertiary hover:bg-surface-100" title="Yopish">
               <X className="w-4 h-4" />
             </button>
@@ -1510,6 +1712,17 @@ export default function FunnelPage({ funnelId }) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Arxivlangan lidlar */}
+      {showArchive && (
+        <DealArchiveModal
+          funnelId={funnelId}
+          stages={funnel.stages}
+          onClose={() => setShowArchive(false)}
+          onRestored={load}
+          canEdit={canEdit} canDelete={canDelete}
+        />
       )}
 
     </div>

@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Play, Pause } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { Play, Pause, AlertCircle } from 'lucide-react';
 
 const SPEEDS = [1, 1.25, 1.5, 2];
 
@@ -22,6 +23,7 @@ export default function CallRecordingPlayer({ url }) {
   const [duration,  setDuration]  = useState(0);
   const [speed,     setSpeed]     = useState(1);
   const [dragging,  setDragging]  = useState(false);
+  const [error,     setError]     = useState(false);
   const audioRef = useRef(null);
   const barRef   = useRef(null);
 
@@ -33,10 +35,17 @@ export default function CallRecordingPlayer({ url }) {
 
   const toggle = (e) => {
     e?.stopPropagation();
+    if (error) return;
     if (!activated) { setActivated(true); setPlaying(true); return; }
     if (!audioRef.current) return;
     if (playing) { audioRef.current.pause(); setPlaying(false); }
     else { audioRef.current.play(); setPlaying(true); }
+  };
+
+  const handleError = () => {
+    setPlaying(false);
+    setError(true);
+    toast.error("Qo'ng'iroq yozuvini yuklab bo'lmadi");
   };
 
   const ratioFromEvent = (e) => {
@@ -81,13 +90,16 @@ export default function CallRecordingPlayer({ url }) {
           onLoadedMetadata={e => setDuration(e.target.duration || 0)}
           onTimeUpdate={e => { if (!dragging) setCurrent(e.target.currentTime); }}
           onEnded={() => { setPlaying(false); setCurrent(0); }}
+          onError={handleError}
         />
       )}
-      <button type="button" onClick={toggle}
-        className="w-7 h-7 rounded-full bg-primary-50 hover:bg-primary-100 flex items-center justify-center text-primary-600 transition-colors shrink-0">
-        {playing ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+      <button type="button" onClick={toggle} title={error ? "Yozuvni yuklab bo'lmadi" : undefined}
+        className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors shrink-0 ${
+          error ? 'bg-red-50 text-red-500 cursor-not-allowed' : 'bg-primary-50 hover:bg-primary-100 text-primary-600'
+        }`}>
+        {error ? <AlertCircle className="w-3.5 h-3.5" /> : playing ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
       </button>
-      {activated && (
+      {activated && !error && (
         <>
           <div ref={barRef} onPointerDown={onBarPointerDown}
             className="relative h-1.5 bg-surface-200 rounded-full cursor-pointer flex-1 min-w-[64px] max-w-[140px]">

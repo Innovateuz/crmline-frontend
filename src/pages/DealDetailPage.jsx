@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { useT } from '../utils/translate';
 import axios from 'axios';
@@ -11,7 +11,7 @@ import {
   Plus, X, Check, ChevronDown, Upload, FileText, MoreVertical,
   User, DollarSign, Kanban, Phone, CheckSquare2,
   Mail, AlertCircle, ExternalLink, Layers, Calendar,
-  PhoneIncoming, PhoneOutgoing, PhoneMissed,
+  PhoneIncoming, PhoneOutgoing, PhoneMissed, Archive, ArchiveRestore,
 } from 'lucide-react';
 import { getSocket } from '../utils/socket';
 import { usePermissions } from '../utils/permissions';
@@ -271,6 +271,8 @@ function NoteItem({ activity, onDelete, currentUserId }) {
 
 export default function DealDetailPage({ funnelId, dealId }) {
   const navigate  = useNavigate();
+  const location  = useLocation();
+  const fromArchive = !!location.state?.fromArchive;
   const dispatch  = useDispatch();
   const t = useT();
   const currency  = useSelector(s => s.auth.user?.organization?.currency || 'UZS');
@@ -340,6 +342,11 @@ export default function DealDetailPage({ funnelId, dealId }) {
   const [savingContact,      setSavingContact]      = useState(false);
   const [confirmDelete,      setConfirmDelete]      = useState(false);
   const [showMenu,           setShowMenu]           = useState(false);
+
+  // Arxivlash
+  const [showArchiveReason,  setShowArchiveReason]  = useState(false);
+  const [archiveReasonInput, setArchiveReasonInput] = useState('');
+  const [archiving,          setArchiving]          = useState(false);
 
   // Boshqa varonkaga o'tkazish
   const [showMoveFunnel,     setShowMoveFunnel]     = useState(false);
@@ -579,6 +586,39 @@ export default function DealDetailPage({ funnelId, dealId }) {
       navigate(`/funnel/${funnelId}`);
     } catch (e) {
       toast.error(e.response?.data?.message || t('deals.loadError'));
+    }
+  };
+
+  // ── Arxivlash / arxivdan qaytarish ─────────────────────────────────────────
+  const handleArchive = async () => {
+    if (!archiveReasonInput.trim()) return;
+    setArchiving(true);
+    try {
+      await axios.post(`${API}/funnels/${funnelId}/deals/bulk-archive`, {
+        dealIds: [dealId], archived: true, reason: archiveReasonInput.trim(),
+      });
+      toast.success('Arxivlandi');
+      setShowArchiveReason(false);
+      navigate(`/funnel/${funnelId}`);
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Xato');
+    } finally {
+      setArchiving(false);
+    }
+  };
+
+  const handleUnarchive = async () => {
+    setArchiving(true);
+    try {
+      await axios.post(`${API}/funnels/${funnelId}/deals/bulk-archive`, {
+        dealIds: [dealId], archived: false,
+      });
+      setDeal(prev => prev ? { ...prev, archived: false, archiveReason: '' } : prev);
+      toast.success('Arxivdan qaytarildi');
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Xato');
+    } finally {
+      setArchiving(false);
     }
   };
 
@@ -846,7 +886,8 @@ export default function DealDetailPage({ funnelId, dealId }) {
       {/* ── Top bar ── */}
       <div className="flex flex-wrap lg:flex-nowrap items-center justify-between gap-x-3 gap-y-2 lg:gap-4 px-4 lg:px-6 py-3 lg:py-4 border-b border-surface-100 bg-white shrink-0">
         <div className="flex items-center gap-3 min-w-0 flex-1">
-          <button onClick={() => navigate(`/funnel/${funnelId}`)}
+          <button
+            onClick={() => navigate(`/funnel/${funnelId}`, fromArchive ? { state: { openArchive: true } } : undefined)}
             className="p-2 rounded-lg text-ink-tertiary hover:text-ink hover:bg-surface-100 transition-colors shrink-0">
             <ArrowLeft className="w-5 h-5" />
           </button>
@@ -884,6 +925,17 @@ export default function DealDetailPage({ funnelId, dealId }) {
                         <Layers className="w-4 h-4" /> {t('deals.moveToFunnel')}
                       </button>
                     )}
+                    {canSave && (deal?.archived ? (
+                      <button onClick={() => { setShowMenu(false); handleUnarchive(); }} disabled={archiving}
+                        className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-ink hover:bg-surface-100 transition-colors">
+                        <ArchiveRestore className="w-4 h-4" /> Arxivdan qaytarish
+                      </button>
+                    ) : (
+                      <button onClick={() => { setShowMenu(false); setArchiveReasonInput(''); setShowArchiveReason(true); }}
+                        className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-ink hover:bg-surface-100 transition-colors">
+                        <Archive className="w-4 h-4" /> Arxivlash
+                      </button>
+                    ))}
                     {canDeleteDeal && (
                       <button onClick={() => { setShowMenu(false); setConfirmDelete(true); }}
                         className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors">
@@ -960,6 +1012,40 @@ export default function DealDetailPage({ funnelId, dealId }) {
             <div className="flex gap-2">
               <button onClick={() => setConfirmDelete(false)} className="btn-md btn-secondary flex-1">{t('deals.cancel')}</button>
               <button onClick={handleDelete} className="btn-md flex-1 bg-red-500 hover:bg-red-600 text-white rounded-xl font-medium transition-colors">{t('deals.delete')}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Arxivlash sababi modal ── */}
+      {showArchiveReason && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
+            <p className="text-base font-semibold text-ink mb-1 flex items-center gap-2">
+              <Archive className="w-4 h-4" /> Arxivlash
+            </p>
+            <p className="text-sm text-ink-tertiary mb-4">
+              <span className="font-medium text-ink">{title}</span>
+            </p>
+            <label className="block text-xs font-medium text-ink-secondary mb-1">Sabab (izoh) *</label>
+            <textarea
+              autoFocus
+              className="input w-full mb-5 resize-none"
+              rows={3}
+              value={archiveReasonInput}
+              onChange={e => setArchiveReasonInput(e.target.value)}
+              placeholder="Nima uchun arxivlanyapti?"
+            />
+            <div className="flex gap-2">
+              <button onClick={() => setShowArchiveReason(false)} className="btn-md btn-secondary flex-1">{t('deals.cancel')}</button>
+              <button
+                onClick={handleArchive}
+                disabled={!archiveReasonInput.trim() || archiving}
+                className="btn-md btn-primary flex-1 flex items-center justify-center gap-2"
+              >
+                {archiving && <Loader2 className="w-4 h-4 animate-spin" />}
+                Arxivlash
+              </button>
             </div>
           </div>
         </div>

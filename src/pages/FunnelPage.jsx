@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { useT } from '../utils/translate';
 import { useModalOpen } from '../utils/modalLock';
@@ -48,7 +48,7 @@ function initials(name) {
 }
 
 /* ── Deal card (draggable) ── */
-function DealCard({ deal, isLead, onEdit, onDelete, onMove, onClaim, currency, canEdit = true, canDelete = true, overlay = false, selectMode = false, selected = false, onToggleSelect }) {
+function DealCard({ deal, isLead, onEdit, onDelete, onMove, onArchive, onClaim, currency, canEdit = true, canDelete = true, overlay = false, selectMode = false, selected = false, onToggleSelect }) {
   const t = useT();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: deal._id, disabled: selectMode });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 };
@@ -72,6 +72,15 @@ function DealCard({ deal, isLead, onEdit, onDelete, onMove, onClaim, currency, c
           title={t('deals.moveToFunnel')}
           className="p-1 rounded hover:bg-primary-50 text-ink-tertiary hover:text-primary-600 transition-colors">
           <Layers className="w-3 h-3" />
+        </button>
+      )}
+      {canEdit && (
+        <button
+          onPointerDown={e => { e.stopPropagation(); e.preventDefault(); }}
+          onClick={e => { e.stopPropagation(); e.preventDefault(); onArchive(deal); }}
+          title="Arxivlash"
+          className="p-1 rounded hover:bg-amber-50 text-ink-tertiary hover:text-amber-600 transition-colors">
+          <Archive className="w-3 h-3" />
         </button>
       )}
       {canDelete && (
@@ -212,7 +221,7 @@ function DealCard({ deal, isLead, onEdit, onDelete, onMove, onClaim, currency, c
 }
 
 /* ── Stage column (droppable) ── */
-function StageColumn({ stage, deals, onOpen, onDelete, onMove, onClaim, onQuickAdd, currency, isFirst, canCreate = true, canEdit = true, canDelete = true, selectMode = false, selectedIds, onToggleSelect, onSelectAllStage }) {
+function StageColumn({ stage, deals, onOpen, onDelete, onMove, onArchive, onClaim, onQuickAdd, currency, isFirst, canCreate = true, canEdit = true, canDelete = true, selectMode = false, selectedIds, onToggleSelect, onSelectAllStage }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage._id });
   const total = deals.reduce((s, d) => s + (d.value || 0), 0);
   const stageAllSelected = selectMode && deals.length > 0 && deals.every(d => selectedIds?.has(d._id));
@@ -259,7 +268,7 @@ function StageColumn({ stage, deals, onOpen, onDelete, onMove, onClaim, onQuickA
       >
         <SortableContext items={deals.map(d => d._id)} strategy={verticalListSortingStrategy}>
           {deals.map(deal => (
-            <DealCard key={deal._id} deal={deal} isLead={isFirst} currency={currency} onEdit={() => onOpen(deal._id)} onDelete={onDelete} onMove={onMove} onClaim={onClaim}
+            <DealCard key={deal._id} deal={deal} isLead={isFirst} currency={currency} onEdit={() => onOpen(deal._id)} onDelete={onDelete} onMove={onMove} onArchive={onArchive} onClaim={onClaim}
               canEdit={canEdit} canDelete={canDelete}
               selectMode={selectMode} selected={selectedIds?.has(deal._id)} onToggleSelect={onToggleSelect} />
           ))}
@@ -771,7 +780,7 @@ function DealArchiveModal({ funnelId, stages, onClose, onRestored, canEdit = tru
               {deals.map(deal => (
                 <div key={deal._id} className="flex items-start gap-3 p-3 border border-surface-100 rounded-xl">
                   <button
-                    onClick={() => { onClose(); navigate(`/funnel/${funnelId}/deal/${deal._id}`); }}
+                    onClick={() => { onClose(); navigate(`/funnel/${funnelId}/deal/${deal._id}`, { state: { fromArchive: true } }); }}
                     className="flex-1 min-w-0 text-left hover:bg-surface-50 -m-1 p-1 rounded-lg transition-colors"
                     title="Sdelkani ochish"
                   >
@@ -813,6 +822,7 @@ function DealArchiveModal({ funnelId, stages, onClose, onRestored, canEdit = tru
 
 export default function FunnelPage({ funnelId }) {
   const navigate  = useNavigate();
+  const location  = useLocation();
   const dispatch  = useDispatch();
   const t = useT();
   const currency  = useSelector(s => s.auth.user?.organization?.currency || 'UZS');
@@ -850,7 +860,7 @@ export default function FunnelPage({ funnelId }) {
   const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
   const [bulkDeleting,      setBulkDeleting]      = useState(false);
   const [bulkArchiving,     setBulkArchiving]     = useState(false);
-  const [bulkArchiveOpen,   setBulkArchiveOpen]   = useState(false);
+  const [archiveTargetIds,  setArchiveTargetIds]  = useState(null); // null = yopiq; array = ochiq (1 yoki ko'p lid)
   const [bulkArchiveReason, setBulkArchiveReason] = useState('');
   const [bulkAssigning,     setBulkAssigning]     = useState(false);
   const [showArchive,       setShowArchive]       = useState(false);
@@ -918,6 +928,15 @@ export default function FunnelPage({ funnelId }) {
   }, [funnelId]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Arxivdagi lidni ochib, "orqaga" bosilganda — arxiv oynasi qayta ochilsin
+  useEffect(() => {
+    if (location.state?.openArchive) {
+      setShowArchive(true);
+      navigate(location.pathname, { replace: true, state: null });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state]);
 
   /* Excel eksport */
   const handleExport = async () => {
@@ -1229,23 +1248,28 @@ export default function FunnelPage({ funnelId }) {
     }
   };
 
-  // Ommaviy: tanlangan lidlarni arxivlash — sabab (izoh) so'ralgandan keyin
+  // Arxivlash — bitta kartochkadan ("Tanlash" rejimisiz) yoki tanlangan bir nechtasidan,
+  // ikkalasida ham sabab (izoh) so'raladi
   const openBulkArchiveModal = () => {
     if (selectedIds.size === 0) return;
     setBulkArchiveReason('');
-    setBulkArchiveOpen(true);
+    setArchiveTargetIds([...selectedIds]);
+  };
+  const openSingleArchiveModal = (deal) => {
+    setBulkArchiveReason('');
+    setArchiveTargetIds([deal._id]);
   };
   const handleBulkArchive = async () => {
-    if (selectedIds.size === 0 || !bulkArchiveReason.trim()) return;
+    if (!archiveTargetIds?.length || !bulkArchiveReason.trim()) return;
     setBulkArchiving(true);
     try {
       const res = await axios.post(`${API}/funnels/${funnelId}/deals/bulk-archive`, {
-        dealIds: [...selectedIds], archived: true, reason: bulkArchiveReason.trim(),
+        dealIds: archiveTargetIds, archived: true, reason: bulkArchiveReason.trim(),
       });
-      const archivedIds = selectedIds;
+      const archivedIds = new Set(archiveTargetIds);
       setDeals(prev => prev.filter(d => !archivedIds.has(d._id)));
       toast.success(`${res.data.updated} ta lid arxivlandi${res.data.skipped ? `, ${res.data.skipped} tasi o'tkazib yuborildi` : ''}`);
-      setBulkArchiveOpen(false);
+      setArchiveTargetIds(null);
       exitSelectMode();
     } catch (e) {
       toast.error(e.response?.data?.message || 'Xato');
@@ -1549,6 +1573,7 @@ export default function FunnelPage({ funnelId }) {
                   onOpen={(dealId) => navigate(`/funnel/${funnelId}/deal/${dealId}`)}
                   onDelete={handleDeleteDeal}
                   onMove={openMoveModal}
+                  onArchive={openSingleArchiveModal}
                   onClaim={handleClaimDeal}
                   onQuickAdd={setQuickStageId}
                   canCreate={canCreate} canEdit={canEdit} canDelete={canDelete}
@@ -1718,15 +1743,15 @@ export default function FunnelPage({ funnelId }) {
         </div>
       )}
 
-      {/* Ommaviy: arxivlash sababi modal */}
-      {bulkArchiveOpen && (
+      {/* Arxivlash sababi modal — bitta yoki bir nechta lid */}
+      {archiveTargetIds && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
           <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
             <p className="text-base font-semibold text-ink mb-1 flex items-center gap-2">
               <Archive className="w-4 h-4" /> Arxivlash
             </p>
             <p className="text-sm text-ink-tertiary mb-4">
-              <span className="font-medium text-ink">{selectedIds.size} ta lid</span> arxivlanadi
+              <span className="font-medium text-ink">{archiveTargetIds.length} ta lid</span> arxivlanadi
             </p>
 
             <label className="block text-xs font-medium text-ink-secondary mb-1">Sabab (izoh) *</label>
@@ -1740,7 +1765,7 @@ export default function FunnelPage({ funnelId }) {
             />
 
             <div className="flex gap-2">
-              <button onClick={() => setBulkArchiveOpen(false)} className="btn-md btn-secondary flex-1">{t('deals.cancel')}</button>
+              <button onClick={() => setArchiveTargetIds(null)} className="btn-md btn-secondary flex-1">{t('deals.cancel')}</button>
               <button
                 onClick={handleBulkArchive}
                 disabled={!bulkArchiveReason.trim() || bulkArchiving}

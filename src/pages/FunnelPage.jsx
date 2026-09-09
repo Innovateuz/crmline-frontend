@@ -839,6 +839,8 @@ export default function FunnelPage({ funnelId }) {
   const [sortBy, setSortBy] = useState(''); // '' = standart (surish tartibi)
   const [filterSource, setFilterSource] = useState('');         // '' = hammasi, '__none__' = manbasiz
   const [filterCF,     setFilterCF]     = useState({});          // { [fieldId]: value } — dropdown/multiselect custom maydonlar
+  const [filterDateFrom, setFilterDateFrom] = useState(''); // yaratilgan sana bo'yicha filtr — dan
+  const [filterDateTo,   setFilterDateTo]   = useState(''); // yaratilgan sana bo'yicha filtr — gacha
   const [dealSources,  setDealSources]  = useState([]);
   const [cfSections,   setCfSections]   = useState([]);
   const [pendingMove, setPendingMove] = useState(null);
@@ -1016,6 +1018,9 @@ export default function FunnelPage({ funnelId }) {
     deals.map(d => d.source).filter(v => v && !dealSources.some(s => String(s._id) === String(v) || s.name === v))
   )];
 
+  /* Filtrsiz (faqat arxivlanmagan) jami sdelkalar soni — yuqoridagi hisoblagich uchun */
+  const totalActiveDealsCount = deals.filter(d => !d.archived).length;
+
   /* Search + mas'ul + manba + custom maydon filtrlari */
   const q = search.trim().toLowerCase();
   const cfActive = Object.entries(filterCF).filter(([, v]) => v);
@@ -1041,6 +1046,13 @@ export default function FunnelPage({ funnelId }) {
         }
         if (Array.isArray(cv) ? !cv.map(String).includes(val) : String(cv ?? '') !== val) return false;
       }
+      return true;
+    })
+    .filter(d => {
+      if (!filterDateFrom && !filterDateTo) return true;
+      const created = new Date(d.createdAt);
+      if (filterDateFrom && created < new Date(`${filterDateFrom}T00:00:00`)) return false;
+      if (filterDateTo && created > new Date(`${filterDateTo}T23:59:59.999`)) return false;
       return true;
     });
 
@@ -1348,6 +1360,11 @@ export default function FunnelPage({ funnelId }) {
             >
               <ChevronDown className={`w-4 h-4 transition-transform ${toolbarOpen ? 'rotate-180' : ''}`} />
             </button>
+            <span className="text-xs font-medium text-ink-tertiary bg-surface-100 px-2 py-0.5 rounded-full whitespace-nowrap">
+              {filteredDeals.length !== totalActiveDealsCount
+                ? `${filteredDeals.length} / ${totalActiveDealsCount} ta sdelka`
+                : `${totalActiveDealsCount} ta sdelka`}
+            </span>
           </div>
           <div className="flex items-center gap-2 flex-wrap justify-end">
             {canEdit && (
@@ -1506,6 +1523,24 @@ export default function FunnelPage({ funnelId }) {
                 <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-ink-disabled pointer-events-none" />
               </div>
             ))}
+
+            {/* Yaratilgan sana bo'yicha filtr */}
+            <div className="flex items-center gap-1.5 shrink-0 bg-surface-50 border border-surface-200 rounded-xl px-2.5 py-1.5">
+              <Calendar className="w-3.5 h-3.5 text-ink-disabled shrink-0" />
+              <input type="date" title="Yaratilgan sana — dan"
+                className="bg-transparent text-sm text-ink outline-none border-0 focus:outline-none focus:ring-0 w-[128px]"
+                value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)} />
+              <span className="text-ink-disabled">—</span>
+              <input type="date" title="Yaratilgan sana — gacha"
+                className="bg-transparent text-sm text-ink outline-none border-0 focus:outline-none focus:ring-0 w-[128px]"
+                value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} />
+              {(filterDateFrom || filterDateTo) && (
+                <button onClick={() => { setFilterDateFrom(''); setFilterDateTo(''); }}
+                  className="text-ink-tertiary hover:text-ink shrink-0">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
           </div>
         )}
       </div>

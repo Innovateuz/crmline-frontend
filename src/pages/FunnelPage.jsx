@@ -1498,6 +1498,16 @@ export default function FunnelPage({ funnelId }) {
               </button>
             )}
             <button
+              onClick={() => setShowClosed(v => !v)}
+              title={t('funnel.showClosed')}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium border transition-colors ${
+                showClosed ? 'border-primary-300 bg-primary-50 text-primary-600' : 'border-surface-200 text-ink-secondary hover:border-surface-300 hover:text-ink'
+              }`}
+            >
+              <Trophy className="w-4 h-4" />
+              <span className="hidden sm:inline">{t('funnel.showClosed')}</span>
+            </button>
+            <button
               onClick={() => setShowStats(v => !v)}
               title="Statistika"
               className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium border transition-colors ${
@@ -1635,11 +1645,11 @@ export default function FunnelPage({ funnelId }) {
             {/* Yaratilgan sana bo'yicha filtr */}
             <div className="flex items-center gap-1.5 shrink-0 bg-surface-50 border border-surface-200 rounded-xl px-2.5 py-1.5">
               <Calendar className="w-3.5 h-3.5 text-ink-disabled shrink-0" />
-              <input type="date" title="Yaratilgan sana — dan"
+              <input type="date" title={t('funnel.dateFrom')}
                 className="bg-transparent text-sm text-ink outline-none border-0 focus:outline-none focus:ring-0 w-[128px]"
                 value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)} />
               <span className="text-ink-disabled">—</span>
-              <input type="date" title="Yaratilgan sana — gacha"
+              <input type="date" title={t('funnel.dateTo')}
                 className="bg-transparent text-sm text-ink outline-none border-0 focus:outline-none focus:ring-0 w-[128px]"
                 value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} />
               {(filterDateFrom || filterDateTo) && (
@@ -1650,12 +1660,6 @@ export default function FunnelPage({ funnelId }) {
               )}
             </div>
 
-            {/* Yopilgan (g'olib/yo'qotilgan) sdelkalarni ko'rsatish — odatiy holatda yashiringan */}
-            <label className="flex items-center gap-1.5 shrink-0 bg-surface-50 border border-surface-200 rounded-xl px-2.5 py-1.5 cursor-pointer select-none text-sm text-ink-secondary">
-              <input type="checkbox" checked={showClosed} onChange={e => setShowClosed(e.target.checked)}
-                className="w-3.5 h-3.5 rounded border-surface-300" />
-              Yopilganlarni ko'rsatish
-            </label>
           </div>
         )}
       </div>

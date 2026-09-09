@@ -17,7 +17,7 @@ import {
   SortableContext, useSortable, verticalListSortingStrategy, arrayMove,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Plus, X, Loader2, Check, User, UserCheck, Phone, DollarSign, Pencil, Trash2, Search, Clock, Calendar, Download, Upload, Layers, ChevronDown, BarChart2, Tag, GitBranch, Archive, ArchiveRestore, ArrowUpDown } from 'lucide-react';
+import { Plus, X, Loader2, Check, User, UserCheck, Phone, DollarSign, Pencil, Trash2, Search, Clock, Calendar, Download, Upload, Layers, ChevronDown, BarChart2, Tag, GitBranch, Archive, ArchiveRestore, ArrowUpDown, Trophy, XCircle, RotateCcw } from 'lucide-react';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:5002/api';
 
@@ -215,6 +215,70 @@ function DealCard({ deal, isLead, onEdit, onDelete, onMove, onArchive, onClaim, 
           if (!isDragging && !e.defaultPrevented) onEdit(deal);
         }}>
         <div className={selectMode && selected ? 'ring-2 ring-primary-400 rounded-xl' : ''}>{card}</div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Yopilgan sdelka kartochkasi ("G'olib"/"Yo'qotilgan" ustunlarida) — drag yo'q,
+   o'rniga "Qayta faollashtirish" tugmasi bilan istalgan voronka/bosqichga qaytariladi ── */
+function ClosedDealCard({ deal, currency, onOpen, onReactivate, canEdit = true }) {
+  return (
+    <div className="bg-white rounded-xl border border-surface-200 shadow-card overflow-hidden">
+      <div className={`h-1 w-full ${deal.status === 'won' ? 'bg-emerald-400' : 'bg-red-400'}`} />
+      <div className="p-3 cursor-pointer" onClick={() => onOpen(deal)}>
+        <p className="text-sm font-bold text-ink leading-tight mb-1.5">{deal.title}</p>
+        {deal.contact?.phone && (
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <Phone className="w-3 h-3 text-ink-tertiary shrink-0" />
+            <span className="text-xs text-ink-secondary font-medium">{deal.contact.phone}</span>
+          </div>
+        )}
+        {deal.value > 0 && (
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <DollarSign className="w-3 h-3 text-primary-500 shrink-0" />
+            <span className="text-xs font-bold text-primary-700">{fmt(deal.value)} {currency}</span>
+          </div>
+        )}
+        {deal.closeReason && (
+          <p className="text-xs text-ink-tertiary bg-surface-50 rounded-lg px-2 py-1 mt-1.5 line-clamp-2">{deal.closeReason}</p>
+        )}
+      </div>
+      {canEdit && (
+        <button
+          onClick={e => { e.stopPropagation(); onReactivate(deal); }}
+          className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium text-primary-600 border-t border-surface-100 hover:bg-primary-50 transition-colors"
+        >
+          <RotateCcw className="w-3.5 h-3.5" /> Qayta faollashtirish
+        </button>
+      )}
+    </div>
+  );
+}
+
+/* ── "G'olib" / "Yo'qotilgan" ustuni (drag'siz, statik) ── */
+function ClosedColumn({ label, color, icon: Icon, deals, currency, onOpen, onReactivate, canEdit }) {
+  const total = deals.reduce((s, d) => s + (d.value || 0), 0);
+  return (
+    <div className="flex flex-col w-80 shrink-0 h-full">
+      <div className="text-center mb-3 px-2">
+        <div className="flex items-center justify-center gap-2 mb-1">
+          <Icon className="w-3.5 h-3.5 shrink-0" style={{ color }} />
+          <span className="font-bold text-sm text-ink truncate">{label}</span>
+        </div>
+        <span className="text-xs text-ink-tertiary">
+          <span className="font-semibold" style={{ color }}>{deals.length}</span> sdelka
+          {total > 0 && <span className="ml-1">• <span className="font-semibold">{fmt(total)} {currency}</span></span>}
+        </span>
+      </div>
+      <div className="flex-1 rounded-xl p-2 space-y-2 overflow-y-auto bg-surface-100">
+        {deals.length === 0 ? (
+          <p className="text-xs text-ink-disabled text-center py-6">Bo'sh</p>
+        ) : (
+          deals.map(deal => (
+            <ClosedDealCard key={deal._id} deal={deal} currency={currency} onOpen={onOpen} onReactivate={onReactivate} canEdit={canEdit} />
+          ))
+        )}
       </div>
     </div>
   );
@@ -844,6 +908,11 @@ export default function FunnelPage({ funnelId }) {
   // Yopilgan (g'olib/yo'qotilgan) sdelkalar odatiy holatda taxtadan yashiringan —
   // amoCRM'dagi kabi, faqat shu belgi yoqilsa ko'rinadi.
   const [showClosed, setShowClosed] = useState(false);
+  // Yopilgan sdelkani qayta faollashtirish — istalgan voronka/bosqichga qaytarish
+  const [reactivateDeal,     setReactivateDeal]     = useState(null);
+  const [reactivateFunnelId, setReactivateFunnelId] = useState('');
+  const [reactivateStageId,  setReactivateStageId]  = useState('');
+  const [reactivating,       setReactivating]       = useState(false);
   const [dealSources,  setDealSources]  = useState([]);
   const [cfSections,   setCfSections]   = useState([]);
   const [pendingMove, setPendingMove] = useState(null);
@@ -1022,14 +1091,13 @@ export default function FunnelPage({ funnelId }) {
   )];
 
   /* Filtrsiz (faqat arxivlanmagan) jami sdelkalar soni — yuqoridagi hisoblagich uchun */
-  const totalActiveDealsCount = deals.filter(d => !d.archived).length;
+  const totalDealsCount = deals.filter(d => !d.archived).length;
 
   /* Search + mas'ul + manba + custom maydon filtrlari */
   const q = search.trim().toLowerCase();
   const cfActive = Object.entries(filterCF).filter(([, v]) => v);
   const filteredDeals = deals
     .filter(d => !d.archived)
-    .filter(d => showClosed || d.status === 'active')
     .filter(d => !q ||
         d.title.toLowerCase().includes(q) ||
         d.contact?.name?.toLowerCase().includes(q) ||
@@ -1073,11 +1141,17 @@ export default function FunnelPage({ funnelId }) {
     }
   };
 
-  /* Group deals by stage */
+  /* Group deals by stage — faqat faol sdelkalar (yopilganlar "Yopilganlarni ko'rsatish"
+     yoqilganda alohida G'olib/Yo'qotilgan ustunlarida ko'rinadi, pastga qarang) */
   const dealsByStage = (funnel?.stages || []).reduce((acc, s) => {
-    acc[s._id] = filteredDeals.filter(d => String(d.stageId) === String(s._id)).sort(sortDeals);
+    acc[s._id] = filteredDeals.filter(d => d.status === 'active' && String(d.stageId) === String(s._id)).sort(sortDeals);
     return acc;
   }, {});
+
+  /* Yopilgan sdelkalar — "Yopilganlarni ko'rsatish" yoqilganda, bosqichidan qat'i
+     nazar, holatiga (g'olib/yo'qotilgan) qarab ikkita ustunga yig'iladi */
+  const closedWonDeals  = filteredDeals.filter(d => d.status === 'won').sort(sortDeals);
+  const closedLostDeals = filteredDeals.filter(d => d.status === 'lost').sort(sortDeals);
 
   const activeDeal = activeId ? deals.find(d => d._id === activeId) : null;
 
@@ -1214,6 +1288,36 @@ export default function FunnelPage({ funnelId }) {
       toast.error(e.response?.data?.message || 'Xato');
     } finally {
       setMovingFunnel(false);
+    }
+  };
+
+  // Yopilgan sdelkani qayta faollashtirish — istalgan voronka (shu joriysi ham
+  // bo'lishi mumkin) va bosqichga qaytariladi
+  const reactivateTargetFunnel = allFunnelNames.find(f => String(f._id) === String(reactivateFunnelId));
+  const openReactivateModal = (deal) => {
+    setReactivateDeal(deal);
+    setReactivateFunnelId(String(funnelId));
+    setReactivateStageId('');
+  };
+  const handleReactivate = async () => {
+    if (!reactivateDeal || !reactivateFunnelId || !reactivateStageId) return;
+    setReactivating(true);
+    try {
+      if (String(reactivateFunnelId) === String(funnelId)) {
+        const res = await axios.put(`${API}/funnels/${funnelId}/deals/${reactivateDeal._id}`, { stageId: reactivateStageId });
+        setDeals(prev => prev.map(d => d._id === reactivateDeal._id ? res.data.deal : d));
+      } else {
+        await axios.post(`${API}/funnels/${funnelId}/deals/${reactivateDeal._id}/move`, {
+          targetFunnelId: reactivateFunnelId, targetStageId: reactivateStageId,
+        });
+        setDeals(prev => prev.filter(d => d._id !== reactivateDeal._id));
+      }
+      toast.success('Qayta faollashtirildi');
+      setReactivateDeal(null);
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Xato');
+    } finally {
+      setReactivating(false);
     }
   };
 
@@ -1365,9 +1469,9 @@ export default function FunnelPage({ funnelId }) {
               <ChevronDown className={`w-4 h-4 transition-transform ${toolbarOpen ? 'rotate-180' : ''}`} />
             </button>
             <span className="text-xs font-medium text-ink-tertiary bg-surface-100 px-2 py-0.5 rounded-full whitespace-nowrap">
-              {filteredDeals.length !== totalActiveDealsCount
-                ? `${filteredDeals.length} / ${totalActiveDealsCount} ta sdelka`
-                : `${totalActiveDealsCount} ta sdelka`}
+              {filteredDeals.length !== totalDealsCount
+                ? `${filteredDeals.length} / ${totalDealsCount} ta sdelka`
+                : `${totalDealsCount} ta sdelka`}
             </span>
           </div>
           <div className="flex items-center gap-2 flex-wrap justify-end">
@@ -1639,6 +1743,17 @@ export default function FunnelPage({ funnelId }) {
           <p>Bu varonkada bosqichlar yo'q</p>
           <p className="text-xs">Sozlamalar → Varonkalar dan bosqich qo'shing</p>
         </div>
+      ) : showClosed ? (
+        <div ref={boardRef} className="flex-1 overflow-x-auto overflow-y-hidden">
+          <div className="flex gap-4 h-full px-6 py-5 items-stretch justify-center">
+            <ClosedColumn label="G'olib" color="#10b981" icon={Trophy} deals={closedWonDeals} currency={currency}
+              onOpen={(deal) => navigate(`/funnel/${funnelId}/deal/${deal._id}`)}
+              onReactivate={openReactivateModal} canEdit={canEdit} />
+            <ClosedColumn label="Yo'qotilgan" color="#ef4444" icon={XCircle} deals={closedLostDeals} currency={currency}
+              onOpen={(deal) => navigate(`/funnel/${funnelId}/deal/${deal._id}`)}
+              onReactivate={openReactivateModal} canEdit={canEdit} />
+          </div>
+        </div>
       ) : (
         <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
           <div ref={boardRef} className="flex-1 overflow-x-auto overflow-y-hidden">
@@ -1772,6 +1887,52 @@ export default function FunnelPage({ funnelId }) {
               >
                 {movingFunnel && <Loader2 className="w-4 h-4 animate-spin" />}
                 {t('deals.moveSubmit')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Yopilgan sdelkani qayta faollashtirish modal */}
+      {reactivateDeal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
+            <p className="text-base font-semibold text-ink mb-1 flex items-center gap-2">
+              <RotateCcw className="w-4 h-4 text-primary-600" /> Qayta faollashtirish
+            </p>
+            <p className="text-sm text-ink-tertiary mb-4">
+              <span className="font-medium text-ink">{reactivateDeal.title}</span>
+            </p>
+
+            <label className="block text-xs font-medium text-ink-secondary mb-1">{t('deals.moveFunnelLabel')}</label>
+            <select
+              className="input w-full mb-3"
+              value={reactivateFunnelId}
+              onChange={e => { setReactivateFunnelId(e.target.value); setReactivateStageId(''); }}
+            >
+              {allFunnelNames.map(f => <option key={f._id} value={f._id}>{f.name}{String(f._id) === String(funnelId) ? ` (${funnel.name})` : ''}</option>)}
+            </select>
+
+            <label className="block text-xs font-medium text-ink-secondary mb-1">{t('deals.stage')}</label>
+            <select
+              className="input w-full mb-5"
+              value={reactivateStageId}
+              onChange={e => setReactivateStageId(e.target.value)}
+              disabled={!reactivateTargetFunnel}
+            >
+              <option value="">{t('deals.moveStagePlaceholder')}</option>
+              {(reactivateTargetFunnel?.stages || []).map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
+            </select>
+
+            <div className="flex gap-2">
+              <button onClick={() => setReactivateDeal(null)} className="btn-md btn-secondary flex-1">{t('deals.cancel')}</button>
+              <button
+                onClick={handleReactivate}
+                disabled={!reactivateFunnelId || !reactivateStageId || reactivating}
+                className="btn-md btn-primary flex-1 flex items-center justify-center gap-2"
+              >
+                {reactivating && <Loader2 className="w-4 h-4 animate-spin" />}
+                Qaytarish
               </button>
             </div>
           </div>

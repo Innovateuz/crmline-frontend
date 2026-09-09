@@ -1478,23 +1478,23 @@ export default function FunnelPage({ funnelId }) {
             {canEdit && (
               <button
                 onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))}
-                title="Ommaviy tanlash"
+                title={t('funnel.bulkSelectTitle')}
                 className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium border transition-colors ${
                   selectMode ? 'border-primary-300 bg-primary-50 text-primary-600' : 'border-surface-200 text-ink-secondary hover:border-surface-300 hover:text-ink'
                 }`}
               >
                 <Check className="w-4 h-4" />
-                <span className="hidden sm:inline">{selectMode ? 'Bekor qilish' : 'Tanlash'}</span>
+                <span className="hidden sm:inline">{selectMode ? t('funnel.selectCancel') : t('funnel.select')}</span>
               </button>
             )}
             {canEdit && (
               <button
                 onClick={() => setShowArchive(true)}
-                title="Arxiv"
+                title={t('funnel.archiveBtn')}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium border border-surface-200 text-ink-secondary hover:border-surface-300 hover:text-ink transition-colors"
               >
                 <Archive className="w-4 h-4" />
-                <span className="hidden sm:inline">Arxiv</span>
+                <span className="hidden sm:inline">{t('funnel.archiveBtn')}</span>
               </button>
             )}
             <button
@@ -1509,13 +1509,13 @@ export default function FunnelPage({ funnelId }) {
             </button>
             <button
               onClick={() => setShowStats(v => !v)}
-              title="Statistika"
+              title={t('funnel.statsBtn')}
               className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium border transition-colors ${
                 showStats ? 'border-primary-300 bg-primary-50 text-primary-600' : 'border-surface-200 text-ink-secondary hover:border-surface-300 hover:text-ink'
               }`}
             >
               <BarChart2 className="w-4 h-4" />
-              <span className="hidden sm:inline">Statistika</span>
+              <span className="hidden sm:inline">{t('funnel.statsBtn')}</span>
             </button>
             <button
               onClick={() => navigate('/funnel/journey-analytics')}

@@ -1442,17 +1442,18 @@ export default function FunnelPage({ funnelId }) {
             <div className="relative shrink-0">
               <ArrowUpDown className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-ink-disabled pointer-events-none" />
               <select
+                title={t('funnel.sortLabel')}
                 className="pl-8 pr-8 py-2 text-sm bg-surface-50 border border-surface-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-300 appearance-none"
                 value={sortBy}
                 onChange={e => setSortBy(e.target.value)}
               >
-                <option value="">Standart (surish tartibi)</option>
-                <option value="created_asc">Eski - yangi (yaratilgani bo'yicha)</option>
-                <option value="created_desc">Yangi - eski (yaratilgani bo'yicha)</option>
-                <option value="updated_asc">Eski - yangi (statusi o'zgargani bo'yicha)</option>
-                <option value="updated_desc">Yangi - eski (statusi o'zgargani bo'yicha)</option>
-                <option value="title_asc">A - Z</option>
-                <option value="title_desc">Z - A</option>
+                <option value="">{t('funnel.sortManual')}</option>
+                <option value="created_asc">{t('funnel.sortCreatedAsc')}</option>
+                <option value="created_desc">{t('funnel.sortCreatedDesc')}</option>
+                <option value="updated_asc">{t('funnel.sortUpdatedAsc')}</option>
+                <option value="updated_desc">{t('funnel.sortUpdatedDesc')}</option>
+                <option value="title_asc">{t('funnel.sortTitleAsc')}</option>
+                <option value="title_desc">{t('funnel.sortTitleDesc')}</option>
               </select>
               <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-ink-disabled pointer-events-none" />
             </div>

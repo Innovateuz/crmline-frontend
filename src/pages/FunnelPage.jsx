@@ -841,6 +841,9 @@ export default function FunnelPage({ funnelId }) {
   const [filterCF,     setFilterCF]     = useState({});          // { [fieldId]: value } — dropdown/multiselect custom maydonlar
   const [filterDateFrom, setFilterDateFrom] = useState(''); // yaratilgan sana bo'yicha filtr — dan
   const [filterDateTo,   setFilterDateTo]   = useState(''); // yaratilgan sana bo'yicha filtr — gacha
+  // Yopilgan (g'olib/yo'qotilgan) sdelkalar odatiy holatda taxtadan yashiringan —
+  // amoCRM'dagi kabi, faqat shu belgi yoqilsa ko'rinadi.
+  const [showClosed, setShowClosed] = useState(false);
   const [dealSources,  setDealSources]  = useState([]);
   const [cfSections,   setCfSections]   = useState([]);
   const [pendingMove, setPendingMove] = useState(null);
@@ -1026,6 +1029,7 @@ export default function FunnelPage({ funnelId }) {
   const cfActive = Object.entries(filterCF).filter(([, v]) => v);
   const filteredDeals = deals
     .filter(d => !d.archived)
+    .filter(d => showClosed || d.status === 'active')
     .filter(d => !q ||
         d.title.toLowerCase().includes(q) ||
         d.contact?.name?.toLowerCase().includes(q) ||
@@ -1541,6 +1545,13 @@ export default function FunnelPage({ funnelId }) {
                 </button>
               )}
             </div>
+
+            {/* Yopilgan (g'olib/yo'qotilgan) sdelkalarni ko'rsatish — odatiy holatda yashiringan */}
+            <label className="flex items-center gap-1.5 shrink-0 bg-surface-50 border border-surface-200 rounded-xl px-2.5 py-1.5 cursor-pointer select-none text-sm text-ink-secondary">
+              <input type="checkbox" checked={showClosed} onChange={e => setShowClosed(e.target.checked)}
+                className="w-3.5 h-3.5 rounded border-surface-300" />
+              Yopilganlarni ko'rsatish
+            </label>
           </div>
         )}
       </div>

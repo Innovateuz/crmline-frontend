@@ -108,6 +108,42 @@ function DealCallRow({ call }) {
   );
 }
 
+const CALL_STATUS = {
+  ringing:   { label: 'Jiringlagan',        cls: 'bg-amber-50 text-amber-600' },
+  active:    { label: 'Faol',               cls: 'bg-emerald-50 text-emerald-600' },
+  completed: { label: 'Gaplashildi',        cls: 'bg-surface-100 text-ink-tertiary' },
+  missed:    { label: "O'tkazib yuborilgan", cls: 'bg-red-50 text-red-500' },
+  cancelled: { label: 'Bekor qilindi',      cls: 'bg-surface-100 text-ink-disabled' },
+};
+
+// Faoliyat tarixida (izohlar bilan bir qatorda, xronologik tartibda) ko'rinadigan
+// qo'ng'iroq — Kontakt sahifasidagi CallItem bilan bir xil ko'rinish.
+function CallItem({ call }) {
+  const isMissed = call.status === 'missed' || call.status === 'cancelled';
+  const isOut    = call.direction === 'out';
+  const Icon = isMissed ? PhoneMissed : isOut ? PhoneOutgoing : PhoneIncoming;
+  const iconCls = isMissed ? 'text-red-400' : isOut ? 'text-blue-400' : 'text-emerald-500';
+  const st = CALL_STATUS[call.status] || CALL_STATUS.completed;
+  return (
+    <div className="flex items-start gap-2.5 py-1">
+      <div className="w-7 h-7 rounded-full bg-surface-100 flex items-center justify-center shrink-0 mt-1">
+        <Icon className={`w-3.5 h-3.5 ${iconCls}`} />
+      </div>
+      <div className="flex-1 min-w-0 bg-white rounded-2xl rounded-tl-sm px-3.5 py-2.5 border border-surface-100">
+        <div className="flex items-center gap-2 flex-wrap mb-0.5">
+          <span className="text-xs font-semibold text-ink">
+            {isOut ? 'Chiquvchi' : 'Kiruvchi'} qo'ng'iroq
+          </span>
+          <span className={`text-[10px] font-medium px-1.5 py-px rounded-full ${st.cls}`}>{st.label}</span>
+          {call.duration ? <span className="text-[11px] text-ink-tertiary font-mono">{fmtCallDuration(call.duration)}</span> : null}
+        </div>
+        <p className="text-[11px] text-ink-tertiary">{fmtCallDateTime(call.startedAt || call.createdAt)}{call.ext ? ` · Ext: ${call.ext}` : ''}</p>
+        {call.recordingUrl && <div className="mt-1.5"><CallRecordingPlayer url={call.recordingUrl} /></div>}
+      </div>
+    </div>
+  );
+}
+
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function CustomFieldInput({ field, value, onChange }) {
@@ -312,6 +348,7 @@ export default function DealDetailPage({ funnelId, dealId }) {
   const [contact,    setContact]    = useState('');
   const [source,     setSource]     = useState('');
   const [notes,      setNotes]      = useState('');
+  const notesRef = useRef(null);
 
   // Custom fields
   const [customFieldValues,    setCustomFieldValues]    = useState({});
@@ -499,6 +536,13 @@ export default function DealDetailPage({ funnelId, dealId }) {
     };
   }, [dealId, isNew]);
 
+  // Izoh maydoni — matn ko'p bo'lsa balandligi avtomatik o'sadi (o'qish qulay bo'lishi uchun)
+  useEffect(() => {
+    if (!notesRef.current) return;
+    notesRef.current.style.height = 'auto';
+    notesRef.current.style.height = Math.min(notesRef.current.scrollHeight, 320) + 'px';
+  }, [notes]);
+
   // Biriktirilgan kontaktning to'liq ma'lumotini tortib olish (200 talik ro'yxatga tayanmasdan)
   useEffect(() => {
     if (!contact) { setLinkedContact(null); return; }
@@ -509,9 +553,11 @@ export default function DealDetailPage({ funnelId, dealId }) {
       .finally(() => setLinkedContactLoading(false));
   }, [contact]);
 
-  // Statistika tab: qo'ng'iroqlarni deal va/yoki kontakt bo'yicha yuklash
+  // Qo'ng'iroqlarni deal va/yoki kontakt bo'yicha yuklash — Statistika tabidagi
+  // hisoblagichlar uchun ham, Asosiy tabdagi faoliyat tarixiga izohlar bilan bir
+  // qatorda (xronologik) aralashtirib ko'rsatish uchun ham kerak.
   useEffect(() => {
-    if (tab !== 'stats' || isNew) return;
+    if (isNew) return;
     const promises = [];
     if (dealId) promises.push(axios.get(`${API}/atc/calls`, { params: { deal: dealId, limit: 200 } }).then(r => r.data.calls || []));
     if (contact) promises.push(axios.get(`${API}/atc/calls`, { params: { contact, limit: 200 } }).then(r => r.data.calls || []));
@@ -522,7 +568,7 @@ export default function DealDetailPage({ funnelId, dealId }) {
       );
       setDealCalls(merged);
     }).catch(() => {});
-  }, [tab, contact, dealId, isNew]);
+  }, [contact, dealId, isNew]);
 
   // ── Save ─────────────────────────────────────────────────────────────────
   const handleSave = async () => {
@@ -1202,8 +1248,9 @@ export default function DealDetailPage({ funnelId, dealId }) {
                       <FileText className="w-3.5 h-3.5 text-ink-tertiary" />
                       <span className="text-sm text-ink">Izoh</span>
                     </div>
-                    <textarea rows={2}
-                      className="flex-1 min-w-0 text-sm text-ink bg-transparent border-0 outline-none focus:outline-none focus:ring-0 resize-none placeholder:text-ink-disabled"
+                    <textarea ref={notesRef} rows={2}
+                      className="flex-1 min-w-0 text-sm text-ink bg-transparent border-0 outline-none focus:outline-none focus:ring-0 resize-none leading-relaxed placeholder:text-ink-disabled"
+                      style={{ minHeight: '40px' }}
                       placeholder="Izoh yo'q"
                       value={notes} onChange={e => setNotes(e.target.value)} />
                   </div>
@@ -1853,7 +1900,7 @@ export default function DealDetailPage({ funnelId, dealId }) {
               <div className="flex items-center justify-center h-32">
                 <Loader2 className="w-5 h-5 animate-spin text-primary-600" />
               </div>
-            ) : activities.length === 0 ? (
+            ) : (activities.length === 0 && dealCalls.length === 0) ? (
               <div className="flex flex-col items-center justify-center h-full text-center">
                 <div className="w-14 h-14 bg-white border border-surface-100 rounded-2xl flex items-center justify-center mb-3">
                   <MessageSquare className="w-7 h-7 text-ink-disabled" />
@@ -1861,18 +1908,26 @@ export default function DealDetailPage({ funnelId, dealId }) {
                 <p className="text-sm font-medium text-ink-secondary">{t('deals.activityEmpty')}</p>
                 <p className="text-xs text-ink-tertiary mt-1">{t('deals.activityHint')}</p>
               </div>
-            ) : (
-              <div className="space-y-0.5">
-                {activities.map(a =>
-                  a.type === 'note'
-                    ? <NoteItem key={a._id} activity={a} onDelete={handleDeleteNote} currentUserId={meId} />
-                    : a.type === 'communication'
-                    ? <CommunicationItem key={a._id} activity={a} onDelete={handleDeleteNote} currentUserId={meId} />
-                    : <SystemEvent key={a._id} activity={a} />
-                )}
-                <div ref={bottomRef} />
-              </div>
-            )}
+            ) : (() => {
+              // Izohlar/bosqich o'zgarishlari va qo'ng'iroqlarni bitta xronologik oqimga aralashtiramiz
+              const actItems  = activities.map(a => ({ ...a, _feedType: 'activity', _ts: new Date(a.createdAt).getTime() }));
+              const callItems = dealCalls.map(c => ({ ...c, _feedType: 'call', _ts: new Date(c.startedAt || c.createdAt).getTime() }));
+              const merged = [...actItems, ...callItems].sort((a, b) => a._ts - b._ts);
+              return (
+                <div className="space-y-0.5">
+                  {merged.map(item =>
+                    item._feedType === 'call'
+                      ? <CallItem key={`call-${item._id}`} call={item} />
+                      : item.type === 'note'
+                      ? <NoteItem key={item._id} activity={item} onDelete={handleDeleteNote} currentUserId={meId} />
+                      : item.type === 'communication'
+                      ? <CommunicationItem key={item._id} activity={item} onDelete={handleDeleteNote} currentUserId={meId} />
+                      : <SystemEvent key={item._id} activity={item} />
+                  )}
+                  <div ref={bottomRef} />
+                </div>
+              );
+            })()}
           </div>
           {!isNew && (
             <div className="shrink-0 border-t border-surface-100 bg-white px-4 py-3">

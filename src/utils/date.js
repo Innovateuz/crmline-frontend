@@ -15,3 +15,14 @@ export function formatDateTime(d) {
   if (isNaN(x.getTime())) return '—';
   return `${pad(x.getDate())}.${pad(x.getMonth() + 1)}.${x.getFullYear()} ${pad(x.getHours())}:${pad(x.getMinutes())}`;
 }
+
+// ISO/Date -> "YYYY-MM-DDTHH:mm" (foydalanuvchining mahalliy vaqti bo'yicha) —
+// <input type="datetime-local">'ning value'i uchun. Aksincha yo'nalish uchun
+// oddiy `new Date(inputValue).toISOString()` yetarli — brauzer bu qatorni
+// avtomatik mahalliy vaqt deb o'qiydi.
+export function toDateTimeInputValue(d) {
+  if (!d) return '';
+  const x = new Date(d);
+  if (isNaN(x.getTime())) return '';
+  return `${x.getFullYear()}-${pad(x.getMonth() + 1)}-${pad(x.getDate())}T${pad(x.getHours())}:${pad(x.getMinutes())}`;
+}

@@ -7,6 +7,7 @@ import toast from 'react-hot-toast';
 import { useT } from '../utils/translate';
 import { useModalOpen } from '../utils/modalLock';
 import { mediaUrl, mediaDownloadUrl } from '../utils/media';
+import { toDateTimeInputValue } from '../utils/date';
 import { getSocket } from '../utils/socket';
 import { usePermissions } from '../utils/permissions';
 import {
@@ -256,7 +257,7 @@ function TaskCard({ task, onView, onEdit, onArchive, onDelete, canEdit = true, c
           <span className={`flex items-center gap-1 text-[10px] font-medium ${overdue ? 'text-red-500' : 'text-ink-tertiary'}`}>
             {overdue && <AlertCircle className="w-3 h-3" />}
             <Calendar className="w-3 h-3" />
-            {fmtDate(task.dueDate)}
+            {fmtDateTime(task.dueDate)}
           </span>
         )}
         {task.files?.length > 0 && (
@@ -391,7 +392,7 @@ function TaskModal({ initial, stages, users, allTags, onSave, onClose, saving, r
   const [additionalAssignees, setAdditionalAssignees] = useState(
     (initial?.additionalAssignees || []).map(u => u?._id || u)
   );
-  const [dueDate,     setDueDate]     = useState(initial?.dueDate ? initial.dueDate.slice(0, 10) : '');
+  const [dueDate,     setDueDate]     = useState(toDateTimeInputValue(initial?.dueDate));
   const [priority,    setPriority]    = useState(initial?.priority || 'normal');
   const [contactId,   setContactId]   = useState(initial?.contact?._id || initial?.contact || null);
   const [contactName, setContactName] = useState(initial?.contact?.name || '');
@@ -426,7 +427,7 @@ function TaskModal({ initial, stages, users, allTags, onSave, onClose, saving, r
       title, description, stageId, priority,
       assignedTo: assignedTo || null,
       additionalAssignees,
-      dueDate:    dueDate    || null,
+      dueDate:    dueDate ? new Date(dueDate).toISOString() : null,
       contact:    contactId  || null,
       tags,
       files,
@@ -565,7 +566,7 @@ function TaskModal({ initial, stages, users, allTags, onSave, onClose, saving, r
             </div>
             <div>
               <label className="block text-xs font-medium text-ink-tertiary mb-1">{t('tasks.dueDate')}</label>
-              <input type="date" className="input" value={dueDate} onChange={e => setDueDate(e.target.value)} />
+              <input type="datetime-local" className="input" value={dueDate} onChange={e => setDueDate(e.target.value)} />
             </div>
           </div>
 

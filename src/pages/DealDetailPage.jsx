@@ -744,7 +744,7 @@ export default function DealDetailPage({ funnelId, dealId }) {
         title:      newTaskTitle.trim(),
         stageId:    String(firstStage._id || firstStage.name),
         assignedTo: newTaskAssignee || null,
-        dueDate:    newTaskDueDate  || null,
+        dueDate:    newTaskDueDate ? new Date(newTaskDueDate).toISOString() : null,
         priority:   newTaskPriority,
         contact:    linkedContact?._id || null,
         deal:       dealId,
@@ -978,7 +978,7 @@ export default function DealDetailPage({ funnelId, dealId }) {
             <div className="grid grid-cols-2 gap-3 mb-5">
               <div>
                 <label className="block text-xs font-medium text-ink-secondary mb-1">{t('tasks.dueDate')}</label>
-                <input type="date" className="input w-full"
+                <input type="datetime-local" className="input w-full"
                   value={newTaskDueDate} onChange={e => setNewTaskDueDate(e.target.value)} />
               </div>
               <div>
@@ -1826,7 +1826,7 @@ export default function DealDetailPage({ funnelId, dealId }) {
                   )}
                   {dt.dueDate && (
                     <span className="text-[10px] text-ink-tertiary shrink-0 flex items-center gap-0.5">
-                      <Calendar className="w-3 h-3" />{new Date(dt.dueDate).toLocaleDateString('uz-UZ')}
+                      <Calendar className="w-3 h-3" />{new Date(dt.dueDate).toLocaleDateString('uz-UZ')} {new Date(dt.dueDate).toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' })}
                     </span>
                   )}
                   {canDeleteTask && (

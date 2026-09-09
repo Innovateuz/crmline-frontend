@@ -1187,9 +1187,26 @@ export default function DealDetailPage({ funnelId, dealId }) {
                         {dealSources.map(s => (
                           <option key={String(s._id)} value={String(s._id)}>{s.name}</option>
                         ))}
+                        {/* Import yoki eski yozuvlardan kelgan erkin matn (ro'yxatdagi manbalarga mos kelmasa) — aks holda
+                            select hech qaysi optionga mos kelmay "— Tanlanmagan —" ko'rsatib, mavjud qiymatni yashirib qo'yardi */}
+                        {source && !dealSources.some(s => String(s._id) === String(source)) && (
+                          <option value={source}>{source}</option>
+                        )}
                       </select>
                     </div>
                   )}
+
+                  {/* Notes / Izoh */}
+                  <div className="flex items-start gap-4 px-4 py-2.5">
+                    <div className="flex items-center gap-2 w-32 shrink-0 pt-0.5">
+                      <FileText className="w-3.5 h-3.5 text-ink-tertiary" />
+                      <span className="text-sm text-ink">Izoh</span>
+                    </div>
+                    <textarea rows={2}
+                      className="flex-1 min-w-0 text-sm text-ink bg-transparent border-0 outline-none focus:outline-none focus:ring-0 resize-none placeholder:text-ink-disabled"
+                      placeholder="Izoh yo'q"
+                      value={notes} onChange={e => setNotes(e.target.value)} />
+                  </div>
 
                   {/* Contact */}
                   <div className="flex items-center gap-4 px-4 py-2.5">

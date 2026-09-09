@@ -657,7 +657,7 @@ export default function ContactFormPage() {
 
   // ── Activity handlers ───────────────────────────────────────────────────────
   const handleSendNote = async () => {
-    if (!noteText.trim() || !isEdit) return;
+    if (!noteText.trim() || !isEdit || noteSending) return;
     setNoteSending(true);
     try {
       const r = await axios.post(`${API}/contacts/${id}/activities`, { text: noteText.trim() });

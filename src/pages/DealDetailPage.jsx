@@ -774,7 +774,7 @@ export default function DealDetailPage({ funnelId, dealId }) {
 
   // ── Activity ─────────────────────────────────────────────────────────────
   const handleSendNote = async () => {
-    if (!noteText.trim() || isNew) return;
+    if (!noteText.trim() || isNew || noteSending) return;
     setNoteSending(true);
     try {
       const body = noteMode === 'communication'

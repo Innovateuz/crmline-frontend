@@ -17,7 +17,7 @@ import {
   SortableContext, useSortable, verticalListSortingStrategy, arrayMove,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Plus, X, Loader2, Check, User, UserCheck, Phone, DollarSign, Pencil, Trash2, Search, Clock, Calendar, Download, Upload, Layers, ChevronDown, BarChart2, Tag, GitBranch, Archive, ArchiveRestore } from 'lucide-react';
+import { Plus, X, Loader2, Check, User, UserCheck, Phone, DollarSign, Pencil, Trash2, Search, Clock, Calendar, Download, Upload, Layers, ChevronDown, BarChart2, Tag, GitBranch, Archive, ArchiveRestore, ArrowUpDown } from 'lucide-react';
 
 const API = process.env.REACT_APP_API_URL || 'http://localhost:5002/api';
 
@@ -836,6 +836,7 @@ export default function FunnelPage({ funnelId }) {
   const [activeId,    setActiveId]    = useState(null);
   const [search,      setSearch]      = useState('');
   const [filterAssignedTo, setFilterAssignedTo] = useState(''); // '' = hammasi
+  const [sortBy, setSortBy] = useState(''); // '' = standart (surish tartibi)
   const [filterSource, setFilterSource] = useState('');         // '' = hammasi, '__none__' = manbasiz
   const [filterCF,     setFilterCF]     = useState({});          // { [fieldId]: value } — dropdown/multiselect custom maydonlar
   const [dealSources,  setDealSources]  = useState([]);
@@ -1043,9 +1044,22 @@ export default function FunnelPage({ funnelId }) {
       return true;
     });
 
+  /* Saralash — standart holatda surish tartibi (order), aks holda tanlangan mezon bo'yicha */
+  const sortDeals = (a, b) => {
+    switch (sortBy) {
+      case 'created_asc':  return new Date(a.createdAt) - new Date(b.createdAt);
+      case 'created_desc': return new Date(b.createdAt) - new Date(a.createdAt);
+      case 'updated_asc':  return new Date(a.updatedAt || a.createdAt) - new Date(b.updatedAt || b.createdAt);
+      case 'updated_desc': return new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt);
+      case 'title_asc':    return a.title.localeCompare(b.title, 'uz');
+      case 'title_desc':   return b.title.localeCompare(a.title, 'uz');
+      default:              return a.order - b.order;
+    }
+  };
+
   /* Group deals by stage */
   const dealsByStage = (funnel?.stages || []).reduce((acc, s) => {
-    acc[s._id] = filteredDeals.filter(d => String(d.stageId) === String(s._id)).sort((a, b) => a.order - b.order);
+    acc[s._id] = filteredDeals.filter(d => String(d.stageId) === String(s._id)).sort(sortDeals);
     return acc;
   }, {});
 
@@ -1422,6 +1436,25 @@ export default function FunnelPage({ funnelId }) {
                   <X className="w-3.5 h-3.5" />
                 </button>
               )}
+            </div>
+
+            {/* Saralash */}
+            <div className="relative shrink-0">
+              <ArrowUpDown className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-ink-disabled pointer-events-none" />
+              <select
+                className="pl-8 pr-8 py-2 text-sm bg-surface-50 border border-surface-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-300 appearance-none"
+                value={sortBy}
+                onChange={e => setSortBy(e.target.value)}
+              >
+                <option value="">Standart (surish tartibi)</option>
+                <option value="created_asc">Eski - yangi (yaratilgani bo'yicha)</option>
+                <option value="created_desc">Yangi - eski (yaratilgani bo'yicha)</option>
+                <option value="updated_asc">Eski - yangi (statusi o'zgargani bo'yicha)</option>
+                <option value="updated_desc">Yangi - eski (statusi o'zgargani bo'yicha)</option>
+                <option value="title_asc">A - Z</option>
+                <option value="title_desc">Z - A</option>
+              </select>
+              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-ink-disabled pointer-events-none" />
             </div>
 
             {/* Mas'ul bo'yicha filtr — istalgan xodimni tanlash */}

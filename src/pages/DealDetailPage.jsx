@@ -11,7 +11,7 @@ import {
   Plus, X, Check, ChevronDown, Upload, FileText, MoreVertical,
   User, DollarSign, Kanban, Phone, CheckSquare2,
   Mail, AlertCircle, ExternalLink, Layers, Calendar,
-  PhoneIncoming, PhoneOutgoing, PhoneMissed, Archive, ArchiveRestore,
+  PhoneIncoming, PhoneOutgoing, PhoneMissed, Archive, ArchiveRestore, Trophy, XCircle, RotateCcw,
 } from 'lucide-react';
 import { getSocket } from '../utils/socket';
 import { usePermissions } from '../utils/permissions';
@@ -385,6 +385,11 @@ export default function DealDetailPage({ funnelId, dealId }) {
   const [archiveReasonInput, setArchiveReasonInput] = useState('');
   const [archiving,          setArchiving]          = useState(false);
 
+  // Sdelkani yopish (G'olib/Yo'qotilgan) — bosqichdan mustaqil, umumiy amal
+  const [closeModal,    setCloseModal]    = useState(null); // 'won' | 'lost' | null
+  const [closeReasonInput, setCloseReasonInput] = useState('');
+  const [closing,       setClosing]       = useState(false);
+
   // Boshqa varonkaga o'tkazish
   const [showMoveFunnel,     setShowMoveFunnel]     = useState(false);
   const [moveFunnelId,       setMoveFunnelId]       = useState('');
@@ -668,6 +673,42 @@ export default function DealDetailPage({ funnelId, dealId }) {
     }
   };
 
+  // ── Sdelkani yopish (bosqichdan mustaqil, umumiy amal) ──────────────────────
+  const handleCloseDeal = async (targetStatus) => {
+    setClosing(true);
+    try {
+      const body = { status: targetStatus, closeReason: closeReasonInput.trim() };
+      // Voronkada shu holat uchun "G'olib"/"Yo'qotilgan" deb belgilangan bosqich
+      // bo'lsa, sdelkani ham o'sha bosqichga ko'chiramiz — Kanban taxtasi bilan
+      // mos kelib turishi uchun (aks holda joriy ustunida qolib, faqat statusi o'zgaradi).
+      const targetStage = funnel?.stages?.find(s => targetStatus === 'won' ? s.isWon : s.isLost);
+      if (targetStage) body.stageId = String(targetStage._id);
+      const res = await axios.put(`${API}/funnels/${funnelId}/deals/${dealId}`, body);
+      setDeal(res.data.deal);
+      if (targetStage) setStageId(String(targetStage._id));
+      toast.success(targetStatus === 'won' ? "G'olib deb yopildi" : "Yo'qotilgan deb yopildi");
+      setCloseModal(null);
+      setCloseReasonInput('');
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Xato');
+    } finally {
+      setClosing(false);
+    }
+  };
+
+  const handleReopenDeal = async () => {
+    setClosing(true);
+    try {
+      const res = await axios.put(`${API}/funnels/${funnelId}/deals/${dealId}`, { status: 'active' });
+      setDeal(res.data.deal);
+      toast.success('Qayta ochildi');
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Xato');
+    } finally {
+      setClosing(false);
+    }
+  };
+
   // ── Yangi kontakt yaratish (kontakt tanlash ro'yxati ichida) ─────────────
   const handleCreateContact = async () => {
     if (!newContact.name.trim() || savingContact) return;
@@ -947,6 +988,16 @@ export default function DealDetailPage({ funnelId, dealId }) {
           {!isNew && isLead && (
             <span className="text-xs font-medium bg-amber-50 text-amber-600 border border-amber-200 px-2 py-0.5 rounded-full shrink-0">Zayavka</span>
           )}
+          {!isNew && deal?.status === 'won' && (
+            <span title={deal.closeReason || ''} className="flex items-center gap-1 text-xs font-medium bg-emerald-50 text-emerald-600 border border-emerald-200 px-2 py-0.5 rounded-full shrink-0">
+              <Trophy className="w-3 h-3" /> G'olib
+            </span>
+          )}
+          {!isNew && deal?.status === 'lost' && (
+            <span title={deal.closeReason || ''} className="flex items-center gap-1 text-xs font-medium bg-red-50 text-red-500 border border-red-200 px-2 py-0.5 rounded-full shrink-0">
+              <XCircle className="w-3 h-3" /> Yo'qotilgan
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2 shrink-0 w-full lg:w-auto justify-end">
           {isDirty && canSave && (
@@ -971,6 +1022,23 @@ export default function DealDetailPage({ funnelId, dealId }) {
                         <Layers className="w-4 h-4" /> {t('deals.moveToFunnel')}
                       </button>
                     )}
+                    {canSave && !isNew && (deal?.status && deal.status !== 'active' ? (
+                      <button onClick={() => { setShowMenu(false); handleReopenDeal(); }} disabled={closing}
+                        className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-ink hover:bg-surface-100 transition-colors">
+                        <RotateCcw className="w-4 h-4" /> Qayta ochish
+                      </button>
+                    ) : (
+                      <>
+                        <button onClick={() => { setShowMenu(false); setCloseReasonInput(''); setCloseModal('won'); }}
+                          className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-emerald-600 hover:bg-emerald-50 transition-colors">
+                          <Trophy className="w-4 h-4" /> G'olib deb yopish
+                        </button>
+                        <button onClick={() => { setShowMenu(false); setCloseReasonInput(''); setCloseModal('lost'); }}
+                          className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors">
+                          <XCircle className="w-4 h-4" /> Yo'qotilgan deb yopish
+                        </button>
+                      </>
+                    ))}
                     {canSave && (deal?.archived ? (
                       <button onClick={() => { setShowMenu(false); handleUnarchive(); }} disabled={archiving}
                         className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-ink hover:bg-surface-100 transition-colors">
@@ -1058,6 +1126,45 @@ export default function DealDetailPage({ funnelId, dealId }) {
             <div className="flex gap-2">
               <button onClick={() => setConfirmDelete(false)} className="btn-md btn-secondary flex-1">{t('deals.cancel')}</button>
               <button onClick={handleDelete} className="btn-md flex-1 bg-red-500 hover:bg-red-600 text-white rounded-xl font-medium transition-colors">{t('deals.delete')}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Sdelkani yopish modal (G'olib/Yo'qotilgan) ── */}
+      {closeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
+            <p className={`text-base font-semibold mb-1 flex items-center gap-2 ${closeModal === 'won' ? 'text-emerald-600' : 'text-red-500'}`}>
+              {closeModal === 'won' ? <Trophy className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
+              {closeModal === 'won' ? "G'olib deb yopish" : "Yo'qotilgan deb yopish"}
+            </p>
+            <p className="text-sm text-ink-tertiary mb-4">
+              <span className="font-medium text-ink">{title}</span>
+            </p>
+            <label className="block text-xs font-medium text-ink-secondary mb-1">
+              Sabab (ixtiyoriy){closeModal === 'lost' && ' — nima uchun yo\'qotildi?'}
+            </label>
+            <textarea
+              autoFocus
+              className="input w-full mb-5 resize-none"
+              rows={3}
+              value={closeReasonInput}
+              onChange={e => setCloseReasonInput(e.target.value)}
+              placeholder={closeModal === 'won' ? 'Masalan: mijoz shartnoma imzoladi' : "Masalan: narx to'g'ri kelmadi"}
+            />
+            <div className="flex gap-2">
+              <button onClick={() => setCloseModal(null)} className="btn-md btn-secondary flex-1">{t('deals.cancel')}</button>
+              <button
+                onClick={() => handleCloseDeal(closeModal)}
+                disabled={closing}
+                className={`btn-md flex-1 flex items-center justify-center gap-2 text-white rounded-xl font-medium transition-colors ${
+                  closeModal === 'won' ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-red-500 hover:bg-red-600'
+                }`}
+              >
+                {closing && <Loader2 className="w-4 h-4 animate-spin" />}
+                Yopish
+              </button>
             </div>
           </div>
         </div>

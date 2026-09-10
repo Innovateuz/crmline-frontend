@@ -785,6 +785,7 @@ function IntakeStatsPanel({ funnelId }) {
 /* ── Arxivlangan lidlar ── */
 function DealArchiveModal({ funnelId, stages, onClose, onRestored, canEdit = true, canDelete = true }) {
   const navigate = useNavigate();
+  const location = useLocation();
   useModalOpen();
   const [deals,   setDeals]   = useState([]);
   const [loading, setLoading] = useState(true);
@@ -844,7 +845,14 @@ function DealArchiveModal({ funnelId, stages, onClose, onRestored, canEdit = tru
               {deals.map(deal => (
                 <div key={deal._id} className="flex items-start gap-3 p-3 border border-surface-100 rounded-xl">
                   <button
-                    onClick={() => { onClose(); navigate(`/funnel/${funnelId}/deal/${deal._id}`, { state: { fromArchive: true } }); }}
+                    onClick={() => {
+                      onClose();
+                      // Hozirgi (/funnel/X) yozuvga "openArchive" belgisini qo'yib qo'yamiz —
+                      // shunda sdelka ichidan brauzer tarixi orqasiga (navigate(-1)) qaytilganda
+                      // filtrlar (URL query) va Arxiv oynasi ikkalasi ham avtomatik tiklanadi.
+                      navigate({ pathname: location.pathname, search: location.search }, { replace: true, state: { openArchive: true } });
+                      navigate(`/funnel/${funnelId}/deal/${deal._id}`);
+                    }}
                     className="flex-1 min-w-0 text-left hover:bg-surface-50 -m-1 p-1 rounded-lg transition-colors"
                     title="Sdelkani ochish"
                   >
@@ -898,16 +906,24 @@ export default function FunnelPage({ funnelId }) {
   const [deals,       setDeals]       = useState([]);
   const [loading,     setLoading]     = useState(true);
   const [activeId,    setActiveId]    = useState(null);
-  const [search,      setSearch]      = useState('');
-  const [filterAssignedTo, setFilterAssignedTo] = useState(''); // '' = hammasi
-  const [sortBy, setSortBy] = useState(''); // '' = standart (surish tartibi)
-  const [filterSource, setFilterSource] = useState('');         // '' = hammasi, '__none__' = manbasiz
-  const [filterCF,     setFilterCF]     = useState({});          // { [fieldId]: value } — dropdown/multiselect custom maydonlar
-  const [filterDateFrom, setFilterDateFrom] = useState(''); // yaratilgan sana bo'yicha filtr — dan
-  const [filterDateTo,   setFilterDateTo]   = useState(''); // yaratilgan sana bo'yicha filtr — gacha
+  // Filtrlar sahifa URL'idagi query'dan boshlang'ich qiymat oladi — shunda lid
+  // ichiga kirib "orqaga" qaytilganda (brauzer tarixi o'sha URL'ga qaytadi) filtrlar
+  // yo'qolib qolmaydi, chunki komponent qayta yaratilganda ham o'sha yerdan o'qiydi.
+  const initFilters = new URLSearchParams(location.search);
+  const [search,      setSearch]      = useState(initFilters.get('q') || '');
+  const [filterAssignedTo, setFilterAssignedTo] = useState(initFilters.get('assignee') || ''); // '' = hammasi
+  const [sortBy, setSortBy] = useState(initFilters.get('sort') || ''); // '' = standart (surish tartibi)
+  const [filterSource, setFilterSource] = useState(initFilters.get('source') || '');         // '' = hammasi, '__none__' = manbasiz
+  const [filterCF,     setFilterCF]     = useState(() => {          // { [fieldId]: value } — dropdown/multiselect custom maydonlar
+    const obj = {};
+    for (const [k, v] of initFilters.entries()) if (k.startsWith('cf_')) obj[k.slice(3)] = v;
+    return obj;
+  });
+  const [filterDateFrom, setFilterDateFrom] = useState(initFilters.get('from') || ''); // yaratilgan sana bo'yicha filtr — dan
+  const [filterDateTo,   setFilterDateTo]   = useState(initFilters.get('to') || ''); // yaratilgan sana bo'yicha filtr — gacha
   // Yopilgan (g'olib/yo'qotilgan) sdelkalar odatiy holatda taxtadan yashiringan —
   // amoCRM'dagi kabi, faqat shu belgi yoqilsa ko'rinadi.
-  const [showClosed, setShowClosed] = useState(false);
+  const [showClosed, setShowClosed] = useState(initFilters.get('closed') === '1');
   // Yopilgan sdelkani qayta faollashtirish — istalgan voronka/bosqichga qaytarish
   const [reactivateDeal,     setReactivateDeal]     = useState(null);
   const [reactivateFunnelId, setReactivateFunnelId] = useState('');
@@ -1008,10 +1024,29 @@ export default function FunnelPage({ funnelId }) {
   useEffect(() => {
     if (location.state?.openArchive) {
       setShowArchive(true);
-      navigate(location.pathname, { replace: true, state: null });
+      // location.search (filtrlar) saqlanib qolishi kerak — faqat state tozalanadi
+      navigate({ pathname: location.pathname, search: location.search }, { replace: true, state: null });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.state]);
+
+  // Filtrlar o'zgarganda URL query'ga yozib boramiz — shunda lid ichiga kirib
+  // "orqaga" qaytilganda (brauzer tarixi shu URL'ga qaytadi) filtrlar tiklanadi.
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (search)              params.set('q', search);
+    if (filterAssignedTo)    params.set('assignee', filterAssignedTo);
+    if (filterSource)        params.set('source', filterSource);
+    if (sortBy)               params.set('sort', sortBy);
+    if (filterDateFrom)      params.set('from', filterDateFrom);
+    if (filterDateTo)        params.set('to', filterDateTo);
+    if (showClosed)           params.set('closed', '1');
+    Object.entries(filterCF).forEach(([fid, val]) => { if (val) params.set(`cf_${fid}`, val); });
+    const qs = params.toString();
+    if (qs === location.search.replace(/^\?/, '')) return; // o'zgarish yo'q — ortiqcha navigate qilmaymiz
+    navigate({ pathname: location.pathname, search: qs ? `?${qs}` : '' }, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, filterAssignedTo, filterSource, sortBy, filterDateFrom, filterDateTo, showClosed, filterCF]);
 
   /* Excel eksport */
   const handleExport = async () => {

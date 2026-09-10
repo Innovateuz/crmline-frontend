@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { useT } from '../utils/translate';
 import axios from 'axios';
@@ -307,8 +307,6 @@ function NoteItem({ activity, onDelete, currentUserId }) {
 
 export default function DealDetailPage({ funnelId, dealId }) {
   const navigate  = useNavigate();
-  const location  = useLocation();
-  const fromArchive = !!location.state?.fromArchive;
   const dispatch  = useDispatch();
   const t = useT();
   const currency  = useSelector(s => s.auth.user?.organization?.currency || 'UZS');
@@ -498,7 +496,7 @@ export default function DealDetailPage({ funnelId, dealId }) {
         }
       } catch {
         toast.error('Yuklanmadi');
-        navigate(`/funnel/${funnelId}`);
+        navigate(-1);
       } finally {
         setLoading(false);
       }
@@ -634,7 +632,7 @@ export default function DealDetailPage({ funnelId, dealId }) {
     try {
       await axios.delete(`${API}/funnels/${funnelId}/deals/${dealId}`);
       toast.success("O'chirildi");
-      navigate(`/funnel/${funnelId}`);
+      navigate(-1);
     } catch (e) {
       toast.error(e.response?.data?.message || t('deals.loadError'));
     }
@@ -650,7 +648,7 @@ export default function DealDetailPage({ funnelId, dealId }) {
       });
       toast.success('Arxivlandi');
       setShowArchiveReason(false);
-      navigate(`/funnel/${funnelId}`);
+      navigate(-1);
     } catch (e) {
       toast.error(e.response?.data?.message || 'Xato');
     } finally {
@@ -974,7 +972,7 @@ export default function DealDetailPage({ funnelId, dealId }) {
       <div className="flex flex-wrap lg:flex-nowrap items-center justify-between gap-x-3 gap-y-2 lg:gap-4 px-4 lg:px-6 py-3 lg:py-4 border-b border-surface-100 bg-white shrink-0">
         <div className="flex items-center gap-3 min-w-0 flex-1">
           <button
-            onClick={() => navigate(`/funnel/${funnelId}`, fromArchive ? { state: { openArchive: true } } : undefined)}
+            onClick={() => navigate(-1)}
             className="p-2 rounded-lg text-ink-tertiary hover:text-ink hover:bg-surface-100 transition-colors shrink-0">
             <ArrowLeft className="w-5 h-5" />
           </button>

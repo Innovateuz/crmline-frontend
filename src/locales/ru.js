@@ -944,6 +944,7 @@ export default {
       funnels: "Воронки",
       tasks: "Задачи",
       "deal-sources": "Источники сделок",
+      "close-reasons": "Причины закрытия",
       "lead-forms": "Формы",
       goals: "Цели",
       integrations: "Интеграции",

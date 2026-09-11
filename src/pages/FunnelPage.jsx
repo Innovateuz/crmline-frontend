@@ -1785,10 +1785,16 @@ export default function FunnelPage({ funnelId }) {
       ) : showClosed ? (
         <div ref={boardRef} className="flex-1 overflow-x-auto overflow-y-hidden">
           <div className="flex gap-4 h-full px-6 py-5 items-stretch justify-center">
-            <ClosedColumn label="G'olib" color="#10b981" icon={Trophy} deals={closedWonDeals} currency={currency}
+            <ClosedColumn
+              label={funnel.stages.find(s => s.isWon)?.name || "G'olib"}
+              color={funnel.stages.find(s => s.isWon)?.color || '#10b981'}
+              icon={Trophy} deals={closedWonDeals} currency={currency}
               onOpen={(deal) => navigate(`/funnel/${funnelId}/deal/${deal._id}`)}
               onReactivate={openReactivateModal} canEdit={canEdit} />
-            <ClosedColumn label="Yo'qotilgan" color="#ef4444" icon={XCircle} deals={closedLostDeals} currency={currency}
+            <ClosedColumn
+              label={funnel.stages.find(s => s.isLost)?.name || "Yo'qotilgan"}
+              color={funnel.stages.find(s => s.isLost)?.color || '#ef4444'}
+              icon={XCircle} deals={closedLostDeals} currency={currency}
               onOpen={(deal) => navigate(`/funnel/${funnelId}/deal/${deal._id}`)}
               onReactivate={openReactivateModal} canEdit={canEdit} />
           </div>

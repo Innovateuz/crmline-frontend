@@ -1010,6 +1010,7 @@ export default {
       funnels: "Varonkalar",
       tasks: "Vazifalar",
       "deal-sources": "Savdo manbalari",
+      "close-reasons": "Yopish sabablari",
       "lead-forms": "Formalar",
       goals: "Maqsadlar",
       integrations: "Integratsiyalar",

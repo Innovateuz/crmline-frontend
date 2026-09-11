@@ -981,6 +981,7 @@ export default {
       funnels: "Воронкалар",
       tasks: "Вазифалар",
       "deal-sources": "Савдо манбалари",
+      "close-reasons": "Ёпиш сабаблари",
       "lead-forms": "Формалар",
       goals: "Мақсадлар",
       integrations: "Интеграциялар",

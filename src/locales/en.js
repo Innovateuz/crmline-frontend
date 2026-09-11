@@ -1000,6 +1000,7 @@ export default {
       funnels: "Funnels",
       tasks: "Tasks",
       "deal-sources": "Deal sources",
+      "close-reasons": "Close reasons",
       "lead-forms": "Forms",
       goals: "Goals",
       integrations: "Integrations",

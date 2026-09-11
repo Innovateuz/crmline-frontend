@@ -209,11 +209,12 @@ function SystemEvent({ activity }) {
   const labelMap = { created: 'Yaratildi' };
   const text = labelMap[activity.type] || activity.text || '';
   const color = colorMap[activity.type] || 'text-ink-tertiary';
+  const by = activity.createdBy?.name;
   return (
     <div className="flex items-center gap-3 py-2">
       <div className="flex-1 h-px bg-surface-100" />
       <span className={`text-[11px] font-medium whitespace-nowrap px-1 ${color}`}>
-        {text} · {formatTime(activity.createdAt)}
+        {text}{by ? ` — ${by}` : ''} · {formatTime(activity.createdAt)}
       </span>
       <div className="flex-1 h-px bg-surface-100" />
     </div>

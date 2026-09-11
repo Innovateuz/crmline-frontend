@@ -43,7 +43,13 @@ const funnelSlice = createSlice({
       .addCase(fetchFunnels.fulfilled, (state, { payload }) => {
         state.list = payload; state.loading = false; state.loaded = true;
       })
-      .addCase(fetchFunnels.rejected, (state) => { state.loading = false; state.loaded = true; });
+      .addCase(fetchFunnels.rejected, (state) => { state.loading = false; state.loaded = true; })
+      // Boshqa akkauntga kirib chiqilganda oldingi tashkilotning voronkalari
+      // Redux'da qolib ketmasligi uchun — shu bilan Sidebar/TopBar/BottomNav'dagi
+      // `!loaded` shart(lar)i qayta fetchFunnels() chaqirishga majbur bo'ladi.
+      // Action turini string sifatida tekshiramiz — authSlice'ni import qilib
+      // aylanma (circular) bog'liqlik yaratmaslik uchun.
+      .addCase('auth/logout', (state) => { state.list = []; state.loaded = false; });
   },
 });
 

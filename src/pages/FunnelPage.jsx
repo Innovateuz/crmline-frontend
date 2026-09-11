@@ -933,6 +933,12 @@ export default function FunnelPage({ funnelId }) {
   const [cfSections,   setCfSections]   = useState([]);
   const [pendingMove, setPendingMove] = useState(null);
   const [moveValue,   setMoveValue]   = useState('');
+  // Sudrab "G'olib"/"Yo'qotilgan" deb belgilangan bosqichga tashlaganda — menyudagi
+  // umumiy yopish bilan bir xil, sabab so'raladi (drag orqali ham "jim-jim" yopilmasin)
+  const [closeReasons,     setCloseReasons]     = useState({ won: [], lost: [] });
+  const [dragCloseModal,   setDragCloseModal]   = useState(null); // { deal, targetStageId, targetStatus }
+  const [dragCloseReasonInput, setDragCloseReasonInput] = useState('');
+  const [dragClosing,      setDragClosing]      = useState(false);
 
   // Boshqa varonkaga o'tkazish (kartochkadagi tugma)
   const [moveDeal,          setMoveDeal]          = useState(null); // qaysi deal o'tkazilyapti
@@ -992,7 +998,7 @@ export default function FunnelPage({ funnelId }) {
     if (!funnelId) return;
     setLoading(true);
     try {
-      const [fRes, cRes, uRes, nRes, sRes, dfRes] = await Promise.all([
+      const [fRes, cRes, uRes, nRes, sRes, dfRes, crRes] = await Promise.all([
         axios.get(`${API}/funnels/${funnelId}/deals`),
         // Contacts moduli alohida RBAC bilan boshqariladi (masalan "operator" kabi
         // rol funnels'ga ega bo'lib, contacts'ga ega bo'lmasligi mumkin) — shu sabab
@@ -1002,6 +1008,7 @@ export default function FunnelPage({ funnelId }) {
         axios.get(`${API}/funnels/names`),
         axios.get(`${API}/organization/deal-sources`).catch(() => ({ data: {} })),
         axios.get(`${API}/organization/deal-fields`).catch(() => ({ data: {} })),
+        axios.get(`${API}/organization/close-reasons`).catch(() => ({ data: {} })),
       ]);
       setFunnel(fRes.data.funnel);
       setDeals(fRes.data.deals);
@@ -1010,6 +1017,7 @@ export default function FunnelPage({ funnelId }) {
       setAllFunnelNames(nRes.data.funnels || []);
       setDealSources(sRes.data.sources || []);
       setCfSections(dfRes.data.sections || []);
+      setCloseReasons(crRes.data.closeReasons || { won: [], lost: [] });
     } catch (e) {
       console.error('[funnel] load error:', e.response?.data?.message || e.message);
       toast.error(t('funnel.loadError'));
@@ -1251,6 +1259,15 @@ export default function FunnelPage({ funnelId }) {
       return;
     }
 
+    // "G'olib"/"Yo'qotilgan" deb belgilangan bosqichga tashlansa — sabab so'raladi
+    // (menyudagi umumiy yopish bilan bir xil xatti-harakat, drag orqali ham jim yopilmasin)
+    const targetStage = funnel?.stages?.find(s => String(s._id) === String(targetStageId));
+    if (targetStage?.isWon || targetStage?.isLost) {
+      setDragCloseReasonInput('');
+      setDragCloseModal({ deal: srcDeal, targetStageId, targetStatus: targetStage.isWon ? 'won' : 'lost' });
+      return;
+    }
+
     // Moving from first stage (lead) → any other stage: ask for value
     const firstStageId = funnel?.stages?.[0]?._id;
     if (firstStageId && String(srcDeal.stageId) === String(firstStageId)) {
@@ -1274,6 +1291,26 @@ export default function FunnelPage({ funnelId }) {
     setPendingMove(null);
     setMoveValue('');
   };
+
+  const confirmDragClose = async () => {
+    if (!dragCloseModal) return;
+    const { deal, targetStageId, targetStatus } = dragCloseModal;
+    setDragClosing(true);
+    try {
+      const res = await axios.put(`${API}/funnels/${funnelId}/deals/${deal._id}`, {
+        stageId: targetStageId, status: targetStatus, closeReason: dragCloseReasonInput.trim(),
+      });
+      setDeals(prev => prev.map(d => d._id === deal._id ? res.data.deal : d));
+      toast.success(targetStatus === 'won' ? "G'olib deb yopildi" : "Yo'qotilgan deb yopildi");
+      setDragCloseModal(null);
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Xato');
+    } finally {
+      setDragClosing(false);
+    }
+  };
+
+  const cancelDragClose = () => setDragCloseModal(null);
 
   const handleDeleteDeal = async (dealId) => {
     if (!window.confirm(t('funnel.deleteConfirm'))) return;
@@ -1888,6 +1925,59 @@ export default function FunnelPage({ funnelId }) {
             <div className="flex gap-2">
               <button onClick={cancelMove} className="btn-secondary btn-md flex-1">{t('funnel.moveCancel')}</button>
               <button onClick={confirmMove} className="btn-primary btn-md flex-1">{t('funnel.moveSave')}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* "G'olib"/"Yo'qotilgan" bosqichiga sudrab tashlanganda — sabab so'raladi */}
+      {dragCloseModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
+            <p className={`text-base font-semibold mb-1 flex items-center gap-2 ${dragCloseModal.targetStatus === 'won' ? 'text-emerald-600' : 'text-red-500'}`}>
+              {dragCloseModal.targetStatus === 'won' ? <Trophy className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
+              {dragCloseModal.targetStatus === 'won' ? "G'olib deb yopish" : "Yo'qotilgan deb yopish"}
+            </p>
+            <p className="text-sm text-ink-tertiary mb-4">
+              <span className="font-medium text-ink">{dragCloseModal.deal.title}</span>
+            </p>
+            <label className="block text-xs font-medium text-ink-secondary mb-1">
+              Sabab (ixtiyoriy){dragCloseModal.targetStatus === 'lost' && ' — nima uchun yo\'qotildi?'}
+            </label>
+            {(dragCloseModal.targetStatus === 'won' ? closeReasons.won : closeReasons.lost).length > 0 ? (
+              <select
+                autoFocus
+                className="input w-full mb-5"
+                value={dragCloseReasonInput}
+                onChange={e => setDragCloseReasonInput(e.target.value)}
+              >
+                <option value="">— Sabab tanlanmagan —</option>
+                {(dragCloseModal.targetStatus === 'won' ? closeReasons.won : closeReasons.lost).map(r => (
+                  <option key={r._id} value={r.name}>{r.name}</option>
+                ))}
+              </select>
+            ) : (
+              <textarea
+                autoFocus
+                className="input w-full mb-5 resize-none"
+                rows={3}
+                value={dragCloseReasonInput}
+                onChange={e => setDragCloseReasonInput(e.target.value)}
+                placeholder={dragCloseModal.targetStatus === 'won' ? 'Masalan: mijoz shartnoma imzoladi' : "Masalan: narx to'g'ri kelmadi"}
+              />
+            )}
+            <div className="flex gap-2">
+              <button onClick={cancelDragClose} className="btn-md btn-secondary flex-1">{t('deals.cancel')}</button>
+              <button
+                onClick={confirmDragClose}
+                disabled={dragClosing}
+                className={`btn-md flex-1 flex items-center justify-center gap-2 text-white rounded-xl font-medium transition-colors ${
+                  dragCloseModal.targetStatus === 'won' ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-red-500 hover:bg-red-600'
+                }`}
+              >
+                {dragClosing && <Loader2 className="w-4 h-4 animate-spin" />}
+                Yopish
+              </button>
             </div>
           </div>
         </div>

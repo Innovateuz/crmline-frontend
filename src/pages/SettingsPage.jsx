@@ -868,6 +868,35 @@ function DealSourcesTab() {
 
 /* ─── CloseReasonsTab — sdelkani "G'olib"/"Yo'qotilgan" deb yopganda
    tanlanadigan tayyor sabablar (statistika uchun bir xil qiymatlar) ─── */
+// CloseReasonsTab'ning ichida emas, tashqarida — render har chaqirilganda yangi
+// funksiya identifikatori yaratilib, input "focus"i yo'qolib qolmasligi uchun
+// (komponentni boshqa komponent ichida e'lon qilish React'da shu xatoni beradi).
+function CloseReasonList({ items, setItems, accent }) {
+  const genId = () => Math.random().toString(36).slice(2, 10);
+  return (
+    <div className="space-y-2">
+      {items.map((r, i) => (
+        <div key={r._id || i} className="flex items-center gap-2">
+          <input
+            className="input flex-1 text-sm"
+            placeholder={`Sabab ${i + 1}`}
+            value={r.name}
+            onChange={e => setItems(prev => prev.map((x, idx) => idx === i ? { ...x, name: e.target.value } : x))}
+          />
+          <button onClick={() => setItems(prev => prev.filter((_, idx) => idx !== i))}
+            className="p-1.5 rounded-lg hover:bg-red-50 text-ink-disabled hover:text-red-500 transition-colors">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      ))}
+      <button onClick={() => setItems(prev => [...prev, { _id: genId(), name: '' }])}
+        className={`w-full flex items-center justify-center gap-2 py-2.5 border-2 border-dashed rounded-xl text-sm text-ink-tertiary transition-colors ${accent}`}>
+        <Plus className="w-4 h-4" /> Sabab qo'shish
+      </button>
+    </div>
+  );
+}
+
 function CloseReasonsTab() {
   const [won,     setWon]     = useState([]);
   const [lost,    setLost]    = useState([]);
@@ -901,29 +930,6 @@ function CloseReasonsTab() {
 
   if (loading) return <div className="py-10 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto text-primary-400" /></div>;
 
-  const List = ({ items, setItems, accent }) => (
-    <div className="space-y-2">
-      {items.map((r, i) => (
-        <div key={r._id || i} className="flex items-center gap-2">
-          <input
-            className="input flex-1 text-sm"
-            placeholder={`Sabab ${i + 1}`}
-            value={r.name}
-            onChange={e => setItems(prev => prev.map((x, idx) => idx === i ? { ...x, name: e.target.value } : x))}
-          />
-          <button onClick={() => setItems(prev => prev.filter((_, idx) => idx !== i))}
-            className="p-1.5 rounded-lg hover:bg-red-50 text-ink-disabled hover:text-red-500 transition-colors">
-            <X className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      ))}
-      <button onClick={() => setItems(prev => [...prev, { _id: genId(), name: '' }])}
-        className={`w-full flex items-center justify-center gap-2 py-2.5 border-2 border-dashed rounded-xl text-sm text-ink-tertiary transition-colors ${accent}`}>
-        <Plus className="w-4 h-4" /> Sabab qo'shish
-      </button>
-    </div>
-  );
-
   return (
     <div className="space-y-6 max-w-lg">
       <div>
@@ -935,12 +941,12 @@ function CloseReasonsTab() {
 
       <div>
         <p className="text-sm font-medium text-emerald-600 mb-2">G'olib bo'lganda</p>
-        <List items={won} setItems={setWon} accent="border-emerald-200 hover:border-emerald-300 hover:text-emerald-600" />
+        <CloseReasonList items={won} setItems={setWon} accent="border-emerald-200 hover:border-emerald-300 hover:text-emerald-600" />
       </div>
 
       <div>
         <p className="text-sm font-medium text-red-500 mb-2">Yo'qotilganda</p>
-        <List items={lost} setItems={setLost} accent="border-red-200 hover:border-red-300 hover:text-red-500" />
+        <CloseReasonList items={lost} setItems={setLost} accent="border-red-200 hover:border-red-300 hover:text-red-500" />
       </div>
 
       <div className="flex justify-end">

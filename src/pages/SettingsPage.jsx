@@ -18,7 +18,7 @@ import {
   Pencil, Trash2, KeyRound, ShieldCheck, SlidersHorizontal, History,
   Palette, Upload, Check, Building2, Building, RotateCcw, AlertTriangle, Eye, EyeOff,
   GripVertical, Archive, Kanban, Layers, Target, ChevronUp, GripHorizontal, MessageSquare, Mail, Bell, BellOff,
-  ClipboardList, Copy, Link2, ToggleLeft, ToggleRight, LayoutGrid,
+  ClipboardList, Copy, Link2, ToggleLeft, ToggleRight, LayoutGrid, Flag,
 } from 'lucide-react';
 import { subscribeToPush, unsubscribeFromPush } from '../utils/swRegister';
 import { addFunnel, updateFunnel as updateFunnelStore, removeFunnel, fetchFunnels } from '../store/funnelSlice';
@@ -33,6 +33,7 @@ const TABS = [
   { key: 'funnels',     icon: Kanban,           label: 'Varonkalar'       },
   { key: 'tasks',       icon: SlidersHorizontal,label: 'Vazifalar'        },
   { key: 'deal-sources',icon: Layers,           label: 'Savdo manbalari' },
+  { key: 'close-reasons',icon: Flag,            label: 'Yopish sabablari' },
   { key: 'lead-forms',  icon: ClipboardList,    label: 'Formalar'        },
   { key: 'goals',       icon: Target,           label: 'Maqsadlar'       },
   { key: 'integrations',icon: Archive,          label: 'Integratsiyalar'  },
@@ -47,7 +48,7 @@ const TABS = [
 // Har bir TABS kaliti aynan bitta guruhga tegishli bo'lishi kerak.
 const TAB_GROUPS = [
   { key: 'general',  icon: Palette,       label: 'Umumiy',   tabs: ['branding', 'modules'] },
-  { key: 'crm',      icon: Kanban,        label: 'CRM',      tabs: ['funnels', 'tasks', 'deal-sources', 'lead-forms', 'goals'] },
+  { key: 'crm',      icon: Kanban,        label: 'CRM',      tabs: ['funnels', 'tasks', 'deal-sources', 'close-reasons', 'lead-forms', 'goals'] },
   { key: 'channels', icon: MessageSquare, label: 'Integratsiyalar', tabs: ['inbox', 'atc', 'integrations'] },
   { key: 'system',   icon: ShieldCheck,   label: 'Tizim',    tabs: ['users', 'roles', 'audit'] },
 ];
@@ -853,6 +854,93 @@ function DealSourcesTab() {
           className="w-full flex items-center justify-center gap-2 py-2.5 border-2 border-dashed border-surface-200 rounded-xl text-sm text-ink-tertiary hover:border-primary-300 hover:text-primary-600 transition-colors">
           <Plus className="w-4 h-4" /> Manba qo'shish
         </button>
+      </div>
+
+      <div className="flex justify-end">
+        <button onClick={save} disabled={saving} className="btn-primary btn-md flex items-center gap-2">
+          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+          Saqlash
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ─── CloseReasonsTab — sdelkani "G'olib"/"Yo'qotilgan" deb yopganda
+   tanlanadigan tayyor sabablar (statistika uchun bir xil qiymatlar) ─── */
+function CloseReasonsTab() {
+  const [won,     setWon]     = useState([]);
+  const [lost,    setLost]    = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving,  setSaving]  = useState(false);
+
+  useEffect(() => {
+    axios.get(`${API_URL}/organization/close-reasons`)
+      .then(r => { setWon(r.data.closeReasons?.won || []); setLost(r.data.closeReasons?.lost || []); })
+      .catch(() => toast.error('Yuklanishda xato'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const genId = () => Math.random().toString(36).slice(2, 10);
+
+  const save = async () => {
+    const validWon  = won.filter(r => r.name.trim()).map(r => ({ ...r, _id: r._id || genId() }));
+    const validLost = lost.filter(r => r.name.trim()).map(r => ({ ...r, _id: r._id || genId() }));
+    setSaving(true);
+    try {
+      await axios.put(`${API_URL}/organization/close-reasons`, { won: validWon, lost: validLost });
+      setWon(validWon);
+      setLost(validLost);
+      toast.success('Saqlandi');
+    } catch {
+      toast.error('Xato');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) return <div className="py-10 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto text-primary-400" /></div>;
+
+  const List = ({ items, setItems, accent }) => (
+    <div className="space-y-2">
+      {items.map((r, i) => (
+        <div key={r._id || i} className="flex items-center gap-2">
+          <input
+            className="input flex-1 text-sm"
+            placeholder={`Sabab ${i + 1}`}
+            value={r.name}
+            onChange={e => setItems(prev => prev.map((x, idx) => idx === i ? { ...x, name: e.target.value } : x))}
+          />
+          <button onClick={() => setItems(prev => prev.filter((_, idx) => idx !== i))}
+            className="p-1.5 rounded-lg hover:bg-red-50 text-ink-disabled hover:text-red-500 transition-colors">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      ))}
+      <button onClick={() => setItems(prev => [...prev, { _id: genId(), name: '' }])}
+        className={`w-full flex items-center justify-center gap-2 py-2.5 border-2 border-dashed rounded-xl text-sm text-ink-tertiary transition-colors ${accent}`}>
+        <Plus className="w-4 h-4" /> Sabab qo'shish
+      </button>
+    </div>
+  );
+
+  return (
+    <div className="space-y-6 max-w-lg">
+      <div>
+        <h3 className="font-semibold text-ink">Yopish sabablari</h3>
+        <p className="text-sm text-ink-tertiary mt-0.5">
+          Sdelka "G'olib" yoki "Yo'qotilgan" deb yopilganda xodim shu ro'yxatdan sabab tanlaydi — erkin matn o'rniga, statistikada bir xil qiymatlar chiqishi uchun.
+        </p>
+      </div>
+
+      <div>
+        <p className="text-sm font-medium text-emerald-600 mb-2">G'olib bo'lganda</p>
+        <List items={won} setItems={setWon} accent="border-emerald-200 hover:border-emerald-300 hover:text-emerald-600" />
+      </div>
+
+      <div>
+        <p className="text-sm font-medium text-red-500 mb-2">Yo'qotilganda</p>
+        <List items={lost} setItems={setLost} accent="border-red-200 hover:border-red-300 hover:text-red-500" />
       </div>
 
       <div className="flex justify-end">
@@ -6626,6 +6714,7 @@ export default function SettingsPage() {
         {tab === 'funnels'    && <FunnelsTab />}
         {tab === 'tasks'         && <TasksTab />}
         {tab === 'deal-sources'  && <DealSourcesTab />}
+        {tab === 'close-reasons' && <CloseReasonsTab />}
         {tab === 'lead-forms'    && <LeadFormsTab />}
         {tab === 'goals'         && <GoalsTab />}
         {tab === 'integrations'  && <IntegrationsTab />}

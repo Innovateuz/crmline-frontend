@@ -367,6 +367,7 @@ export default function DealDetailPage({ funnelId, dealId }) {
   const [contacts, setContacts] = useState([]);
   const [users,    setUsers]    = useState([]);
   const [dealSources, setDealSources] = useState([]);
+  const [closeReasons, setCloseReasons] = useState({ won: [], lost: [] });
   const [linkedContact,        setLinkedContact]        = useState(null);
   const [linkedContactLoading, setLinkedContactLoading] = useState(false);
   const [showAssignedPicker, setShowAssignedPicker] = useState(false);
@@ -441,7 +442,7 @@ export default function DealDetailPage({ funnelId, dealId }) {
     const fetchAll = async () => {
       setLoading(true);
       try {
-        const [fRes, cRes, uRes, fieldsRes, sourcesRes, nRes] = await Promise.all([
+        const [fRes, cRes, uRes, fieldsRes, sourcesRes, nRes, closeReasonsRes] = await Promise.all([
           isNew
             ? axios.get(`${API}/funnels/${funnelId}`)
             : axios.get(`${API}/funnels/${funnelId}/deals/${dealId}`),
@@ -450,9 +451,11 @@ export default function DealDetailPage({ funnelId, dealId }) {
           axios.get(`${API}/organization/deal-fields`),
           axios.get(`${API}/organization/deal-sources`),
           axios.get(`${API}/funnels/names`),
+          axios.get(`${API}/organization/close-reasons`).catch(() => ({ data: {} })),
         ]);
         setDealSources(sourcesRes.data.sources || []);
         setAllFunnelNames(nRes.data.funnels || []);
+        setCloseReasons(closeReasonsRes.data.closeReasons || { won: [], lost: [] });
 
         const funnelData = fRes.data.funnel;
         setFunnel(funnelData);
@@ -1143,14 +1146,28 @@ export default function DealDetailPage({ funnelId, dealId }) {
             <label className="block text-xs font-medium text-ink-secondary mb-1">
               Sabab (ixtiyoriy){closeModal === 'lost' && ' — nima uchun yo\'qotildi?'}
             </label>
-            <textarea
-              autoFocus
-              className="input w-full mb-5 resize-none"
-              rows={3}
-              value={closeReasonInput}
-              onChange={e => setCloseReasonInput(e.target.value)}
-              placeholder={closeModal === 'won' ? 'Masalan: mijoz shartnoma imzoladi' : "Masalan: narx to'g'ri kelmadi"}
-            />
+            {(closeModal === 'won' ? closeReasons.won : closeReasons.lost).length > 0 ? (
+              <select
+                autoFocus
+                className="input w-full mb-5"
+                value={closeReasonInput}
+                onChange={e => setCloseReasonInput(e.target.value)}
+              >
+                <option value="">— Sabab tanlanmagan —</option>
+                {(closeModal === 'won' ? closeReasons.won : closeReasons.lost).map(r => (
+                  <option key={r._id} value={r.name}>{r.name}</option>
+                ))}
+              </select>
+            ) : (
+              <textarea
+                autoFocus
+                className="input w-full mb-5 resize-none"
+                rows={3}
+                value={closeReasonInput}
+                onChange={e => setCloseReasonInput(e.target.value)}
+                placeholder={closeModal === 'won' ? 'Masalan: mijoz shartnoma imzoladi' : "Masalan: narx to'g'ri kelmadi"}
+              />
+            )}
             <div className="flex gap-2">
               <button onClick={() => setCloseModal(null)} className="btn-md btn-secondary flex-1">{t('deals.cancel')}</button>
               <button

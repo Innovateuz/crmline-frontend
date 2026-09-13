@@ -782,6 +782,62 @@ function IntakeStatsPanel({ funnelId }) {
   );
 }
 
+/* ── Qabul (reception) xodimlari kesimida statistika — originFunnel + createdBy bo'yicha,
+   boshqa voronkaga (masalan Sotuv) o'tkazilgan/handoff qilingan bo'lsa ham son yo'qolmaydi. */
+function ReceptionStatsPanel({ funnelId }) {
+  const [stats,   setStats]   = useState(null);
+  const [loading, setLoading] = useState(true);
+  const API = process.env.REACT_APP_API_URL || 'http://localhost:5002/api';
+
+  useEffect(() => {
+    setLoading(true);
+    axios.get(`${API}/funnels/${funnelId}/reception-stats`)
+      .then(r => setStats(r.data.stats || []))
+      .catch(() => toast.error('Yuklanishda xato'))
+      .finally(() => setLoading(false));
+  }, [funnelId, API]);
+
+  if (loading) return <div className="flex-1 flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-ink-tertiary" /></div>;
+
+  return (
+    <div className="flex-1 overflow-y-auto px-4 md:px-6 py-5">
+      <div className="max-w-3xl mx-auto space-y-5">
+        <p className="text-sm text-ink-tertiary">
+          Har bir xodim shu voronkadan qancha lid kiritgani va ularning hozirgi holati (boshqa voronkaga o'tkazilgan bo'lsa ham hisobga kiradi).
+        </p>
+        {!stats || stats.length === 0 ? (
+          <div className="text-center py-14 text-ink-tertiary text-sm">Hali ma'lumot yo'q</div>
+        ) : (
+          <div className="bg-white border border-surface-200 rounded-2xl overflow-hidden overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-surface-50">
+                <tr>
+                  <th className="text-left px-4 py-2 text-xs font-semibold text-ink-tertiary">Xodim</th>
+                  <th className="text-right px-4 py-2 text-xs font-semibold text-ink-tertiary">Jami</th>
+                  <th className="text-right px-4 py-2 text-xs font-semibold text-ink-tertiary">Faol</th>
+                  <th className="text-right px-4 py-2 text-xs font-semibold text-ink-tertiary">G'olib</th>
+                  <th className="text-right px-4 py-2 text-xs font-semibold text-ink-tertiary">Yo'qotilgan</th>
+                </tr>
+              </thead>
+              <tbody>
+                {stats.map(row => (
+                  <tr key={row.userId || 'none'} className="border-t border-surface-100">
+                    <td className="px-4 py-2 text-ink">{row.name}</td>
+                    <td className="px-4 py-2 text-right text-ink">{row.total}</td>
+                    <td className="px-4 py-2 text-right text-ink-secondary">{row.active || 0}</td>
+                    <td className="px-4 py-2 text-right" style={{ color: '#059669' }}>{row.won || 0}</td>
+                    <td className="px-4 py-2 text-right text-red-500">{row.lost || 0}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ── Arxivlangan lidlar ── */
 function DealArchiveModal({ funnelId, stages, onClose, onRestored, canEdit = true, canDelete = true }) {
   const navigate = useNavigate();
@@ -933,6 +989,12 @@ export default function FunnelPage({ funnelId }) {
   const [cfSections,   setCfSections]   = useState([]);
   const [pendingMove, setPendingMove] = useState(null);
   const [moveValue,   setMoveValue]   = useState('');
+  // Bosqich "mas'ul tanlash majburiy" deb belgilangan bo'lsa (masalan qabuldan
+  // menejerga topshirish) - sudrab tashlaganda mas'ul so'raladi, tasdiqlangach
+  // applyMove shu odam bilan chaqiriladi (backend handoffTo bo'lsa avtomatik
+  // boshqa voronkaga ham o'tkazadi).
+  const [pendingAssign, setPendingAssign] = useState(null); // { deal, targetStageId }
+  const [assignUserId,  setAssignUserId]  = useState('');
   // Sudrab "G'olib"/"Yo'qotilgan" deb belgilangan bosqichga tashlaganda — menyudagi
   // umumiy yopish bilan bir xil, sabab so'raladi (drag orqali ham "jim-jim" yopilmasin)
   const [closeReasons,     setCloseReasons]     = useState({ won: [], lost: [] });
@@ -944,6 +1006,7 @@ export default function FunnelPage({ funnelId }) {
   const [moveDeal,          setMoveDeal]          = useState(null); // qaysi deal o'tkazilyapti
   const [moveFunnelId,      setMoveFunnelId]      = useState('');
   const [moveStageId,       setMoveStageId]       = useState('');
+  const [moveAssignUserId,  setMoveAssignUserId]  = useState('');
   const [movingFunnel,      setMovingFunnel]      = useState(false);
 
   // Ommaviy (bulk) amallar: bir nechta lidni tanlab bosqich/varonka o'zgartirish
@@ -970,6 +1033,7 @@ export default function FunnelPage({ funnelId }) {
   const [exporting,     setExporting]     = useState(false);
   const [toolbarOpen,   setToolbarOpen]   = useState(true);
   const [showStats,     setShowStats]     = useState(false);
+  const [showReceptionStats, setShowReceptionStats] = useState(false);
   // Barcha voronka nomlari (ko'rinish cheklovisiz) - "boshqa voronkaga yuborish" tanlovi uchun
   const [allFunnelNames, setAllFunnelNames] = useState([]);
 
@@ -1221,12 +1285,16 @@ export default function FunnelPage({ funnelId }) {
   /* DnD handlers */
   const handleDragStart = ({ active }) => setActiveId(active.id);
 
-  const applyMove = async (deal, targetStageId, value) => {
+  const applyMove = async (deal, targetStageId, value, assignedTo) => {
     setDeals(prev => prev.map(d => d._id === deal._id ? { ...d, stageId: targetStageId, value: value ?? d.value } : d));
     try {
       const body = { stageId: targetStageId };
       if (value !== undefined) body.value = value;
+      if (assignedTo !== undefined) body.assignedTo = assignedTo;
       await axios.put(`${API}/funnels/${funnelId}/deals/${deal._id}`, body);
+      // Mas'ul biriktirilgan holatda bosqichda handoffTo sozlangan bo'lishi mumkin -
+      // bunda backend bitimni boshqa voronkaga ko'chiradi, taxtani darhol yangilaymiz.
+      if (assignedTo !== undefined) load();
     } catch (e) {
       toast.error(e.response?.data?.message || 'Xato');
       load();
@@ -1259,9 +1327,19 @@ export default function FunnelPage({ funnelId }) {
       return;
     }
 
+    const targetStage = funnel?.stages?.find(s => String(s._id) === String(targetStageId));
+
+    // Bosqich "mas'ul tanlash majburiy" deb belgilangan bo'lsa (masalan qabuldan
+    // menejerga topshirish) — avval mas'ul so'raladi, tasdiqlangach applyMove chaqiriladi
+    // (backend handoffTo bo'lsa bitimni avtomatik boshqa voronkaga ham o'tkazadi).
+    if (targetStage?.requireAssigneeOnEnter) {
+      setAssignUserId('');
+      setPendingAssign({ deal: srcDeal, targetStageId });
+      return;
+    }
+
     // "G'olib"/"Yo'qotilgan" deb belgilangan bosqichga tashlansa — sabab so'raladi
     // (menyudagi umumiy yopish bilan bir xil xatti-harakat, drag orqali ham jim yopilmasin)
-    const targetStage = funnel?.stages?.find(s => String(s._id) === String(targetStageId));
     if (targetStage?.isWon || targetStage?.isLost) {
       setDragCloseReasonInput('');
       setDragCloseModal({ deal: srcDeal, targetStageId, targetStatus: targetStage.isWon ? 'won' : 'lost' });
@@ -1290,6 +1368,22 @@ export default function FunnelPage({ funnelId }) {
   const cancelMove = () => {
     setPendingMove(null);
     setMoveValue('');
+  };
+
+  const confirmAssign = () => {
+    if (!pendingAssign || !assignUserId) return;
+    if (pendingAssign.bulk) {
+      handleBulkStageMove(pendingAssign.targetStageId, assignUserId);
+    } else {
+      applyMove(pendingAssign.deal, pendingAssign.targetStageId, undefined, assignUserId);
+    }
+    setPendingAssign(null);
+    setAssignUserId('');
+  };
+
+  const cancelAssign = () => {
+    setPendingAssign(null);
+    setAssignUserId('');
   };
 
   const confirmDragClose = async () => {
@@ -1339,19 +1433,23 @@ export default function FunnelPage({ funnelId }) {
   // shunda ko'ra olmagan voronkaga ham lid yuborish mumkin bo'ladi.
   const moveTargetFunnels = allFunnelNames.filter(f => String(f._id) !== String(funnelId));
   const moveTargetFunnel  = moveTargetFunnels.find(f => String(f._id) === String(moveFunnelId));
+  const moveTargetStage   = moveTargetFunnel?.stages.find(s => String(s._id) === String(moveStageId));
 
   const openMoveModal = (deal) => {
     setMoveDeal(deal);
     setMoveFunnelId('');
     setMoveStageId('');
+    setMoveAssignUserId('');
   };
 
   const handleMoveFunnel = async () => {
     if (!moveDeal || !moveFunnelId || !moveStageId) return;
+    if (moveTargetStage?.requireAssigneeOnEnter && !moveAssignUserId) return;
     setMovingFunnel(true);
     try {
       await axios.post(`${API}/funnels/${funnelId}/deals/${moveDeal._id}/move`, {
         targetFunnelId: moveFunnelId, targetStageId: moveStageId,
+        ...(moveAssignUserId ? { assignedTo: moveAssignUserId } : {}),
       });
       setDeals(prev => prev.filter(d => d._id !== moveDeal._id));
       toast.success(t('deals.moveSuccess'));
@@ -1394,12 +1492,13 @@ export default function FunnelPage({ funnelId }) {
   };
 
   // Ommaviy: tanlangan lidlarni shu varonka ichida boshqa bosqichga o'tkazish
-  const handleBulkStageMove = async (stageId) => {
+  const handleBulkStageMove = async (stageId, assignedTo) => {
     if (!stageId || selectedIds.size === 0) return;
     setBulkMovingStage(true);
     try {
       const res = await axios.post(`${API}/funnels/${funnelId}/deals/bulk-move`, {
         dealIds: [...selectedIds], targetStageId: stageId,
+        ...(assignedTo ? { assignedTo } : {}),
       });
       const moved = res.data.moved || [];
       setDeals(prev => prev.map(d => moved.find(m => m._id === d._id) || d));
@@ -1580,7 +1679,7 @@ export default function FunnelPage({ funnelId }) {
               <span className="hidden sm:inline">{t('funnel.showClosed')}</span>
             </button>
             <button
-              onClick={() => setShowStats(v => !v)}
+              onClick={() => { setShowStats(v => !v); setShowReceptionStats(false); }}
               title={t('funnel.statsBtn')}
               className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium border transition-colors ${
                 showStats ? 'border-primary-300 bg-primary-50 text-primary-600' : 'border-surface-200 text-ink-secondary hover:border-surface-300 hover:text-ink'
@@ -1588,6 +1687,16 @@ export default function FunnelPage({ funnelId }) {
             >
               <BarChart2 className="w-4 h-4" />
               <span className="hidden sm:inline">{t('funnel.statsBtn')}</span>
+            </button>
+            <button
+              onClick={() => { setShowReceptionStats(v => !v); setShowStats(false); }}
+              title="Qabul statistikasi"
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium border transition-colors ${
+                showReceptionStats ? 'border-primary-300 bg-primary-50 text-primary-600' : 'border-surface-200 text-ink-secondary hover:border-surface-300 hover:text-ink'
+              }`}
+            >
+              <UserCheck className="w-4 h-4" />
+              <span className="hidden sm:inline">Qabul statistikasi</span>
             </button>
             <button
               onClick={() => navigate('/funnel/journey-analytics')}
@@ -1746,7 +1855,17 @@ export default function FunnelPage({ funnelId }) {
                 className="pl-3 pr-8 py-2 text-sm bg-white border border-surface-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-300 appearance-none disabled:opacity-60"
                 value=""
                 disabled={selectedIds.size === 0 || bulkMovingStage}
-                onChange={e => { if (e.target.value) handleBulkStageMove(e.target.value); }}
+                onChange={e => {
+                  const stageId = e.target.value;
+                  if (!stageId) return;
+                  const stage = funnel.stages.find(s => String(s._id) === String(stageId));
+                  if (stage?.requireAssigneeOnEnter) {
+                    setAssignUserId('');
+                    setPendingAssign({ bulk: true, targetStageId: stageId });
+                  } else {
+                    handleBulkStageMove(stageId);
+                  }
+                }}
               >
                 <option value="">Bosqichga o'tkazish...</option>
                 {funnel.stages.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
@@ -1814,6 +1933,8 @@ export default function FunnelPage({ funnelId }) {
       {/* Statistika yoki Kanban board */}
       {showStats ? (
         <IntakeStatsPanel funnelId={funnelId} />
+      ) : showReceptionStats ? (
+        <ReceptionStatsPanel funnelId={funnelId} />
       ) : funnel.stages.length === 0 ? (
         <div className="flex-1 flex items-center justify-center text-ink-tertiary text-sm flex-col gap-2">
           <p>Bu varonkada bosqichlar yo'q</p>
@@ -1930,6 +2051,34 @@ export default function FunnelPage({ funnelId }) {
         </div>
       )}
 
+      {/* Mas'ul tanlash modali — bosqich "requireAssigneeOnEnter" bo'lganda, sudrab tashlaganda */}
+      {pendingAssign && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40" onClick={cancelAssign} />
+          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+            <h3 className="text-base font-bold text-ink mb-1">Mas'ul xodimni tanlang</h3>
+            <p className="text-sm text-ink-tertiary mb-5">
+              {pendingAssign.bulk
+                ? <span className="font-medium text-ink">{selectedIds.size} ta tanlangan sdelka</span>
+                : <span className="font-medium text-ink">{pendingAssign.deal.title}</span>}
+            </p>
+            <select
+              autoFocus
+              className="input w-full mb-5"
+              value={assignUserId}
+              onChange={e => setAssignUserId(e.target.value)}
+            >
+              <option value="">Xodimni tanlang...</option>
+              {users.map(u => <option key={u._id} value={u._id}>{u.name}</option>)}
+            </select>
+            <div className="flex gap-2">
+              <button onClick={cancelAssign} className="btn-secondary btn-md flex-1">Bekor</button>
+              <button onClick={confirmAssign} disabled={!assignUserId} className="btn-primary btn-md flex-1 disabled:opacity-50">Tasdiqlash</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* "G'olib"/"Yo'qotilgan" bosqichiga sudrab tashlanganda — sabab so'raladi */}
       {dragCloseModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
@@ -2013,11 +2162,25 @@ export default function FunnelPage({ funnelId }) {
               {(moveTargetFunnel?.stages || []).map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
             </select>
 
+            {moveTargetStage?.requireAssigneeOnEnter && (
+              <>
+                <label className="block text-xs font-medium text-ink-secondary mb-1">Mas'ul xodim</label>
+                <select
+                  className="input w-full mb-5"
+                  value={moveAssignUserId}
+                  onChange={e => setMoveAssignUserId(e.target.value)}
+                >
+                  <option value="">Xodimni tanlang...</option>
+                  {users.map(u => <option key={u._id} value={u._id}>{u.name}</option>)}
+                </select>
+              </>
+            )}
+
             <div className="flex gap-2">
               <button onClick={() => setMoveDeal(null)} className="btn-md btn-secondary flex-1">{t('deals.cancel')}</button>
               <button
                 onClick={handleMoveFunnel}
-                disabled={!moveFunnelId || !moveStageId || movingFunnel}
+                disabled={!moveFunnelId || !moveStageId || movingFunnel || (moveTargetStage?.requireAssigneeOnEnter && !moveAssignUserId)}
                 className="btn-md btn-primary flex-1 flex items-center justify-center gap-2"
               >
                 {movingFunnel && <Loader2 className="w-4 h-4 animate-spin" />}

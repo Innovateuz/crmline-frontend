@@ -401,7 +401,11 @@ function FunnelsTab() {
   const openEdit = (f) => {
     setEditId(f._id);
     setFname(f.name);
-    setStages(f.stages.length ? f.stages.map(s => ({ _id: s._id, name: s.name, color: s.color, isWon: !!s.isWon, isLost: !!s.isLost })) : [{ name: '', color: '#94a3b8' }]);
+    setStages(f.stages.length ? f.stages.map(s => ({
+      _id: s._id, name: s.name, color: s.color, isWon: !!s.isWon, isLost: !!s.isLost,
+      requireAssigneeOnEnter: !!s.requireAssigneeOnEnter,
+      handoffTo: s.handoffTo?.funnel ? { funnel: s.handoffTo.funnel, stage: s.handoffTo.stage } : null,
+    })) : [{ name: '', color: '#94a3b8' }]);
     setVisibleToRoles((f.visibleToRoles || []).map(r => String(r._id || r)));
     setShowCreate(true);
   };
@@ -421,7 +425,10 @@ function FunnelsTab() {
 
   const save = async () => {
     if (!fname.trim()) { toast.error('Varonka nomi kiritilishi shart'); return; }
-    const validStages = stages.filter(s => s.name.trim());
+    const validStages = stages.filter(s => s.name.trim()).map(s => ({
+      ...s,
+      handoffTo: (s.requireAssigneeOnEnter && s.handoffTo?.funnel && s.handoffTo?.stage) ? s.handoffTo : null,
+    }));
     setSaving(true);
     try {
       if (editId) {
@@ -564,56 +571,102 @@ function FunnelsTab() {
                   </button>
                 </div>
                 <div className="space-y-2">
-                  {stages.map((s, i) => (
-                    <div key={i} className="flex items-center gap-2">
-                      {/* Color picker */}
-                      <div className="relative shrink-0">
+                  {stages.map((s, i) => {
+                    const handoffFunnel = funnels.find(f => f._id === s.handoffTo?.funnel);
+                    return (
+                    <div key={i} className="rounded-lg border border-surface-100 p-2 space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        {/* Color picker */}
+                        <div className="relative shrink-0">
+                          <input
+                            type="color"
+                            value={s.color}
+                            onChange={e => updateStage(i, 'color', e.target.value)}
+                            className="w-8 h-8 rounded-lg border border-surface-200 cursor-pointer bg-white p-0.5"
+                            title="Rang"
+                          />
+                        </div>
                         <input
-                          type="color"
-                          value={s.color}
-                          onChange={e => updateStage(i, 'color', e.target.value)}
-                          className="w-8 h-8 rounded-lg border border-surface-200 cursor-pointer bg-white p-0.5"
-                          title="Rang"
+                          className="input flex-1 text-sm"
+                          placeholder={`Bosqich ${i + 1}`}
+                          value={s.name}
+                          onChange={e => updateStage(i, 'name', e.target.value)}
                         />
+                        <label className="flex items-center gap-1.5 shrink-0 px-2 py-1 rounded-lg hover:bg-surface-50 cursor-pointer" title="Bu bosqichga tushsa bitim avtomatik G'olib (savdo) deb belgilanadi">
+                          <input
+                            type="checkbox"
+                            className="accent-emerald-600 w-3.5 h-3.5 rounded"
+                            checked={!!s.isWon}
+                            onChange={e => updateStage(i, 'isWon', e.target.checked)}
+                          />
+                          <span className="text-xs text-ink-tertiary whitespace-nowrap">G'olib</span>
+                        </label>
+                        <label className="flex items-center gap-1.5 shrink-0 px-2 py-1 rounded-lg hover:bg-surface-50 cursor-pointer" title="Bu bosqichga tushsa bitim avtomatik Yo'qotilgan deb belgilanadi">
+                          <input
+                            type="checkbox"
+                            className="accent-red-500 w-3.5 h-3.5 rounded"
+                            checked={!!s.isLost}
+                            onChange={e => updateStage(i, 'isLost', e.target.checked)}
+                          />
+                          <span className="text-xs text-ink-tertiary whitespace-nowrap">Yo'qotilgan</span>
+                        </label>
+                        <button type="button" onClick={() => moveStage(i, -1)} disabled={i === 0}
+                          className="p-1.5 rounded-lg hover:bg-surface-100 text-ink-disabled hover:text-ink-tertiary disabled:opacity-30 transition-colors">
+                          <ChevronUp className="w-3.5 h-3.5" />
+                        </button>
+                        <button type="button" onClick={() => moveStage(i, 1)} disabled={i === stages.length - 1}
+                          className="p-1.5 rounded-lg hover:bg-surface-100 text-ink-disabled hover:text-ink-tertiary disabled:opacity-30 transition-colors">
+                          <ChevronDown className="w-3.5 h-3.5" />
+                        </button>
+                        <button type="button" onClick={() => removeStage(i)} disabled={stages.length === 1}
+                          className="p-1.5 rounded-lg hover:bg-red-50 text-ink-disabled hover:text-red-500 disabled:opacity-30 transition-colors">
+                          <X className="w-3.5 h-3.5" />
+                        </button>
                       </div>
-                      <input
-                        className="input flex-1 text-sm"
-                        placeholder={`Bosqich ${i + 1}`}
-                        value={s.name}
-                        onChange={e => updateStage(i, 'name', e.target.value)}
-                      />
-                      <label className="flex items-center gap-1.5 shrink-0 px-2 py-1 rounded-lg hover:bg-surface-50 cursor-pointer" title="Bu bosqichga tushsa bitim avtomatik G'olib (savdo) deb belgilanadi">
-                        <input
-                          type="checkbox"
-                          className="accent-emerald-600 w-3.5 h-3.5 rounded"
-                          checked={!!s.isWon}
-                          onChange={e => updateStage(i, 'isWon', e.target.checked)}
-                        />
-                        <span className="text-xs text-ink-tertiary whitespace-nowrap">G'olib</span>
-                      </label>
-                      <label className="flex items-center gap-1.5 shrink-0 px-2 py-1 rounded-lg hover:bg-surface-50 cursor-pointer" title="Bu bosqichga tushsa bitim avtomatik Yo'qotilgan deb belgilanadi">
-                        <input
-                          type="checkbox"
-                          className="accent-red-500 w-3.5 h-3.5 rounded"
-                          checked={!!s.isLost}
-                          onChange={e => updateStage(i, 'isLost', e.target.checked)}
-                        />
-                        <span className="text-xs text-ink-tertiary whitespace-nowrap">Yo'qotilgan</span>
-                      </label>
-                      <button type="button" onClick={() => moveStage(i, -1)} disabled={i === 0}
-                        className="p-1.5 rounded-lg hover:bg-surface-100 text-ink-disabled hover:text-ink-tertiary disabled:opacity-30 transition-colors">
-                        <ChevronUp className="w-3.5 h-3.5" />
-                      </button>
-                      <button type="button" onClick={() => moveStage(i, 1)} disabled={i === stages.length - 1}
-                        className="p-1.5 rounded-lg hover:bg-surface-100 text-ink-disabled hover:text-ink-tertiary disabled:opacity-30 transition-colors">
-                        <ChevronDown className="w-3.5 h-3.5" />
-                      </button>
-                      <button type="button" onClick={() => removeStage(i)} disabled={stages.length === 1}
-                        className="p-1.5 rounded-lg hover:bg-red-50 text-ink-disabled hover:text-red-500 disabled:opacity-30 transition-colors">
-                        <X className="w-3.5 h-3.5" />
-                      </button>
+
+                      {/* Mas'ul tanlash majburiy + handoff (boshqa voronkaga o'tkazish) */}
+                      <div className="flex items-center gap-2 flex-wrap pl-1">
+                        <label className="flex items-center gap-1.5 shrink-0 cursor-pointer" title="Bu bosqichga o'tkazishda mas'ul xodim tanlash majburiy bo'ladi (masalan qabuldan menejerga topshirish)">
+                          <input
+                            type="checkbox"
+                            className="accent-primary-600 w-3.5 h-3.5 rounded"
+                            checked={!!s.requireAssigneeOnEnter}
+                            onChange={e => updateStage(i, 'requireAssigneeOnEnter', e.target.checked)}
+                          />
+                          <span className="text-xs text-ink-tertiary whitespace-nowrap">Mas'ul tanlash majburiy</span>
+                        </label>
+
+                        {s.requireAssigneeOnEnter && (
+                          <>
+                            <span className="text-xs text-ink-disabled">→</span>
+                            <select
+                              className="input text-xs py-1 max-w-[140px]"
+                              value={s.handoffTo?.funnel || ''}
+                              onChange={e => updateStage(i, 'handoffTo', e.target.value ? { funnel: e.target.value, stage: '' } : null)}
+                            >
+                              <option value="">Shu voronkada qoladi</option>
+                              {funnels.filter(f => f._id !== editId).map(f => (
+                                <option key={f._id} value={f._id}>{f.name}ga o'tkazilsin</option>
+                              ))}
+                            </select>
+                            {handoffFunnel && (
+                              <select
+                                className="input text-xs py-1 max-w-[140px]"
+                                value={s.handoffTo?.stage || ''}
+                                onChange={e => updateStage(i, 'handoffTo', { funnel: handoffFunnel._id, stage: e.target.value })}
+                              >
+                                <option value="">Bosqich tanlang</option>
+                                {handoffFunnel.stages.map(hs => (
+                                  <option key={hs._id} value={hs._id}>{hs.name}</option>
+                                ))}
+                              </select>
+                            )}
+                          </>
+                        )}
+                      </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 

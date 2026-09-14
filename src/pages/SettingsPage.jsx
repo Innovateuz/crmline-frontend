@@ -2698,10 +2698,28 @@ function AuditTab() {
   const fmtTime = formatDateTime;
   const actionLabel = (act) => AUDIT_ACTION[act] ? t('settingsExtra.audit.actions.' + act) : (act || '—');
 
-  // Qaysi modulda o'zgarish bo'lganini path'dan aniqlash (eski yozuvlar uchun ham ishonchli)
-  const baseOf = (p) => { const seg = (p || '').split('/').filter(Boolean); return seg[0] === 'api' ? seg[1] : seg[0]; };
+  // Qaysi modulda o'zgarish bo'lganini path'dan aniqlash (eski yozuvlar uchun ham ishonchli).
+  // /api/organization/* va /api/funnels/* kabi yo'nalishlar bitta bazaviy nom ostida
+  // ko'plab har xil kichik resursni (foydalanuvchi, rol, bitim, kontakt izohi...)
+  // birlashtiradi — modul ustunida ularni farqlash uchun aniqroq kalit tanlaymiz.
+  const ORG_SUB_KEYS = ['users', 'roles', 'currencies', 'settings', 'contact-fields', 'deal-fields', 'task-stages', 'deal-sources', 'close-reasons', 'goals', 'sticker-packs', 'telegram-bot', 'telegram-accounts'];
+  const moduleKeyOf = (p) => {
+    const seg = (p || '').split('/').filter(Boolean);
+    const base = seg[0] === 'api' ? seg[1] : seg[0];
+    if (base === 'organization') {
+      const sub = seg[seg[0] === 'api' ? 2 : 1];
+      if (ORG_SUB_KEYS.includes(sub)) return `organization-${sub}`;
+    }
+    if (base === 'funnels' && seg.includes('deals')) {
+      if (seg.includes('activities')) return 'funnels-deal-activities';
+      if (seg.includes('files')) return 'funnels-deal-files';
+      return 'funnels-deals';
+    }
+    if (base === 'contacts' && seg.includes('activities')) return 'contacts-activities';
+    return base;
+  };
   const moduleLabel = (log) => {
-    let base = baseOf(log.path);
+    let base = moduleKeyOf(log.path);
     if (!base || base === 'undefined') {
       // path yo'q (eski yozuv) — entity yorlig'ini modul kalitiga aylantiramiz
       const ent = (log.entity || '').split('/')[0];

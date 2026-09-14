@@ -332,6 +332,7 @@ export default function DealDetailPage({ funnelId, dealId }) {
   const [showTaskModal,   setShowTaskModal]   = useState(false);
   const [taskSaving,      setTaskSaving]      = useState(false);
   const [newTaskTitle,    setNewTaskTitle]    = useState('');
+  const [newTaskDescription, setNewTaskDescription] = useState('');
   const [newTaskAssignee, setNewTaskAssignee] = useState('');
   const [newTaskDueDate,  setNewTaskDueDate]  = useState('');
   const [newTaskPriority, setNewTaskPriority] = useState('normal');
@@ -817,6 +818,7 @@ export default function DealDetailPage({ funnelId, dealId }) {
   const openTaskModal = () => {
     dispatch(fetchTasks());
     setNewTaskTitle(title || '');
+    setNewTaskDescription('');
     setNewTaskAssignee(assignedTo || '');
     setNewTaskDueDate('');
     setNewTaskPriority('normal');
@@ -830,7 +832,8 @@ export default function DealDetailPage({ funnelId, dealId }) {
     setTaskSaving(true);
     try {
       const res = await axios.post(`${API}/tasks`, {
-        title:      newTaskTitle.trim(),
+        title:       newTaskTitle.trim(),
+        description: newTaskDescription.trim(),
         stageId:    String(firstStage._id || firstStage.name),
         assignedTo: newTaskAssignee || null,
         dueDate:    newTaskDueDate ? new Date(newTaskDueDate).toISOString() : null,
@@ -1079,6 +1082,15 @@ export default function DealDetailPage({ funnelId, dealId }) {
               placeholder={t('tasks.titlePlaceholder')}
               value={newTaskTitle}
               onChange={e => setNewTaskTitle(e.target.value)}
+            />
+
+            <label className="block text-xs font-medium text-ink-secondary mb-1">{t('tasks.description')}</label>
+            <textarea
+              className="input w-full mb-3 resize-none"
+              rows={3}
+              placeholder={t('tasks.descPlaceholder')}
+              value={newTaskDescription}
+              onChange={e => setNewTaskDescription(e.target.value)}
             />
 
             <label className="block text-xs font-medium text-ink-secondary mb-1">{t('tasks.assignee')}</label>

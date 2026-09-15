@@ -147,6 +147,9 @@ function CallItem({ call }) {
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function CustomFieldInput({ field, value, onChange }) {
+  const [msOpen, setMsOpen] = useState(false);
+  const msAnchorRef = useRef(null);
+
   if (field.type === 'boolean') {
     return (
       <button type="button" onClick={() => onChange(!value)}
@@ -179,14 +182,27 @@ function CustomFieldInput({ field, value, onChange }) {
     const opts = Array.isArray(field.options) ? field.options : [];
     const selected = Array.isArray(value) ? value : [];
     return (
-      <div className="flex flex-wrap gap-1.5 flex-1 min-w-0 py-0.5">
-        {opts.map(opt => (
-          <button key={opt} type="button"
-            onClick={() => onChange(selected.includes(opt) ? selected.filter(v => v !== opt) : [...selected, opt])}
-            className={`px-2.5 py-0.5 text-xs rounded-full border transition-colors ${selected.includes(opt) ? 'bg-primary-500 border-primary-500 text-white' : 'bg-transparent border-surface-200 text-ink-secondary hover:border-primary-300 hover:text-primary-600'}`}>
-            {opt}
-          </button>
-        ))}
+      <div className="relative flex-1 min-w-0">
+        <button ref={msAnchorRef} type="button" onClick={() => setMsOpen(v => !v)}
+          className="w-full flex items-center justify-between gap-2 text-left text-sm bg-transparent border-0 outline-none cursor-pointer py-0.5">
+          <span className={`flex-1 min-w-0 truncate ${selected.length ? 'text-ink' : 'text-ink-disabled'}`}>
+            {selected.length > 0 ? selected.join(', ') : '— Tanlang'}
+          </span>
+          <ChevronDown className={`w-3.5 h-3.5 text-ink-tertiary shrink-0 transition-transform ${msOpen ? 'rotate-180' : ''}`} />
+        </button>
+        <FloatingDropdown anchorRef={msAnchorRef} open={msOpen} onClose={() => setMsOpen(false)}>
+          <div className="max-h-56 overflow-y-auto py-1">
+            {opts.map(opt => (
+              <label key={opt} className="flex items-center gap-2 px-3 py-2 text-sm text-ink hover:bg-surface-50 cursor-pointer">
+                <input type="checkbox" checked={selected.includes(opt)}
+                  onChange={() => onChange(selected.includes(opt) ? selected.filter(v => v !== opt) : [...selected, opt])}
+                  className="rounded border-surface-300" />
+                {opt}
+              </label>
+            ))}
+            {opts.length === 0 && <p className="px-3 py-3 text-xs text-ink-tertiary text-center">Variant yo'q</p>}
+          </div>
+        </FloatingDropdown>
       </div>
     );
   }

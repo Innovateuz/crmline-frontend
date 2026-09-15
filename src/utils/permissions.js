@@ -47,3 +47,13 @@ export function usePermissions() {
   const orgHiddenModules = useSelector((s) => s.auth.user?.organization?.settings?.hiddenModules);
   return makePermissions(perm, orgHiddenModules);
 }
+
+// Generic "visible to a role list" check — same pattern as backend's funnelVisible
+// (funnel/deal-field visibleToRoles). Empty/missing list → visible to everyone
+// (default, backward-compatible). owner/admin always see it, regardless of list.
+export function isVisibleToRoles(user, rolesList) {
+  if (!user) return true;
+  if (user.role === 'owner' || user.role === 'admin') return true;
+  if (!Array.isArray(rolesList) || rolesList.length === 0) return true;
+  return rolesList.map(String).includes(String(user.customRoleId || ''));
+}

@@ -6321,18 +6321,21 @@ function AtcTab() {
   const [form,    setForm]    = useState({
     provider: 'ibrat', crmToken: '', apiToken: '', sipDomain: 'ibrat.sip.uz',
     sipuniUser: '', sipuniSecretKey: '', leadFunnel: '', leadStage: '', callMode: 'both',
+    popupVisibleToRoles: [],
   });
   const [loaded,  setLoaded]  = useState(false);
   const [saving,  setSaving]  = useState(false);
   const [connected, setConnected] = useState(false);
   const [leadFunnels, setLeadFunnels] = useState([]);   // noma'lum raqamdan kelgan qo'ng'iroqdan lid qayerga tushsin
+  const [roles, setRoles] = useState([]);   // kiruvchi qo'ng'iroq popup'ini qaysi rollarga ko'rsatish tanlash uchun
 
   useEffect(() => {
     Promise.all([
       axios.get(`${API_URL}/atc/settings`),
       axios.get(`${API_URL}/funnels/names`),
+      axios.get(`${API_URL}/organization/roles`).catch(() => ({ data: {} })),
     ])
-      .then(([settingsRes, funnelsRes]) => {
+      .then(([settingsRes, funnelsRes, rolesRes]) => {
         const a = settingsRes.data.atc || {};
         setForm({
           provider:        a.provider || 'ibrat',
@@ -6344,13 +6347,22 @@ function AtcTab() {
           leadFunnel:      a.leadFunnel || '',
           leadStage:       a.leadStage  || '',
           callMode:        a.callMode   || 'both',
+          popupVisibleToRoles: (a.popupVisibleToRoles || []).map(r => String(r._id || r)),
         });
         setConnected(!!a.connected);
         setLeadFunnels(funnelsRes.data.funnels || []);
+        setRoles(rolesRes.data.roles || []);
       })
       .catch(() => {})
       .finally(() => setLoaded(true));
   }, []);
+
+  const togglePopupRole = (roleId) => setForm(f => ({
+    ...f,
+    popupVisibleToRoles: f.popupVisibleToRoles.includes(roleId)
+      ? f.popupVisibleToRoles.filter(id => id !== roleId)
+      : [...f.popupVisibleToRoles, roleId],
+  }));
 
   const leadStages = leadFunnels.find(f => String(f._id) === String(form.leadFunnel))?.stages || [];
 
@@ -6361,7 +6373,11 @@ function AtcTab() {
       setConnected(!!r.data.atc?.connected);
       // Har bir "Qo'ng'iroq qilish" tugmasi shu qiymatlarni Redux'dan o'qiydi -
       // saqlagandan keyin darhol yangilanishi uchun sahifani qayta yuklash shart emas.
-      dispatch(setOrganization({ atc: { connected: !!r.data.atc?.connected, callMode: r.data.atc?.callMode || 'both' } }));
+      dispatch(setOrganization({ atc: {
+        connected: !!r.data.atc?.connected,
+        callMode: r.data.atc?.callMode || 'both',
+        popupVisibleToRoles: (r.data.atc?.popupVisibleToRoles || []).map(String),
+      } }));
       toast.success('Saqlandi');
     } catch (e) { toast.error(e.response?.data?.message || 'Xato'); }
     finally { setSaving(false); }
@@ -6434,6 +6450,31 @@ function AtcTab() {
           Contacts, Lid va Qo'ng'iroqlar sahifalaridagi barcha "Qo'ng'iroq qilish" tugmalariga taalluqli.
           ATC ulanmagan bo'lsa, bu sozlamadan qat'i nazar har doim shaxsiy telefondan ishlaydi.
         </p>
+      </div>
+
+      {/* Kiruvchi qo'ng'iroq popup'i kimlarga ko'rinsin */}
+      <div>
+        <label className="block text-xs font-semibold text-ink-secondary mb-1.5">
+          Kiruvchi qo'ng'iroq bildirishnomasi (o'ng yuqori burchak) kimlarga ko'rinsin
+        </label>
+        <p className="mb-2 text-xs text-ink-tertiary">Hech qaysisi tanlanmasa — hammaga ko'rinadi (standart). Egasi/admin har doim ko'radi.</p>
+        {roles.length === 0 ? (
+          <p className="text-xs text-ink-disabled italic">Maxsus rol yaratilmagan — hozircha bu sozlama hammaga taalluqli</p>
+        ) : (
+          <div className="space-y-1.5">
+            {roles.map(r => (
+              <label key={r._id} className="flex items-center gap-2 text-sm text-ink cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={form.popupVisibleToRoles.includes(r._id)}
+                  onChange={() => togglePopupRole(r._id)}
+                  className="rounded border-surface-300"
+                />
+                {r.name}
+              </label>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* CRM Token */}

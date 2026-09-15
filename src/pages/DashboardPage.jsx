@@ -16,6 +16,7 @@ import ReviewsPage from './ReviewsPage';
 import IncomingCallModal from '../components/IncomingCallModal';
 import BottomNav from '../components/BottomNav';
 import { getSocket } from '../utils/socket';
+import { isVisibleToRoles } from '../utils/permissions';
 
 // Modul darajasida — navigatsiya/remount da reset bo'lmaydi
 const _dismissedCalls = new Set();
@@ -49,9 +50,13 @@ export default function DashboardPage() {
   const location = useLocation();
   const [incomingCall, setIncomingCall] = useState(null);
   const orgId = useSelector(s => s.auth.user?.organization?.id || s.auth.user?.organization?._id);
+  const user = useSelector(s => s.auth.user);
+  // Kiruvchi qo'ng'iroq popup'i — Sozlamalar → Telefoniya (ATC) da tanlangan
+  // rollargagina ko'rinadi (bo'sh bo'lsa — hammaga, standart xulq-atvor).
+  const canSeeCallPopup = isVisibleToRoles(user, user?.organization?.atc?.popupVisibleToRoles);
 
   useEffect(() => {
-    if (!orgId) return;
+    if (!orgId || !canSeeCallPopup) return;
     const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5002/api';
     const poll = async () => {
       try {
@@ -92,7 +97,7 @@ export default function DashboardPage() {
       socket.off('atc:ended',    onEnded);
       clearInterval(interval);
     };
-  }, [orgId]);
+  }, [orgId, canSeeCallPopup]);
 
   const activeKey = pathToNavKey(location.pathname);
 
@@ -138,7 +143,7 @@ export default function DashboardPage() {
         {getContent()}
       </main>
       <BottomNav />
-      {incomingCall && (
+      {incomingCall && canSeeCallPopup && (
         <IncomingCallModal
           call={incomingCall}
           onDismiss={() => {

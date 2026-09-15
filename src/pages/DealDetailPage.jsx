@@ -22,7 +22,7 @@ const API = process.env.REACT_APP_API_URL || 'http://localhost:5002/api';
 
 // ─── Floating dropdown (portal, fixed-positioned, no clipping) ───────────────
 
-function FloatingDropdown({ anchorRef, open, onClose, children, minWidth = 240, placement = 'vertical' }) {
+function FloatingDropdown({ anchorRef, open, onClose, children, minWidth = 240, placement = 'vertical', estimatedHeight = 280 }) {
   const [style, setStyle] = useState({});
 
   useEffect(() => {
@@ -32,9 +32,12 @@ function FloatingDropdown({ anchorRef, open, onClose, children, minWidth = 240, 
     // 'side' — panel bilan yonma-yon ochiladi (o'ngga, joy yetmasa chapga).
     // Uzun ro'yxat pastda bo'lganda "yuqoriga sig'maydi" hisobidan noto'g'ri
     // ekranning tepasiga sakrab ketishining oldini oladi (vertikal flip yo'q).
+    // maxH chaqiruvchidan keladi (haqiqiy variantlar soniga qarab) — aks holda
+    // 1-2 ta variantli qisqa ro'yxat ham har doim 280px joy band qilingandek
+    // hisoblanib, tugma yonidan emas, ancha yuqoridan chiqib ketardi.
     if (placement === 'side') {
       const panelW = Math.max(minWidth, 200);
-      const maxH = 280;
+      const maxH = estimatedHeight;
       const openLeft = window.innerWidth - rect.right < panelW + 12 && rect.left > panelW + 12;
       const left = openLeft ? rect.left - panelW - 8 : rect.right + 8;
       const top = Math.min(rect.top, Math.max(8, window.innerHeight - maxH - 8));
@@ -46,7 +49,7 @@ function FloatingDropdown({ anchorRef, open, onClose, children, minWidth = 240, 
     const dropH = 260; // approximate max height
     const top = spaceBelow > dropH ? rect.bottom + 4 : rect.top - dropH - 4;
     setStyle({ top, left: rect.left, minWidth: Math.max(minWidth, rect.width) });
-  }, [open, anchorRef, minWidth, placement]);
+  }, [open, anchorRef, minWidth, placement, estimatedHeight]);
 
   if (!open) return null;
   return createPortal(
@@ -204,7 +207,8 @@ function CustomFieldInput({ field, value, onChange }) {
           </span>
           <ChevronDown className={`w-3.5 h-3.5 text-ink-tertiary shrink-0 transition-transform ${msOpen ? 'rotate-180' : ''}`} />
         </button>
-        <FloatingDropdown anchorRef={msAnchorRef} open={msOpen} onClose={() => setMsOpen(false)} placement="side" minWidth={200}>
+        <FloatingDropdown anchorRef={msAnchorRef} open={msOpen} onClose={() => setMsOpen(false)} placement="side" minWidth={200}
+          estimatedHeight={Math.min(280, Math.max(60, opts.length * 36 + 16))}>
           <div className="max-h-56 overflow-y-auto py-1">
             {opts.map(opt => (
               <label key={opt} className="flex items-center gap-2 px-3 py-2 text-sm text-ink hover:bg-surface-50 cursor-pointer">

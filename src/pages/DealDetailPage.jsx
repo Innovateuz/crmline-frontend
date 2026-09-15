@@ -22,17 +22,31 @@ const API = process.env.REACT_APP_API_URL || 'http://localhost:5002/api';
 
 // ─── Floating dropdown (portal, fixed-positioned, no clipping) ───────────────
 
-function FloatingDropdown({ anchorRef, open, onClose, children, minWidth = 240 }) {
+function FloatingDropdown({ anchorRef, open, onClose, children, minWidth = 240, placement = 'vertical' }) {
   const [style, setStyle] = useState({});
 
   useEffect(() => {
     if (!open || !anchorRef.current) return;
     const rect = anchorRef.current.getBoundingClientRect();
+
+    // 'side' — panel bilan yonma-yon ochiladi (o'ngga, joy yetmasa chapga).
+    // Uzun ro'yxat pastda bo'lganda "yuqoriga sig'maydi" hisobidan noto'g'ri
+    // ekranning tepasiga sakrab ketishining oldini oladi (vertikal flip yo'q).
+    if (placement === 'side') {
+      const panelW = Math.max(minWidth, 200);
+      const maxH = 280;
+      const openLeft = window.innerWidth - rect.right < panelW + 12 && rect.left > panelW + 12;
+      const left = openLeft ? rect.left - panelW - 8 : rect.right + 8;
+      const top = Math.min(rect.top, Math.max(8, window.innerHeight - maxH - 8));
+      setStyle({ top, left, minWidth: panelW, maxHeight: maxH });
+      return;
+    }
+
     const spaceBelow = window.innerHeight - rect.bottom;
     const dropH = 260; // approximate max height
     const top = spaceBelow > dropH ? rect.bottom + 4 : rect.top - dropH - 4;
     setStyle({ top, left: rect.left, minWidth: Math.max(minWidth, rect.width) });
-  }, [open, anchorRef, minWidth]);
+  }, [open, anchorRef, minWidth, placement]);
 
   if (!open) return null;
   return createPortal(
@@ -190,7 +204,7 @@ function CustomFieldInput({ field, value, onChange }) {
           </span>
           <ChevronDown className={`w-3.5 h-3.5 text-ink-tertiary shrink-0 transition-transform ${msOpen ? 'rotate-180' : ''}`} />
         </button>
-        <FloatingDropdown anchorRef={msAnchorRef} open={msOpen} onClose={() => setMsOpen(false)}>
+        <FloatingDropdown anchorRef={msAnchorRef} open={msOpen} onClose={() => setMsOpen(false)} placement="side" minWidth={200}>
           <div className="max-h-56 overflow-y-auto py-1">
             {opts.map(opt => (
               <label key={opt} className="flex items-center gap-2 px-3 py-2 text-sm text-ink hover:bg-surface-50 cursor-pointer">
@@ -371,7 +385,6 @@ export default function DealDetailPage({ funnelId, dealId }) {
   const [origCustomFieldValues, setOrigCustomFieldValues] = useState({});
   const [orgSections,          setOrgSections]          = useState([]);
   const [origOrgSections,      setOrigOrgSections]      = useState([]);
-  const [openCustomSections,   setOpenCustomSections]   = useState({});
   const [activeSectionId,      setActiveSectionId]      = useState(null);
   const [addingSection,        setAddingSection]        = useState(false);
   const [newSectionName,       setNewSectionName]       = useState('');
@@ -916,8 +929,6 @@ export default function DealDetailPage({ funnelId, dealId }) {
   };
 
   // ── Org sections ─────────────────────────────────────────────────────────
-  const toggleCustomSection = (secId) => setOpenCustomSections(prev => ({ ...prev, [secId]: !prev[secId] }));
-  const isFieldFilled = (val) => Array.isArray(val) ? val.length > 0 : (val !== undefined && val !== null && val !== '');
   const confirmAddSection = () => {
     const name = newSectionName.trim();
     if (!name) return;
@@ -1618,34 +1629,23 @@ export default function DealDetailPage({ funnelId, dealId }) {
                   </div>
                 </div>
 
-                {/* Custom sections — har biri ochilib-yopiladi, kamroq joy egallashi uchun */}
-                {orgSections.filter(s => s.fields.length > 0).map(sec => {
-                  const isOpen = !!openCustomSections[sec.id];
-                  const filledCount = sec.fields.filter(f => isFieldFilled(customFieldValues[f.id])).length;
-                  return (
-                    <div key={sec.id} className="border border-surface-100 rounded-xl overflow-hidden">
-                      <button type="button" onClick={() => toggleCustomSection(sec.id)}
-                        className="w-full flex items-center justify-between gap-2 px-4 py-2.5 text-left hover:bg-surface-50 transition-colors">
-                        <span className="text-[11px] font-semibold text-ink-tertiary uppercase tracking-wider">{sec.name}</span>
-                        <span className="flex items-center gap-2 shrink-0">
-                          <span className="text-[11px] text-ink-tertiary">{filledCount}/{sec.fields.length}</span>
-                          <ChevronDown className={`w-3.5 h-3.5 text-ink-tertiary transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-                        </span>
-                      </button>
-                      {isOpen && (
-                        <div className="divide-y divide-surface-100 border-t border-surface-100">
-                          {sec.fields.map(field => (
-                            <div key={field.id} className="flex items-center gap-4 px-4 py-2.5">
-                              <span className="w-28 text-sm text-ink shrink-0">{field.key}</span>
-                              <CustomFieldInput field={field} value={customFieldValues[field.id]}
-                                onChange={val => setCustomFieldValues(prev => ({ ...prev, [field.id]: val }))} />
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                {/* Custom sections */}
+                {orgSections.filter(s => s.fields.length > 0).map(sec => (
+                  <div key={sec.id}>
+                    <p className="text-[11px] font-semibold text-ink-tertiary uppercase tracking-wider mb-2 px-1">{sec.name}</p>
+                    <div className="border border-surface-100 rounded-xl overflow-hidden">
+                      <div className="divide-y divide-surface-100">
+                        {sec.fields.map(field => (
+                          <div key={field.id} className="flex items-center gap-4 px-4 py-2.5">
+                            <span className="w-28 text-sm text-ink shrink-0">{field.key}</span>
+                            <CustomFieldInput field={field} value={customFieldValues[field.id]}
+                              onChange={val => setCustomFieldValues(prev => ({ ...prev, [field.id]: val }))} />
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  );
-                })}
+                  </div>
+                ))}
               </div>
             )}
 

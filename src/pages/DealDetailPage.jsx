@@ -355,6 +355,7 @@ export default function DealDetailPage({ funnelId, dealId }) {
   const [origCustomFieldValues, setOrigCustomFieldValues] = useState({});
   const [orgSections,          setOrgSections]          = useState([]);
   const [origOrgSections,      setOrigOrgSections]      = useState([]);
+  const [openCustomSections,   setOpenCustomSections]   = useState({});
   const [activeSectionId,      setActiveSectionId]      = useState(null);
   const [addingSection,        setAddingSection]        = useState(false);
   const [newSectionName,       setNewSectionName]       = useState('');
@@ -362,7 +363,7 @@ export default function DealDetailPage({ funnelId, dealId }) {
   const [newField,             setNewField]             = useState({ key: '', type: 'text', options: [] });
   const [newOption,            setNewOption]            = useState('');
   const [editingFieldId,       setEditingFieldId]       = useState(null);
-  const [editField,            setEditField]            = useState({ key: '', options: [] });
+  const [editField,            setEditField]            = useState({ key: '', type: 'text', options: [] });
   const [editOption,           setEditOption]           = useState('');
 
   // Aux data
@@ -899,6 +900,8 @@ export default function DealDetailPage({ funnelId, dealId }) {
   };
 
   // ── Org sections ─────────────────────────────────────────────────────────
+  const toggleCustomSection = (secId) => setOpenCustomSections(prev => ({ ...prev, [secId]: !prev[secId] }));
+  const isFieldFilled = (val) => Array.isArray(val) ? val.length > 0 : (val !== undefined && val !== null && val !== '');
   const confirmAddSection = () => {
     const name = newSectionName.trim();
     if (!name) return;
@@ -929,24 +932,25 @@ export default function DealDetailPage({ funnelId, dealId }) {
 
   const startEditField = (field) => {
     setEditingFieldId(field.id);
-    setEditField({ key: field.key, options: field.options ? [...field.options] : [] });
+    setEditField({ key: field.key, type: field.type, options: field.options ? [...field.options] : [] });
     setEditOption('');
     setAddingField(false);
   };
   const cancelEditField = () => {
     setEditingFieldId(null);
-    setEditField({ key: '', options: [] });
+    setEditField({ key: '', type: 'text', options: [] });
     setEditOption('');
   };
-  const confirmEditField = (secId, fieldType) => {
+  const confirmEditField = (secId) => {
     const key = editField.key.trim();
     if (!key) return;
-    if (NEEDS_OPTIONS.includes(fieldType) && editField.options.length === 0) return;
+    const type = editField.type;
+    if (NEEDS_OPTIONS.includes(type) && editField.options.length === 0) return;
     setOrgSections(prev => prev.map(s =>
       s.id !== secId ? s : {
         ...s,
         fields: s.fields.map(f => f.id !== editingFieldId ? f : {
-          ...f, key, ...(NEEDS_OPTIONS.includes(fieldType) ? { options: editField.options } : {}),
+          ...f, key, type, ...(NEEDS_OPTIONS.includes(type) ? { options: editField.options } : { options: undefined }),
         }),
       }
     ));
@@ -1598,23 +1602,34 @@ export default function DealDetailPage({ funnelId, dealId }) {
                   </div>
                 </div>
 
-                {/* Custom sections */}
-                {orgSections.filter(s => s.fields.length > 0).map(sec => (
-                  <div key={sec.id}>
-                    <p className="text-[11px] font-semibold text-ink-tertiary uppercase tracking-wider mb-2 px-1">{sec.name}</p>
-                    <div className="border border-surface-100 rounded-xl overflow-hidden">
-                      <div className="divide-y divide-surface-100">
-                        {sec.fields.map(field => (
-                          <div key={field.id} className="flex items-center gap-4 px-4 py-2.5">
-                            <span className="w-28 text-sm text-ink shrink-0">{field.key}</span>
-                            <CustomFieldInput field={field} value={customFieldValues[field.id]}
-                              onChange={val => setCustomFieldValues(prev => ({ ...prev, [field.id]: val }))} />
-                          </div>
-                        ))}
-                      </div>
+                {/* Custom sections — har biri ochilib-yopiladi, kamroq joy egallashi uchun */}
+                {orgSections.filter(s => s.fields.length > 0).map(sec => {
+                  const isOpen = !!openCustomSections[sec.id];
+                  const filledCount = sec.fields.filter(f => isFieldFilled(customFieldValues[f.id])).length;
+                  return (
+                    <div key={sec.id} className="border border-surface-100 rounded-xl overflow-hidden">
+                      <button type="button" onClick={() => toggleCustomSection(sec.id)}
+                        className="w-full flex items-center justify-between gap-2 px-4 py-2.5 text-left hover:bg-surface-50 transition-colors">
+                        <span className="text-[11px] font-semibold text-ink-tertiary uppercase tracking-wider">{sec.name}</span>
+                        <span className="flex items-center gap-2 shrink-0">
+                          <span className="text-[11px] text-ink-tertiary">{filledCount}/{sec.fields.length}</span>
+                          <ChevronDown className={`w-3.5 h-3.5 text-ink-tertiary transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                        </span>
+                      </button>
+                      {isOpen && (
+                        <div className="divide-y divide-surface-100 border-t border-surface-100">
+                          {sec.fields.map(field => (
+                            <div key={field.id} className="flex items-center gap-4 px-4 py-2.5">
+                              <span className="w-28 text-sm text-ink shrink-0">{field.key}</span>
+                              <CustomFieldInput field={field} value={customFieldValues[field.id]}
+                                onChange={val => setCustomFieldValues(prev => ({ ...prev, [field.id]: val }))} />
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 
@@ -1838,16 +1853,21 @@ export default function DealDetailPage({ funnelId, dealId }) {
                                   value={editField.key}
                                   onChange={e => setEditField(f => ({ ...f, key: e.target.value }))}
                                   onKeyDown={e => {
-                                    if (e.key === 'Enter' && !NEEDS_OPTIONS.includes(field.type)) confirmEditField(activeOrgSection.id, field.type);
+                                    if (e.key === 'Enter' && !NEEDS_OPTIONS.includes(editField.type)) confirmEditField(activeOrgSection.id);
                                     if (e.key === 'Escape') cancelEditField();
                                   }}
                                 />
-                                <span className="text-xs text-ink-tertiary bg-surface-100 px-2 py-0.5 rounded-full shrink-0 self-center">
-                                  {FIELD_TYPES.find(t => t.value === field.type)?.label}
-                                </span>
+                                <div className="relative w-36 shrink-0">
+                                  <select className="input appearance-none pr-7 text-sm"
+                                    value={editField.type}
+                                    onChange={e => setEditField(f => ({ ...f, type: e.target.value, options: NEEDS_OPTIONS.includes(e.target.value) ? f.options : [] }))}>
+                                    {FIELD_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                                  </select>
+                                  <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-ink-tertiary pointer-events-none" />
+                                </div>
                               </div>
 
-                              {NEEDS_OPTIONS.includes(field.type) && (
+                              {NEEDS_OPTIONS.includes(editField.type) && (
                                 <div className="pl-1 space-y-1.5">
                                   <p className="text-xs text-ink-tertiary">Variantlar {editField.options.length === 0 && <span className="text-red-400">(kamida 1 ta)</span>}</p>
                                   {editField.options.map((opt, i) => (
@@ -1897,7 +1917,7 @@ export default function DealDetailPage({ funnelId, dealId }) {
                               )}
 
                               <div className="flex gap-2">
-                                <button onClick={() => confirmEditField(activeOrgSection.id, field.type)} className="btn-sm btn-primary flex-1">
+                                <button onClick={() => confirmEditField(activeOrgSection.id)} className="btn-sm btn-primary flex-1">
                                   <Check className="w-3.5 h-3.5" /> Saqlash
                                 </button>
                                 <button onClick={cancelEditField} className="btn-sm btn-secondary flex-1">

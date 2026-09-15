@@ -4202,7 +4202,7 @@ function UsersTab({ currentUser }) {
   useEffect(() => { fetchUsers(); }, []);
 
   const openEdit = (u) => {
-    setEditForm({ name: u.name, phone: u.phone, email: u.email || '', role: u.role });
+    setEditForm({ name: u.name, phone: u.phone, email: u.email || '', role: u.role, atcExtension: u.atcExtension || '' });
     setModal({ type: 'edit', user: u });
   };
 
@@ -4219,6 +4219,7 @@ function UsersTab({ currentUser }) {
         phone: editForm.phone,
         email: editForm.email,
         role: editForm.role,
+        atcExtension: editForm.atcExtension?.trim() || '',
       });
       toast.success(t('settings.users.updated'));
       closeModal();
@@ -4600,6 +4601,15 @@ function UsersTab({ currentUser }) {
                       { value: 'user',  label: roleLabel('user')  },
                     ]}
                 onChange={(v) => setEditForm(p => ({ ...p, role: v }))} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-ink mb-1.5">Ichki raqam (ATC)</label>
+              <input
+                type="text" value={editForm.atcExtension || ''}
+                onChange={e => setEditForm(p => ({ ...p, atcExtension: e.target.value }))}
+                className="input font-mono" placeholder="Masalan: 209"
+              />
+              <p className="mt-1 text-xs text-ink-tertiary">ATC (Sipuni/ibrat.sip.uz) ichki raqami — xodim ATC orqali qo'ng'iroq qilishda ishlatiladi.</p>
             </div>
 
             <div className="flex justify-end gap-2 pt-1">

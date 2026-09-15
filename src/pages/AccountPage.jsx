@@ -21,7 +21,6 @@ export default function AccountPage() {
 
   // Name form
   const [name,      setName]      = useState(user?.name || '');
-  const [atcExtension, setAtcExtension] = useState(user?.atcExtension || '');
   const [phone,     setPhone]     = useState((user?.phone || '').replace(/^\+?998/, ''));
   const [nameSaving, setNameSaving] = useState(false);
 
@@ -34,7 +33,7 @@ export default function AccountPage() {
   const [pwSaving,  setPwSaving]  = useState(false);
 
   const currentPhoneDigits = (user?.phone || '').replace(/^\+?998/, '');
-  const nameDirty = name.trim() !== (user?.name || '') || atcExtension.trim() !== (user?.atcExtension || '') || phone !== currentPhoneDigits;
+  const nameDirty = name.trim() !== (user?.name || '') || phone !== currentPhoneDigits;
 
   const handleSaveName = async (e) => {
     e.preventDefault();
@@ -45,10 +44,10 @@ export default function AccountPage() {
     }
     setNameSaving(true);
     try {
-      const body = { name: name.trim(), atcExtension: atcExtension.trim() };
+      const body = { name: name.trim() };
       if (phone !== currentPhoneDigits) body.phone = '+998' + phone;
       const res = await axios.put(`${API}/auth/update-profile`, body);
-      dispatch(updateProfile(res.data.user || { name: name.trim(), atcExtension: atcExtension.trim(), phone: body.phone }));
+      dispatch(updateProfile(res.data.user || { name: name.trim(), phone: body.phone }));
       toast.success('Saqlandi');
     } catch (err) {
       toast.error(err.response?.data?.message || 'Xato yuz berdi');
@@ -103,18 +102,15 @@ export default function AccountPage() {
               />
             </div>
 
-            {/* ATC extension — editable */}
+            {/* ATC extension — faqat admin biriktiradi, o'zi o'zgartira olmaydi */}
             <div className="flex items-center gap-4 px-4 py-3 border-b border-surface-100">
               <span className="w-28 text-sm text-ink shrink-0">Ichki raqam</span>
-              <input
-                className="flex-1 text-sm text-ink bg-transparent border-0 outline-none focus:outline-none focus:ring-0 placeholder:text-ink-disabled font-mono"
-                value={atcExtension}
-                onChange={e => setAtcExtension(e.target.value)}
-                placeholder="Masalan: 209"
-              />
+              <span className={`flex-1 text-sm font-mono ${user?.atcExtension ? 'text-ink' : 'text-ink-disabled'}`}>
+                {user?.atcExtension || 'Biriktirilmagan'}
+              </span>
             </div>
             <p className="px-4 -mt-1 pb-2 text-xs text-ink-tertiary border-b border-surface-100">
-              ATC (Sipuni/ibrat.sip.uz) ichki raqamingiz — qo'ng'iroq qilishda har safar qayta kiritmasligingiz uchun.
+              ATC (Sipuni/ibrat.sip.uz) ichki raqamingiz — buni faqat admin Sozlamalar → Xodimlar bo'limidan biriktiradi/o'zgartiradi.
             </p>
 
             {/* Phone — editable (login uchun ham ishlatiladi) */}

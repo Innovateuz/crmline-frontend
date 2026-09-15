@@ -54,6 +54,7 @@ export default function UserProfilePage() {
   // User fields
   const [name,            setName]            = useState('');
   const [phone,           setPhone]           = useState('');
+  const [atcExtension,    setAtcExtension]    = useState('');
   const [email,           setEmail]           = useState('');
   const [isActive,        setIsActive]        = useState(true);
   const [avatarUrl,       setAvatarUrl]       = useState('');
@@ -91,6 +92,7 @@ export default function UserProfilePage() {
       const u = uRes.data.user;
       setName(u.name || '');
       setPhone(u.phone || '');
+      setAtcExtension(u.atcExtension || '');
       setEmail(u.email || '');
       setIsActive(u.isActive !== false);
       setAvatarUrl(u.avatar || '');
@@ -111,11 +113,13 @@ export default function UserProfilePage() {
 
   const handleSave = async () => {
     if (!name.trim()) return toast.error('Ism kiritilishi shart');
+    if (!phone.trim()) return toast.error('Telefon raqam kiritilishi shart');
     setSaving(true);
     try {
       await axios.put(`${API}/organization/users/${id}`, {
         name:        name.trim(),
         phone,
+        atcExtension: atcExtension.trim(),
         email:       email.trim(),
         isActive,
         avatar:      avatarUrl || undefined,
@@ -291,8 +295,24 @@ export default function UserProfilePage() {
                     <input className="input" value={name} onChange={e => setName(e.target.value)} required />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-ink-secondary mb-1">Telefon raqam</label>
-                    <input value={phone} readOnly className="input bg-surface-50 text-ink-tertiary cursor-not-allowed" />
+                    <label className="block text-xs font-medium text-ink-secondary mb-1">Telefon raqam *</label>
+                    <div className="flex">
+                      <div className="flex items-center px-3 bg-surface-100 border border-r-0 border-surface-200 rounded-l-lg text-sm text-ink-secondary shrink-0">
+                        +998
+                      </div>
+                      <input
+                        className="input rounded-l-none flex-1" inputMode="numeric" maxLength={9}
+                        value={phone.replace(/^\+?998/, '')}
+                        onChange={e => setPhone('+998' + e.target.value.replace(/\D/g, '').slice(0, 9))}
+                        placeholder="901234567"
+                      />
+                    </div>
+                    <p className="mt-1 text-xs text-ink-tertiary">Tizimga kirish (login) shu raqam bilan amalga oshiriladi.</p>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-ink-secondary mb-1">Ichki raqam (ATC)</label>
+                    <input className="input font-mono" value={atcExtension}
+                      onChange={e => setAtcExtension(e.target.value)} placeholder="Masalan: 209" />
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-ink-secondary mb-1">E-mail</label>

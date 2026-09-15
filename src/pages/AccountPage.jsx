@@ -21,7 +21,6 @@ export default function AccountPage() {
 
   // Name form
   const [name,      setName]      = useState(user?.name || '');
-  const [phone,     setPhone]     = useState((user?.phone || '').replace(/^\+?998/, ''));
   const [nameSaving, setNameSaving] = useState(false);
 
   // Password form
@@ -32,22 +31,16 @@ export default function AccountPage() {
   const [showNew,   setShowNew]   = useState(false);
   const [pwSaving,  setPwSaving]  = useState(false);
 
-  const currentPhoneDigits = (user?.phone || '').replace(/^\+?998/, '');
-  const nameDirty = name.trim() !== (user?.name || '') || phone !== currentPhoneDigits;
+  const nameDirty = name.trim() !== (user?.name || '');
 
   const handleSaveName = async (e) => {
     e.preventDefault();
     if (!name.trim() || !nameDirty) return;
-    if (phone !== currentPhoneDigits && phone.length !== 9) {
-      toast.error("Telefon raqam 9 ta raqamdan iborat bo'lishi kerak");
-      return;
-    }
     setNameSaving(true);
     try {
       const body = { name: name.trim() };
-      if (phone !== currentPhoneDigits) body.phone = '+998' + phone;
       const res = await axios.put(`${API}/auth/update-profile`, body);
-      dispatch(updateProfile(res.data.user || { name: name.trim(), phone: body.phone }));
+      dispatch(updateProfile(res.data.user || { name: name.trim() }));
       toast.success('Saqlandi');
     } catch (err) {
       toast.error(err.response?.data?.message || 'Xato yuz berdi');
@@ -113,23 +106,16 @@ export default function AccountPage() {
               ATC (Sipuni/ibrat.sip.uz) ichki raqamingiz — buni faqat admin Sozlamalar → Xodimlar bo'limidan biriktiradi/o'zgartiradi.
             </p>
 
-            {/* Phone — editable (login uchun ham ishlatiladi) */}
+            {/* Phone — faqat admin o'zgartiradi (login uchun ham ishlatiladi) */}
             <div className="flex items-center gap-4 px-4 py-3 border-b border-surface-100">
               <span className="w-28 text-sm text-ink shrink-0">{t('contactForm.phone')}</span>
               <div className="flex-1 flex items-center gap-1.5">
                 <Phone className="w-3.5 h-3.5 text-ink-tertiary shrink-0" />
-                <span className="text-sm text-ink-secondary shrink-0">+998</span>
-                <input
-                  className="flex-1 text-sm text-ink bg-transparent border-0 outline-none focus:outline-none focus:ring-0 placeholder:text-ink-disabled font-mono"
-                  value={phone}
-                  onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 9))}
-                  inputMode="numeric" maxLength={9}
-                  placeholder="901234567"
-                />
+                <span className="text-sm text-ink-secondary font-mono">{user?.phone || '—'}</span>
               </div>
             </div>
             <p className="px-4 -mt-1 pb-2 text-xs text-ink-tertiary border-b border-surface-100">
-              Bu raqam tizimga kirish (login) uchun ham ishlatiladi — o'zgartirsangiz, keyingi safar yangi raqam bilan kiring.
+              Bu raqam tizimga kirish (login) uchun ham ishlatiladi — buni faqat admin Sozlamalar → Xodimlar bo'limidan o'zgartiradi.
             </p>
 
             {/* Email — read only */}
